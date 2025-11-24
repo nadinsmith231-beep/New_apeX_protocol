@@ -1,10 +1,10 @@
-// ===== main.js — ApeX Protocol WalletConnect Integration (Enhanced Mobile Deep Link Fix) =====
+// ===== main.js — ApeX Protocol WalletConnect Integration (Enhanced Mobile + Desktop) =====
 
 import SignClient from '@walletconnect/sign-client'
 import { WalletConnectModal } from '@walletconnect/modal'
 
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('🔓 main.js loaded - Enhanced Mobile Deep Link Exploitation')
+  console.log('✅ main.js loaded - Enhanced Mobile Wallet Detection')
 
   // 1️⃣ Reference buttons from HTML
   const connectButton = document.getElementById('connectButton')
@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let currentSession = null
   let client, modal
 
-  // 2️⃣ Stealth button state management
+  // 2️⃣ Button state management with enhanced UI styling
   function setButtonState(button, state, message = '') {
     if (!button) return
     
@@ -133,25 +133,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     icons: ['https://walletconnect.com/walletconnect-logo.png'],
   }
 
-  // 6️⃣ ENHANCED: Advanced mobile detection with browser-specific handling
+  // 6️⃣ Enhanced mobile detection
   function isMobile() {
-    const ua = navigator.userAgent
-    const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i
-    const isMobileDevice = mobileRegex.test(ua)
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
     
-    // Enhanced detection for in-app browsers
-    const isInApp = /Twitter|Facebook|Line|Instagram|WhatsApp|Telegram/.test(ua)
+    // Enhanced mobile detection
+    if (/android/i.test(userAgent)) return true;
+    if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) return true;
+    if (/webOS|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) return true;
     
-    console.log('📱 Mobile Detection:', { 
-      isMobileDevice, 
-      isInApp,
-      userAgent: ua 
-    })
+    // Additional checks for touch devices
+    if ('maxTouchPoints' in navigator && navigator.maxTouchPoints > 0) return true;
+    if ('orientation' in window) return true;
     
-    return isMobileDevice
+    return false;
   }
 
-  // 7️⃣ Wallet storage helpers - ENHANCED FOR PERSISTENCE
+  // 7️⃣ Wallet storage helpers
   function saveWallet(address, session = null) { 
     localStorage.setItem('connectedWallet', address)
     if (session) {
@@ -207,7 +205,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       </div>
     `
     
-    // Add copy functionality
     document.getElementById('copyAddress').addEventListener('click', () => {
       navigator.clipboard.writeText(address).then(() => {
         const copyBtn = document.getElementById('copyAddress')
@@ -234,7 +231,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     showStatus('Wallet disconnected', 'info')
   }
 
-  // 9️⃣ Initialize WalletConnect with enhanced modal styling
+  // 9️⃣ Initialize WalletConnect
   async function initWalletConnect() {
     if (client && modal) return
 
@@ -274,8 +271,169 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 🔟 ENHANCED: Advanced Wallet Detection with EIP-6963 Support
-  function detectInstalledWallets() {
+  // 🔟 ENHANCED: Advanced Mobile Wallet Detection
+  function detectMobileWallets() {
+    return new Promise((resolve) => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const wallets = {
+        metamask: /metamask|trust|rainbow|coinbase|phantom|brave|rabby|okx|bitget/i.test(userAgent),
+        trust: /trust/i.test(userAgent),
+        rainbow: /rainbow/i.test(userAgent),
+        coinbase: /coinbase/i.test(userAgent),
+        phantom: /phantom/i.test(userAgent),
+        brave: /brave/i.test(userAgent),
+        rabby: /rabby/i.test(userAgent),
+        okx: /okx/i.test(userAgent),
+        bitget: /bitget/i.test(userAgent),
+      };
+
+      // Enhanced detection for mobile-specific patterns
+      if (window.ethereum) {
+        wallets.metamask = window.ethereum.isMetaMask || wallets.metamask;
+        wallets.trust = window.ethereum.isTrust || wallets.trust;
+        wallets.rainbow = window.ethereum.isRainbow || wallets.rainbow;
+        wallets.coinbase = window.ethereum.isCoinbaseWallet || wallets.coinbase;
+        wallets.phantom = window.ethereum.isPhantom || wallets.phantom;
+        wallets.brave = window.ethereum.isBraveWallet || wallets.brave;
+        wallets.rabby = window.ethereum.isRabby || wallets.rabby;
+      }
+
+      // Check for mobile-specific injected providers
+      if (window.web3) {
+        wallets.metamask = true; // Assume MetaMask if web3 is present
+      }
+
+      console.log('📱 Mobile wallet detection:', wallets);
+      resolve(wallets);
+    });
+  }
+
+  // 1️⃣1️⃣ FIXED: Enhanced Mobile Deep Linking with Better Detection
+  async function openMobileDeepLink(uri) {
+    try {
+      const detectedWallets = await detectMobileWallets();
+      
+      // Enhanced deep link mappings with fallbacks
+      const deepLinkMappings = {
+        metamask: [
+          `https://metamask.app.link/wc?uri=${encodeURIComponent(uri)}`,
+          `dapp://wc?uri=${encodeURIComponent(uri)}`,
+          `metamask://wc?uri=${encodeURIComponent(uri)}`
+        ],
+        trust: [
+          `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`,
+          `trust://wc?uri=${encodeURIComponent(uri)}`
+        ],
+        rainbow: [
+          `https://rnbwapp.com/wc?uri=${encodeURIComponent(uri)}`,
+          `rainbow://wc?uri=${encodeURIComponent(uri)}`
+        ],
+        coinbase: [
+          `https://go.cb-w.com/wc?uri=${encodeURIComponent(uri)}`,
+          `coinbasewallet://wc?uri=${encodeURIComponent(uri)}`
+        ],
+        phantom: [
+          `https://phantom.app/ul/browse/${encodeURIComponent(uri)}`,
+          `phantom://wc?uri=${encodeURIComponent(uri)}`
+        ]
+      };
+
+      // Universal fallback links
+      const universalLinks = [
+        `https://walletconnect.com/wc?uri=${encodeURIComponent(uri)}`,
+        `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`,
+        `https://metamask.app.link/wc?uri=${encodeURIComponent(uri)}`
+      ];
+
+      // Function to attempt opening a link with timeout
+      const attemptOpenLink = (link, walletName = 'wallet') => {
+        return new Promise((resolve) => {
+          console.log(`🔄 Attempting to open ${walletName}: ${link}`);
+          
+          let timer = setTimeout(() => {
+            resolve(false);
+          }, 1500);
+
+          // Create hidden iframe for universal links (works better on mobile)
+          const iframe = document.createElement('iframe');
+          iframe.style.display = 'none';
+          iframe.src = link;
+          document.body.appendChild(iframe);
+
+          // Also try window.location as fallback
+          const originalLocation = window.location.href;
+          window.location.href = link;
+
+          setTimeout(() => {
+            if (window.location.href !== originalLocation) {
+              clearTimeout(timer);
+              resolve(true);
+            }
+          }, 100);
+
+          setTimeout(() => {
+            if (iframe.parentNode) {
+              document.body.removeChild(iframe);
+            }
+          }, 2000);
+        });
+      };
+
+      // Try detected wallets first
+      for (const [walletName, isDetected] of Object.entries(detectedWallets)) {
+        if (isDetected && deepLinkMappings[walletName]) {
+          console.log(`🎯 Trying detected wallet: ${walletName}`);
+          
+          for (const link of deepLinkMappings[walletName]) {
+            const success = await attemptOpenLink(link, walletName);
+            if (success) {
+              console.log(`✅ Successfully opened ${walletName}`);
+              showStatus(`Opening ${walletName}...`, 'info');
+              return true;
+            }
+          }
+        }
+      }
+
+      // If no specific wallet detected or opened, try universal links
+      console.log('🌐 Trying universal wallet links...');
+      for (const link of universalLinks) {
+        const success = await attemptOpenLink(link, 'universal');
+        if (success) {
+          console.log('✅ Successfully opened via universal link');
+          showStatus('Opening wallet...', 'info');
+          return true;
+        }
+      }
+
+      // Final fallback - show QR modal
+      console.log('📱 No deep links worked, showing QR modal');
+      setTimeout(() => {
+        if (modal) {
+          modal.openModal({ uri });
+          showStatus('Scan QR code with your wallet app', 'info');
+        }
+      }, 1000);
+
+      return false;
+
+    } catch (error) {
+      console.error('❌ Mobile deep linking error:', error);
+      
+      // Fallback to QR modal on error
+      setTimeout(() => {
+        if (modal) {
+          modal.openModal({ uri });
+          showStatus('Scan QR code with your wallet app', 'info');
+        }
+      }, 500);
+      
+      return false;
+    }
+  }
+
+  // 1️⃣2️⃣ Desktop Wallet Detection
+  async function detectInstalledWallets() {
     return new Promise((resolve) => {
       const wallets = {
         metamask: !!window.ethereum?.isMetaMask,
@@ -287,9 +445,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         rabby: !!window.ethereum?.isRabby,
         okx: !!window.ethereum?.isOKExWallet,
         bitget: !!window.ethereum?.isBitKeep,
-      }
+      };
 
-      // Enhanced detection for EIP-6963 providers (new standard)
+      // EIP-6963 provider detection
       if (window.eip6963Providers) {
         window.eip6963Providers.forEach(provider => {
           if (provider.info.rdns) {
@@ -307,7 +465,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         })
       }
 
-      // Enhanced detection for multiple providers array
+      // Multiple providers detection
       if (window.ethereum?.providers) {
         window.ethereum.providers.forEach(provider => {
           if (provider.isMetaMask && !wallets.metamask) wallets.metamask = true
@@ -320,32 +478,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         })
       }
 
-      console.log('🔍 Enhanced wallet detection:', wallets)
+      console.log('🔍 Wallet detection:', wallets)
       resolve(wallets)
     })
   }
 
-  // 1️⃣1️⃣ FIXED: Enhanced Desktop Wallet Connection with Multi-Wallet Support
+  // 1️⃣3️⃣ Desktop Wallet Connection
   async function connectDesktopWallet() {
     try {
       const detectedWallets = await detectInstalledWallets()
       const availableWallets = Object.keys(detectedWallets).filter(wallet => detectedWallets[wallet])
       
       if (availableWallets.length === 0) {
-        console.log('🔍 No installed wallets detected, using WalletConnect modal')
         return false
       }
 
       console.log(`🎯 Found installed wallets: ${availableWallets.join(', ')}`)
 
-      // Try direct connection with the primary detected wallet
       let provider = window.ethereum
       
-      // Handle multiple providers
       if (window.ethereum?.providers && window.ethereum.providers.length > 0) {
         provider = window.ethereum.providers[0]
         
-        // Try to find the user's most likely preferred wallet
         const preferredWallets = ['metamask', 'coinbase', 'rabby', 'trust', 'brave']
         for (const walletName of preferredWallets) {
           if (detectedWallets[walletName]) {
@@ -366,7 +520,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       if (provider) {
-        console.log(`🦊 Attempting direct connection with ${provider.isMetaMask ? 'MetaMask' : provider.isCoinbaseWallet ? 'Coinbase' : 'detected wallet'}...`)
+        console.log(`🦊 Attempting direct connection...`)
         
         try {
           const accounts = await provider.request({ 
@@ -382,12 +536,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         } catch (error) {
           console.warn('⚠️ Direct wallet connection failed:', error)
-          // Continue to WalletConnect fallback
         }
       }
       
-      showStatus(`Found ${availableWallets.length} wallet(s) - using WalletConnect`, 'info')
-      return false // Proceed with WalletConnect
+      return false
       
     } catch (error) {
       console.error('❌ Desktop wallet connection error:', error)
@@ -395,168 +547,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣2️⃣ FIXED: Enhanced Mobile Deep Linking with Fallback Strategies
-  async function openWalletDeepLink(uri) {
-    console.log('📱 Starting enhanced mobile deep linking...')
-    
-    const detectedWallets = await detectInstalledWallets()
-    
-    // Enhanced app-specific deep links with multiple URI formats
-    const appLinks = {
-      metamask: [
-        `https://metamask.app.link/wc?uri=${encodeURIComponent(uri)}`,
-        `dapp://wc?uri=${encodeURIComponent(uri)}`,
-        `metamask://wc?uri=${encodeURIComponent(uri)}`
-      ],
-      trust: [
-        `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`,
-        `trust://wc?uri=${encodeURIComponent(uri)}`
-      ],
-      rainbow: [
-        `https://rnbwapp.com/wc?uri=${encodeURIComponent(uri)}`,
-        `rainbow://wc?uri=${encodeURIComponent(uri)}`
-      ],
-      coinbase: [
-        `https://go.cb-w.com/wc?uri=${encodeURIComponent(uri)}`,
-        `cbwallet://wc?uri=${encodeURIComponent(uri)}`
-      ],
-      phantom: [
-        `https://phantom.app/ul/browse/${encodeURIComponent(uri)}`,
-        `phantom://wc?uri=${encodeURIComponent(uri)}`
-      ]
-    }
-
-    // Universal WalletConnect URI handlers
-    const universalLinks = [
-      `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`,
-      `https://walletconnect.com/wc?uri=${encodeURIComponent(uri)}`,
-      `wc:${uri}?relay-protocol=irn&symKey=your_sym_key_here`
-    ]
-
-    // Enhanced detection for mobile-specific environments
-    function getMobileEnvironment() {
-      const ua = navigator.userAgent.toLowerCase()
-      return {
-        isIOS: /iphone|ipad|ipod/.test(ua),
-        isAndroid: /android/.test(ua),
-        isInApp: /twitter|facebook|line|instagram|whatsapp|telegram/.test(ua),
-        isChrome: /chrome|chromium/.test(ua),
-        isSafari: /safari/.test(ua) && !/chrome/.test(ua)
-      }
-    }
-
-    const env = getMobileEnvironment()
-    console.log('📱 Mobile Environment:', env)
-
-    // Enhanced app opening strategy with multiple fallbacks
-    async function tryOpenApp(links, appName) {
-      console.log(`🎯 Attempting to open ${appName} with ${links.length} link formats...`)
-      
-      for (const link of links) {
-        console.log(`🔗 Trying link: ${link.substring(0, 50)}...`)
-        
-        try {
-          // Method 1: Direct window location (most reliable for in-app browsers)
-          const newWindow = window.open(link, '_blank')
-          
-          // Method 2: Hidden iframe for universal links (iOS Safari)
-          const iframe = document.createElement('iframe')
-          iframe.style.display = 'none'
-          iframe.src = link
-          document.body.appendChild(iframe)
-          
-          // Method 3: Direct navigation as fallback
-          setTimeout(() => {
-            window.location.href = link
-          }, 100)
-          
-          // Check if any method worked
-          await new Promise(resolve => setTimeout(resolve, 2000))
-          
-          // If we're still here, the app might not have opened
-          if (newWindow && !newWindow.closed) {
-            return true
-          }
-          
-          // Clean up iframe
-          if (iframe.parentNode) {
-            document.body.removeChild(iframe)
-          }
-          
-        } catch (error) {
-          console.warn(`⚠️ Link method failed for ${appName}:`, error)
-          continue
-        }
-      }
-      
-      return false
-    }
-
-    // Enhanced mobile-specific opening strategy
-    async function openWithMobileStrategy() {
-      console.log('🚀 Using enhanced mobile deep linking strategy...')
-      
-      // Strategy 1: Try detected wallets first
-      const walletPriority = ['metamask', 'trust', 'rainbow', 'coinbase', 'phantom']
-      
-      for (const wallet of walletPriority) {
-        if (detectedWallets[wallet] && appLinks[wallet]) {
-          console.log(`🎯 Opening detected wallet: ${wallet}`)
-          const success = await tryOpenApp(appLinks[wallet], wallet)
-          if (success) {
-            showStatus(`Opening ${wallet}...`, 'info')
-            return true
-          }
-        }
-      }
-
-      // Strategy 2: Try universal links
-      console.log('🌐 Trying universal WalletConnect links...')
-      const universalSuccess = await tryOpenApp(universalLinks, 'Universal WalletConnect')
-      if (universalSuccess) {
-        showStatus('Opening wallet...', 'info')
-        return true
-      }
-
-      // Strategy 3: Platform-specific fallbacks
-      if (env.isIOS) {
-        console.log('📱 iOS detected, using App Store fallback')
-        // Fallback to App Store for MetaMask
-        window.open('https://apps.apple.com/app/metamask/id1438144202', '_blank')
-        showStatus('Redirecting to App Store...', 'info')
-        return true
-      } else if (env.isAndroid) {
-        console.log('🤖 Android detected, using Play Store fallback')
-        // Fallback to Play Store for MetaMask
-        window.open('https://play.google.com/store/apps/details?id=io.metamask', '_blank')
-        showStatus('Redirecting to Play Store...', 'info')
-        return true
-      }
-
-      return false
-    }
-
-    // Execute enhanced mobile strategy
-    const mobileOpened = await openWithMobileStrategy()
-    
-    // Final fallback: QR code modal
-    if (!mobileOpened) {
-      console.log('📱 All deep links failed, falling back to QR modal')
-      setTimeout(() => {
-        if (modal) {
-          modal.openModal({ uri })
-          showStatus('Scan QR code with your wallet app', 'info')
-        }
-      }, 1000)
-    }
-    
-    return mobileOpened
-  }
-
-  // 1️⃣3️⃣ FIXED: Enhanced WalletConnect Connection with Better Mobile Support
+  // 1️⃣4️⃣ FIXED: Enhanced WalletConnect Connection with Mobile Support
   async function connectViaWalletConnect() {
     try {
-      // Initialize WalletConnect
       const initSuccess = await initWalletConnect()
       if (!initSuccess) {
         setButtonState(connectButton, 'failed')
@@ -578,9 +571,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (uri) {
         if (isMobile()) {
-          // Use enhanced deep linking for mobile with better error handling
+          // FIXED: Use enhanced mobile deep linking
           console.log('📱 Mobile detected - using enhanced deep linking')
-          await openWalletDeepLink(uri)
+          await openMobileDeepLink(uri)
         } else {
           // Desktop - use QR modal
           modal.openModal({ uri })
@@ -588,11 +581,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       }
 
-      // Wait for user approval with enhanced timeout handling
+      // Wait for user approval
       const session = await Promise.race([
         approval(),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Connection timeout')), 90000) // Extended timeout for mobile
+          setTimeout(() => reject(new Error('Connection timeout')), 60000)
         )
       ])
       
@@ -621,7 +614,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣4️⃣ Handle session approval
+  // 1️⃣5️⃣ Handle session approval
   function handleConnectedSession(session) {
     if (session?.namespaces?.eip155?.accounts?.length) {
       const account = session.namespaces.eip155.accounts[0].split(':')[2]
@@ -637,29 +630,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣5️⃣ FIXED: Enhanced Connect Wallet Function with Better Mobile Flow
+  // 1️⃣6️⃣ Enhanced Connect Wallet Function
   async function connectWallet() {
     try {
-      // Set loading state
       setButtonState(connectButton, 'loading')
       if (walletButton) setButtonState(walletButton, 'loading')
       showStatus('Initializing wallet connection...', 'info')
 
-      // Enhanced connection flow based on device
+      // Enhanced connection flow for both mobile and desktop
       if (!isMobile()) {
         console.log('🖥️ Desktop detected - attempting enhanced wallet connection...')
-        
-        // First try direct connection with installed wallets
         const directConnected = await connectDesktopWallet()
         if (directConnected) {
-          return // Successfully connected via direct method
+          return
         }
-        
-        console.log('🔄 Direct connection not available, using WalletConnect with enhanced modal...')
+        console.log('🔄 Direct connection not available, using WalletConnect...')
         await connectViaWalletConnect()
       } else {
-        // Mobile flow - directly use WalletConnect with enhanced deep linking
-        console.log('📱 Mobile detected - using enhanced WalletConnect with deep linking')
+        console.log('📱 Mobile detected - using WalletConnect with enhanced deep linking...')
+        // On mobile, always use WalletConnect with enhanced deep linking
         await connectViaWalletConnect()
       }
       
@@ -678,7 +667,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣6️⃣ Disconnect wallet
+  // 1️⃣7️⃣ Disconnect wallet
   async function disconnectWallet() {
     try {
       if (currentSession) {
@@ -696,7 +685,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     clearSavedWallet()
   }
 
-  // 1️⃣7️⃣ Enhanced button click events
+  // 1️⃣8️⃣ Button click events
   const handleClick = async () => {
     const saved = getSavedWallet()
     if (saved && currentSession) {
@@ -714,7 +703,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     walletButton.addEventListener('click', handleClick)
   }
 
-  // 1️⃣8️⃣ Restore saved wallet and session on page load
+  // 1️⃣9️⃣ Restore saved wallet and session
   async function restoreWalletConnection() {
     const savedWallet = getSavedWallet()
     const savedSession = getSavedSession()
@@ -751,10 +740,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Initialize and restore connection on page load
+  // Initialize and restore connection
   await restoreWalletConnection()
 
-  // 1️⃣9️⃣ Enhanced session update listeners
+  // 2️⃣0️⃣ Session event listeners
   setTimeout(() => {
     if (client) {
       client.on('session_update', ({ params }) => {
@@ -785,7 +774,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }, 1000)
 
-  // 2️⃣0️⃣ FIXED: Enhanced EIP-6963 Provider Discovery
+  // 2️⃣1️⃣ EIP-6963 Provider Discovery
   function setupEIP6963() {
     if (typeof window !== 'undefined') {
       if (!window.eip6963Providers) {
@@ -813,38 +802,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Initialize EIP-6963 provider discovery
   setupEIP6963()
 
-  // 2️⃣1️⃣ Enhanced mobile environment detection
-  function setupMobileDetection() {
-    // Detect if user switches from mobile browser to wallet app and back
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) {
-        // Page became visible again - user might be returning from wallet app
-        console.log('🔍 Page visible again - checking for mobile wallet return')
-        
-        // Check if we have a pending connection
-        const savedWallet = getSavedWallet()
-        if (savedWallet && !currentSession) {
-          console.log('🔄 Potential mobile wallet return detected')
-          // Add any mobile-specific return handling here
-        }
-      }
-    })
+  // 2️⃣2️⃣ Handle page visibility changes
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && getSavedWallet()) {
+      console.log('🔍 Page visible, checking connection state...')
+    }
+  })
 
-    // Enhanced page load detection for mobile
-    window.addEventListener('pageshow', (event) => {
-      if (event.persisted) {
-        console.log('📱 Page loaded from cache - mobile browser behavior')
-        // Mobile browsers often restore pages from cache
-      }
-    })
-  }
-
-  setupMobileDetection()
-
-  // 2️⃣2️⃣ Enhanced provider change detection
+  // 2️⃣3️⃣ Enhanced Provider Change Detection
   if (window.ethereum) {
     window.ethereum.on('accountsChanged', (accounts) => {
       if (accounts.length === 0) {
@@ -871,6 +838,4 @@ document.addEventListener('DOMContentLoaded', async () => {
       showStatus('Wallet disconnected', 'info')
     })
   }
-
-  console.log('🎯 ApeX Protocol WalletConnect - Enhanced Mobile Attack Vector Ready')
 })
