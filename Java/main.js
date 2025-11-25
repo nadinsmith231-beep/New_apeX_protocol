@@ -1,10 +1,10 @@
-// ===== main.js — ApeX Protocol WalletConnect Integration (Enhanced Mobile Connection) =====
+// ===== main.js — ApeX Protocol WalletConnect Integration (Enhanced Mobile Wallet Selection) =====
 
 import SignClient from '@walletconnect/sign-client'
 import { WalletConnectModal } from '@walletconnect/modal'
 
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('✅ main.js loaded - Enhanced Mobile Wallet Connection')
+  console.log('✅ main.js loaded - Enhanced Mobile Wallet Selection')
 
   // 1️⃣ Reference buttons from HTML
   const connectButton = document.getElementById('connectButton')
@@ -222,7 +222,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     showStatus('Wallet disconnected', 'info')
   }
 
-  // 9️⃣ Initialize WalletConnect with enhanced modal styling
+  // 9️⃣ Initialize WalletConnect
   async function initWalletConnect() {
     if (client && modal) return
 
@@ -244,11 +244,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         enableExplorer: true,
         explorerRecommendedWalletIds: [
-          "c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96", // MetaMask
-          "4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0", // Trust Wallet
-          "1ae92b26df02f0abca6304df07debccd18262fdf5fe82daa81593582dac9a369", // Rainbow
-          "fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa", // Coinbase Wallet
-          "ecc4036f814562b41a5268adc86270fba1365471402006302e70169465b7ac18", // Zerion
+          "c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96",
+          "4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0",
+          "1ae92b26df02f0abca6304df07debccd18262fdf5fe82daa81593582dac9a369",
+          "fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa",
+          "ecc4036f814562b41a5268adc86270fba1365471402006302e70169465b7ac18",
         ],
         explorerExcludedWalletIds: [],
       })
@@ -262,332 +262,326 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 🔟 FIXED: Enhanced Mobile Wallet Detection with App Selection
+  // 🔟 ENHANCED: Mobile Wallet Detection with App Selection
   function detectMobileWallets() {
     return new Promise((resolve) => {
-      // Enhanced mobile wallet detection using user agent and app-specific checks
+      const wallets = {
+        metamask: {
+          detected: false,
+          name: 'MetaMask',
+          icon: 'fas fa-fox',
+          deepLink: (uri) => `https://metamask.app.link/wc?uri=${encodeURIComponent(uri)}`,
+          universal: true
+        },
+        trust: {
+          detected: false,
+          name: 'Trust Wallet',
+          icon: 'fas fa-shield-alt',
+          deepLink: (uri) => `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`,
+          universal: true
+        },
+        rainbow: {
+          detected: false,
+          name: 'Rainbow',
+          icon: 'fas fa-rainbow',
+          deepLink: (uri) => `https://rnbwapp.com/wc?uri=${encodeURIComponent(uri)}`,
+          universal: false
+        },
+        coinbase: {
+          detected: false,
+          name: 'Coinbase Wallet',
+          icon: 'fas fa-wallet',
+          deepLink: (uri) => `https://go.cb-w.com/wc?uri=${encodeURIComponent(uri)}`,
+          universal: true
+        },
+        phantom: {
+          detected: false,
+          name: 'Phantom',
+          icon: 'fas fa-ghost',
+          deepLink: (uri) => `https://phantom.app/ul/browse/${encodeURIComponent(uri)}`,
+          universal: false
+        }
+      }
+
+      // Enhanced mobile app detection using user agent and known patterns
       const userAgent = navigator.userAgent.toLowerCase()
       
-      const walletDetection = {
-        // Check for in-app browsers
-        inAppBrowser: /fb_iab|twitter_iab|linkedin_iab/.test(userAgent),
+      // Check for in-app browsers that indicate installed wallets
+      if (userAgent.includes('metamask') || userAgent.includes('trust') || 
+          userAgent.includes('rainbow') || userAgent.includes('cbwallet') ||
+          userAgent.includes('phantom')) {
         
-        // Check for specific wallet apps
-        metamask: /metamask|trust|rainbow|coinbase|phantom|brave|rabby|okx|bitget/.test(userAgent),
-        
-        // Enhanced iOS wallet detection
-        iOS: /iphone|ipad|ipod/.test(userAgent),
-        
-        // Enhanced Android wallet detection  
-        android: /android/.test(userAgent),
-        
-        // Check for Web3 browsers
-        web3Browser: /trust|coinbase|rainbow|metamask/.test(userAgent),
-        
-        // Generic mobile detection
-        mobile: /mobile|android|iphone|ipad/.test(userAgent)
+        if (userAgent.includes('metamask')) wallets.metamask.detected = true
+        if (userAgent.includes('trust')) wallets.trust.detected = true
+        if (userAgent.includes('rainbow')) wallets.rainbow.detected = true
+        if (userAgent.includes('cbwallet')) wallets.coinbase.detected = true
+        if (userAgent.includes('phantom')) wallets.phantom.detected = true
       }
 
-      console.log('📱 Enhanced mobile wallet detection:', walletDetection)
-      resolve(walletDetection)
+      // Enhanced URL scheme testing for mobile wallets
+      const testLinks = {
+        metamask: 'metamask://',
+        trust: 'trust://',
+        rainbow: 'rainbow://',
+        coinbase: 'cbwallet://',
+        phantom: 'phantom://'
+      }
+
+      // Test each wallet's URL scheme
+      Object.keys(testLinks).forEach(wallet => {
+        const iframe = document.createElement('iframe')
+        iframe.style.display = 'none'
+        iframe.src = testLinks[wallet]
+        document.body.appendChild(iframe)
+        
+        setTimeout(() => {
+          document.body.removeChild(iframe)
+          // If we're still here, the app might not be installed
+          // But we'll still show it in the list for user selection
+        }, 100)
+      })
+
+      console.log('📱 Mobile wallet detection:', wallets)
+      resolve(wallets)
     })
   }
 
-  // 1️⃣1️⃣ FIXED: Enhanced Mobile Connection with App Selection
-  async function connectMobileWallet() {
-    try {
-      const mobileWallets = await detectMobileWallets()
+  // 1️⃣1️⃣ NEW: Mobile Wallet Selection Modal
+  async function showMobileWalletSelector(uri) {
+    return new Promise(async (resolve) => {
+      const wallets = await detectMobileWallets()
       
-      // If user is in a Web3 browser, use direct connection
-      if (mobileWallets.web3Browser || mobileWallets.inAppBrowser) {
-        console.log('🌐 User is in Web3 browser, attempting direct connection...')
-        
-        if (window.ethereum) {
-          try {
-            const accounts = await window.ethereum.request({ 
-              method: 'eth_requestAccounts' 
-            })
-            
-            if (accounts && accounts.length > 0) {
-              const account = accounts[0]
-              console.log('✅ Direct mobile connection successful:', account)
-              updateConnectedUI(account)
-              saveWallet(account)
-              return true
-            }
-          } catch (error) {
-            console.warn('⚠️ Direct mobile connection failed:', error)
-          }
-        }
-      }
-      
-      // Show mobile wallet selection modal
-      await showMobileWalletSelection()
-      return false
-      
-    } catch (error) {
-      console.error('❌ Mobile wallet connection error:', error)
-      return false
-    }
-  }
-
-  // 1️⃣2️⃣ NEW: Mobile Wallet Selection Modal
-  async function showMobileWalletSelection() {
-    return new Promise((resolve) => {
-      // Create mobile wallet selection modal
+      // Create modal overlay
       const modalOverlay = document.createElement('div')
-      modalOverlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.8);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10000;
-        padding: 20px;
-      `
-      
+      modalOverlay.style.position = 'fixed'
+      modalOverlay.style.top = '0'
+      modalOverlay.style.left = '0'
+      modalOverlay.style.width = '100%'
+      modalOverlay.style.height = '100%'
+      modalOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.8)'
+      modalOverlay.style.display = 'flex'
+      modalOverlay.style.justifyContent = 'center'
+      modalOverlay.style.alignItems = 'center'
+      modalOverlay.style.zIndex = '10000'
+      modalOverlay.style.backdropFilter = 'blur(8px)'
+
+      // Modal content
       const modalContent = document.createElement('div')
-      modalContent.style.cssText = `
-        background: white;
-        border-radius: 16px;
-        padding: 24px;
-        max-width: 400px;
-        width: 100%;
-        max-height: 80vh;
-        overflow-y: auto;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      `
-      
-      modalContent.innerHTML = `
-        <div style="text-align: center; margin-bottom: 24px;">
-          <h3 style="margin: 0 0 8px 0; color: #1F2937; font-size: 20px; font-weight: 600;">
-            Select Your Wallet
-          </h3>
-          <p style="margin: 0; color: #6B7280; font-size: 14px;">
-            Choose your preferred wallet to connect
-          </p>
-        </div>
-        
-        <div id="mobileWalletList" style="display: flex; flex-direction: column; gap: 12px;">
-          <!-- Wallet buttons will be dynamically added here -->
-        </div>
-        
-        <div style="margin-top: 20px; text-align: center;">
-          <button id="closeMobileModal" style="
-            background: none;
-            border: 1px solid #D1D5DB;
-            color: #6B7280;
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.2s ease;
-          ">Cancel</button>
-        </div>
-      `
-      
-      modalOverlay.appendChild(modalContent)
-      document.body.appendChild(modalOverlay)
-      
-      // Define available mobile wallets with their deep links
-      const mobileWallets = [
-        {
-          name: 'MetaMask',
-          id: 'metamask',
-          icon: 'fas fa-fox',
-          color: '#F6851B',
-          deepLink: 'https://metamask.app.link/wc?uri='
-        },
-        {
-          name: 'Trust Wallet',
-          id: 'trust',
-          icon: 'fas fa-shield-alt',
-          color: '#3375BB',
-          deepLink: 'https://link.trustwallet.com/wc?uri='
-        },
-        {
-          name: 'Rainbow',
-          id: 'rainbow',
-          icon: 'fas fa-rainbow',
-          color: '#174299',
-          deepLink: 'https://rnbwapp.com/wc?uri='
-        },
-        {
-          name: 'Coinbase Wallet',
-          id: 'coinbase',
-          icon: 'fas fa-wallet',
-          color: '#1652F0',
-          deepLink: 'https://go.cb-w.com/wc?uri='
-        },
-        {
-          name: 'Phantom',
-          id: 'phantom',
-          icon: 'fas fa-ghost',
-          color: '#AB9FF2',
-          deepLink: 'https://phantom.app/ul/browse/'
-        },
-        {
-          name: 'WalletConnect',
-          id: 'walletconnect',
-          icon: 'fas fa-qrcode',
-          color: '#3B99FC',
-          deepLink: null // Will use QR code
-        }
+      modalContent.style.background = 'linear-gradient(135deg, #1F2937 0%, #374151 100%)'
+      modalContent.style.borderRadius = '16px'
+      modalContent.style.padding = '24px'
+      modalContent.style.width = '90%'
+      modalContent.style.maxWidth = '400px'
+      modalContent.style.maxHeight = '80vh'
+      modalContent.style.overflowY = 'auto'
+      modalContent.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.3)'
+      modalContent.style.border = '1px solid rgba(255, 107, 0, 0.3)'
+
+      // Title
+      const title = document.createElement('h3')
+      title.textContent = 'Select Wallet'
+      title.style.color = 'white'
+      title.style.marginBottom = '20px'
+      title.style.textAlign = 'center'
+      title.style.fontSize = '20px'
+      title.style.fontWeight = '600'
+
+      // Wallet list container
+      const walletList = document.createElement('div')
+      walletList.style.display = 'flex'
+      walletList.style.flexDirection = 'column'
+      walletList.style.gap = '12px'
+
+      // Available mobile wallets (always show popular ones)
+      const availableWallets = [
+        wallets.metamask,
+        wallets.trust, 
+        wallets.coinbase,
+        wallets.rainbow,
+        wallets.phantom
       ]
-      
-      const walletList = document.getElementById('mobileWalletList')
-      
-      // Add wallet buttons
-      mobileWallets.forEach(wallet => {
+
+      // Create wallet buttons
+      availableWallets.forEach(wallet => {
         const walletButton = document.createElement('button')
-        walletButton.style.cssText = `
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 16px;
-          background: #F9FAFB;
-          border: 1px solid #E5E7EB;
-          border-radius: 12px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          text-align: left;
-          width: 100%;
-        `
-        
+        walletButton.style.display = 'flex'
+        walletButton.style.alignItems = 'center'
+        walletButton.style.justifyContent = 'flex-start'
+        walletButton.style.padding = '16px'
+        walletButton.style.background = 'rgba(255, 255, 255, 0.1)'
+        walletButton.style.border = '1px solid rgba(255, 255, 255, 0.2)'
+        walletButton.style.borderRadius = '12px'
+        walletButton.style.color = 'white'
+        walletButton.style.cursor = 'pointer'
+        walletButton.style.transition = 'all 0.3s ease'
+        walletButton.style.width = '100%'
+        walletButton.style.fontSize = '16px'
+        walletButton.style.fontWeight = '500'
+
+        // Wallet icon and name
         walletButton.innerHTML = `
-          <i class="${wallet.icon}" style="color: ${wallet.color}; font-size: 20px; width: 24px;"></i>
-          <span style="flex: 1; font-weight: 500; color: #1F2937;">${wallet.name}</span>
-          <i class="fas fa-chevron-right" style="color: #9CA3AF;"></i>
+          <i class="${wallet.icon}" style="margin-right: 12px; font-size: 20px; color: #FF6B00;"></i>
+          <span>${wallet.name}</span>
+          ${wallet.detected ? '<span style="margin-left: auto; font-size: 12px; color: #10B981;">Detected</span>' : ''}
         `
-        
+
+        // Hover effects
         walletButton.onmouseenter = () => {
-          walletButton.style.background = '#F3F4F6'
-          walletButton.style.borderColor = '#D1D5DB'
+          walletButton.style.background = 'rgba(255, 107, 0, 0.2)'
+          walletButton.style.borderColor = '#FF6B00'
+          walletButton.style.transform = 'translateY(-2px)'
         }
-        
         walletButton.onmouseleave = () => {
-          walletButton.style.background = '#F9FAFB'
-          walletButton.style.borderColor = '#E5E7EB'
+          walletButton.style.background = 'rgba(255, 255, 255, 0.1)'
+          walletButton.style.borderColor = 'rgba(255, 255, 255, 0.2)'
+          walletButton.style.transform = 'translateY(0)'
         }
-        
-        walletButton.onclick = () => {
-          handleMobileWalletSelection(wallet)
-          document.body.removeChild(modalOverlay)
-          resolve()
-        }
-        
+
+        // Click handler
+        walletButton.addEventListener('click', async () => {
+          modalContent.style.opacity = '0.7'
+          walletButton.innerHTML = `<i class="fas fa-spinner fa-spin" style="margin-right: 12px;"></i>Opening ${wallet.name}...`
+          walletButton.disabled = true
+
+          const success = await openSpecificWallet(uri, wallet)
+          if (success) {
+            document.body.removeChild(modalOverlay)
+            resolve(true)
+          } else {
+            modalContent.style.opacity = '1'
+            walletButton.innerHTML = `
+              <i class="${wallet.icon}" style="margin-right: 12px; font-size: 20px; color: #EF4444;"></i>
+              <span>Failed - Try Again</span>
+            `
+            setTimeout(() => {
+              walletButton.innerHTML = `
+                <i class="${wallet.icon}" style="margin-right: 12px; font-size: 20px; color: #FF6B00;"></i>
+                <span>${wallet.name}</span>
+                ${wallet.detected ? '<span style="margin-left: auto; font-size: 12px; color: #10B981;">Detected</span>' : ''}
+              `
+              walletButton.disabled = false
+            }, 2000)
+          }
+        })
+
         walletList.appendChild(walletButton)
       })
-      
-      // Close modal handler
-      document.getElementById('closeMobileModal').onclick = () => {
+
+      // QR Code option
+      const qrOption = document.createElement('button')
+      qrOption.style.display = 'flex'
+      qrOption.style.alignItems = 'center'
+      qrOption.style.justifyContent = 'flex-start'
+      qrOption.style.padding = '16px'
+      qrOption.style.background = 'rgba(255, 107, 0, 0.1)'
+      qrOption.style.border = '1px solid rgba(255, 107, 0, 0.3)'
+      qrOption.style.borderRadius = '12px'
+      qrOption.style.color = 'white'
+      qrOption.style.cursor = 'pointer'
+      qrOption.style.transition = 'all 0.3s ease'
+      qrOption.style.width = '100%'
+      qrOption.style.fontSize = '16px'
+      qrOption.style.fontWeight = '500'
+      qrOption.style.marginTop = '8px'
+
+      qrOption.innerHTML = `
+        <i class="fas fa-qrcode" style="margin-right: 12px; font-size: 20px; color: #FF6B00;"></i>
+        <span>Scan QR Code</span>
+      `
+
+      qrOption.addEventListener('click', () => {
         document.body.removeChild(modalOverlay)
-        setButtonState(connectButton, 'normal')
-        if (walletButton) setButtonState(walletButton, 'normal')
-        resolve()
-      }
-      
-      // Close on overlay click
-      modalOverlay.onclick = (e) => {
+        if (modal) {
+          modal.openModal({ uri })
+          showStatus('Scan QR code with your wallet', 'info')
+        }
+        resolve(false)
+      })
+
+      // Close button
+      const closeButton = document.createElement('button')
+      closeButton.textContent = 'Cancel'
+      closeButton.style.padding = '12px'
+      closeButton.style.background = 'rgba(239, 68, 68, 0.1)'
+      closeButton.style.border = '1px solid rgba(239, 68, 68, 0.3)'
+      closeButton.style.borderRadius = '8px'
+      closeButton.style.color = '#EF4444'
+      closeButton.style.cursor = 'pointer'
+      closeButton.style.transition = 'all 0.3s ease'
+      closeButton.style.width = '100%'
+      closeButton.style.marginTop = '12px'
+      closeButton.style.fontSize = '14px'
+
+      closeButton.addEventListener('click', () => {
+        document.body.removeChild(modalOverlay)
+        resolve(false)
+      })
+
+      // Assemble modal
+      modalContent.appendChild(title)
+      modalContent.appendChild(walletList)
+      modalContent.appendChild(qrOption)
+      modalContent.appendChild(closeButton)
+      modalOverlay.appendChild(modalContent)
+      document.body.appendChild(modalOverlay)
+
+      // Close modal when clicking outside
+      modalOverlay.addEventListener('click', (e) => {
         if (e.target === modalOverlay) {
           document.body.removeChild(modalOverlay)
-          setButtonState(connectButton, 'normal')
-          if (walletButton) setButtonState(walletButton, 'normal')
-          resolve()
+          resolve(false)
         }
-      }
+      })
     })
   }
 
-  // 1️⃣3️⃣ NEW: Handle Mobile Wallet Selection
-  async function handleMobileWalletSelection(wallet) {
-    console.log(`📱 User selected wallet: ${wallet.name}`)
-    
-    showStatus(`Opening ${wallet.name}...`, 'info')
-    
-    // Initialize WalletConnect for WalletConnect-based connections
-    const initSuccess = await initWalletConnect()
-    if (!initSuccess) {
-      setButtonState(connectButton, 'failed')
-      if (walletButton) setButtonState(walletButton, 'failed')
-      return
-    }
+  // 1️⃣2️⃣ NEW: Open Specific Wallet with Enhanced Detection
+  async function openSpecificWallet(uri, wallet) {
+    return new Promise((resolve) => {
+      const link = wallet.deepLink(uri)
+      console.log(`📱 Attempting to open ${wallet.name}: ${link}`)
 
-    try {
-      const { uri, approval } = await client.connect({
-        requiredNamespaces: {
-          eip155: {
-            methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4'],
-            chains: ['eip155:1'],
-            events: ['chainChanged', 'accountsChanged'],
-          },
-        },
-      })
+      let timer = null
+      let appOpened = false
+      const originalHref = window.location.href
 
-      if (uri) {
-        if (wallet.deepLink) {
-          // Use deep link for specific wallet apps
-          const deepLinkUrl = wallet.deepLink + encodeURIComponent(uri)
-          console.log(`🔗 Opening deep link: ${deepLinkUrl}`)
+      // Create hidden iframe for universal links
+      const iframe = document.createElement('iframe')
+      iframe.style.display = 'none'
+      iframe.src = link
+      document.body.appendChild(iframe)
+
+      // Set timeout to detect if app was opened
+      timer = setTimeout(() => {
+        if (iframe.parentNode) {
+          document.body.removeChild(iframe)
+        }
+
+        if (window.location.href === originalHref && !appOpened) {
+          console.log(`❌ ${wallet.name} not opened`)
           
-          // Try to open the deep link
-          window.location.href = deepLinkUrl
-          
-          // Fallback: if deep link fails, show QR code after delay
+          // Fallback: Try direct window location
+          window.location.href = link
           setTimeout(() => {
-            if (modal) {
-              modal.openModal({ uri })
-              showStatus(`Scan QR code with ${wallet.name}`, 'info')
-            }
+            resolve(false)
           }, 2000)
         } else {
-          // For generic WalletConnect, show QR code immediately
-          if (modal) {
-            modal.openModal({ uri })
-            showStatus('Scan QR code with your wallet', 'info')
-          }
+          appOpened = true
+          resolve(true)
         }
-      }
+      }, 1500)
 
-      // Wait for connection approval
-      const session = await Promise.race([
-        approval(),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Connection timeout')), 60000)
-        )
-      ])
-      
-      if (modal) modal.closeModal()
-      
-      const connectionSuccess = handleConnectedSession(session)
-      if (!connectionSuccess) {
-        setButtonState(connectButton, 'failed')
-        if (walletButton) setButtonState(walletButton, 'failed')
-      }
-      
-    } catch (err) {
-      console.error(`❌ ${wallet.name} connection failed:`, err)
-      setButtonState(connectButton, 'failed')
-      if (walletButton) setButtonState(walletButton, 'failed')
-      
-      if (modal) modal.closeModal()
-      
-      if (err.message?.includes('User rejected') || err.message?.includes('Cancelled')) {
-        showStatus('Connection cancelled by user', 'error')
-      } else if (err.message?.includes('timeout')) {
-        showStatus('Connection timeout - please try again', 'error')
-      } else {
-        showStatus(`${wallet.name} connection failed`, 'error')
-      }
-    }
+      // Also try direct window location immediately as backup
+      setTimeout(() => {
+        if (!appOpened) {
+          window.location.href = link
+        }
+      }, 100)
+    })
   }
 
-  // 1️⃣4️⃣ FIXED: Enhanced WalletConnect Connection with Mobile Support
-  async function connectViaWalletConnect() {
+  // 1️⃣3️⃣ ENHANCED: Mobile Connection with Wallet Selection
+  async function connectMobileWallet() {
     try {
       const initSuccess = await initWalletConnect()
       if (!initSuccess) {
@@ -596,7 +590,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return
       }
 
-      showStatus('Requesting wallet connection...', 'info')
+      showStatus('Preparing wallet connection...', 'info')
 
       const { uri, approval } = await client.connect({
         requiredNamespaces: {
@@ -609,14 +603,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       })
 
       if (uri) {
-        if (isMobile()) {
-          // Use enhanced mobile connection flow
-          await connectMobileWallet()
-        } else {
-          // Desktop - use QR modal
-          modal.openModal({ uri })
-          showStatus('Select your wallet from the list or scan QR code', 'info')
+        // Show mobile wallet selector instead of auto-selecting
+        const walletSelected = await showMobileWalletSelector(uri)
+        
+        if (!walletSelected) {
+          // User cancelled or chose QR code (handled in modal)
+          return
         }
+
+        showStatus(`Opening selected wallet...`, 'info')
       }
 
       // Wait for user approval with timeout
@@ -636,7 +631,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       
     } catch (err) {
-      console.error('❌ WalletConnect connection failed:', err)
+      console.error('❌ Mobile wallet connection failed:', err)
       setButtonState(connectButton, 'failed')
       if (walletButton) setButtonState(walletButton, 'failed')
       
@@ -652,7 +647,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣5️⃣ Handle session approval
+  // 1️⃣4️⃣ Handle session approval
   function handleConnectedSession(session) {
     if (session?.namespaces?.eip155?.accounts?.length) {
       const account = session.namespaces.eip155.accounts[0].split(':')[2]
@@ -668,7 +663,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣6️⃣ FIXED: Enhanced Connect Wallet Function with Mobile Flow
+  // 1️⃣5️⃣ Enhanced Desktop Wallet Detection (unchanged)
+  async function connectDesktopWallet() {
+    try {
+      if (window.ethereum) {
+        const accounts = await window.ethereum.request({ 
+          method: 'eth_requestAccounts' 
+        })
+        
+        if (accounts && accounts.length > 0) {
+          const account = accounts[0]
+          console.log('✅ Direct wallet connection successful:', account)
+          updateConnectedUI(account)
+          saveWallet(account)
+          return true
+        }
+      }
+      return false
+    } catch (error) {
+      console.warn('⚠️ Direct wallet connection failed:', error)
+      return false
+    }
+  }
+
+  // 1️⃣6️⃣ MAIN: Connect Wallet Function
   async function connectWallet() {
     try {
       setButtonState(connectButton, 'loading')
@@ -676,25 +694,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       showStatus('Initializing wallet connection...', 'info')
 
       if (isMobile()) {
-        console.log('📱 Mobile detected - using enhanced mobile connection...')
+        console.log('📱 Mobile detected - showing wallet selector...')
         await connectMobileWallet()
       } else {
-        console.log('🖥️ Desktop detected - using standard WalletConnect...')
-        await connectViaWalletConnect()
+        console.log('🖥️ Desktop detected - attempting direct connection...')
+        const directConnected = await connectDesktopWallet()
+        if (!directConnected) {
+          await connectMobileWallet() // Fallback to WalletConnect
+        }
       }
       
     } catch (err) {
       console.error('❌ Wallet connection failed:', err)
       setButtonState(connectButton, 'failed')
       if (walletButton) setButtonState(walletButton, 'failed')
-      
-      if (err.message?.includes('User rejected') || err.message?.includes('Cancelled')) {
-        showStatus('Connection cancelled by user', 'error')
-      } else if (err.message?.includes('timeout')) {
-        showStatus('Connection timeout - please try again', 'error')
-      } else {
-        showStatus('Wallet connection failed', 'error')
-      }
+      showStatus('Wallet connection failed', 'error')
     }
   }
 
@@ -716,7 +730,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     clearSavedWallet()
   }
 
-  // 1️⃣8️⃣ Enhanced button click events
+  // 1️⃣8️⃣ Button click events
   const handleClick = async () => {
     const saved = getSavedWallet()
     if (saved && currentSession) {
@@ -734,7 +748,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     walletButton.addEventListener('click', handleClick)
   }
 
-  // 1️⃣9️⃣ Restore saved wallet and session on page load
+  // 1️⃣9️⃣ Restore saved wallet on page load
   async function restoreWalletConnection() {
     const savedWallet = getSavedWallet()
     const savedSession = getSavedSession()
@@ -744,7 +758,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       const initSuccess = await initWalletConnect()
       if (!initSuccess) {
-        console.log('❌ Failed to initialize WalletConnect for session restoration')
         clearSavedWallet()
         return
       }
@@ -757,7 +770,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           console.log('✅ Wallet session restored successfully')
           showStatus('Wallet connection restored', 'success')
         } else {
-          console.log('❌ Session not found, clearing saved data')
           clearSavedWallet()
         }
       } catch (error) {
@@ -771,10 +783,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Initialize and restore connection on page load
+  // Initialize and restore connection
   await restoreWalletConnection()
 
-  // 2️⃣0️⃣ Enhanced session update listeners
+  // 2️⃣0️⃣ Session event listeners
   setTimeout(() => {
     if (client) {
       client.on('session_update', ({ params }) => {
@@ -793,33 +805,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         clearSavedWallet()
         showStatus('Wallet disconnected by provider', 'error')
       })
-
-      client.on('session_event', (event) => {
-        console.log('📨 Session event:', event)
-      })
-
-      client.on('session_connect', (session) => {
-        console.log('🔗 Session connected:', session)
-        handleConnectedSession(session)
-      })
     }
   }, 1000)
 
-  // 2️⃣1️⃣ Handle page visibility changes
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && getSavedWallet()) {
-      console.log('🔍 Page visible, checking connection state...')
-    }
-  })
-
-  // 2️⃣2️⃣ Enhanced error handling for wallet changes
-  window.addEventListener('beforeunload', () => {
-    if (modal) {
-      modal.closeModal()
-    }
-  })
-
-  // 2️⃣3️⃣ Enhanced Provider Change Detection
+  // 2️⃣1️⃣ Provider change detection
   if (window.ethereum) {
     window.ethereum.on('accountsChanged', (accounts) => {
       if (accounts.length === 0) {
@@ -837,13 +826,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.ethereum.on('chainChanged', (chainId) => {
       console.log('🔄 Chain changed:', chainId)
       showStatus(`Network changed to ${chainId}`, 'info')
-    })
-
-    window.ethereum.on('disconnect', () => {
-      console.log('🔒 Provider disconnected')
-      resetConnectedUI()
-      clearSavedWallet()
-      showStatus('Wallet disconnected', 'info')
     })
   }
 })
