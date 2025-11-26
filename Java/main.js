@@ -1,10 +1,10 @@
-// ===== main.js — ApeX Protocol WalletConnect Integration (Enhanced Desktop + Mobile - Crypto-Only Detection) =====
+// ===== main.js — ApeX Protocol WalletConnect Integration (Enhanced Desktop + Mobile) =====
 
 import SignClient from '@walletconnect/sign-client'
 import { WalletConnectModal } from '@walletconnect/modal'
 
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('✅ main.js loaded - Enhanced Crypto-Only Wallet Detection')
+  console.log('✅ main.js loaded - Enhanced Desktop + Mobile Wallet Detection')
 
   // 1️⃣ Reference buttons from HTML
   const connectButton = document.getElementById('connectButton')
@@ -263,11 +263,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 🔟 ENHANCED: Crypto-Only Wallet Detection for Mobile
+  // 🔟 ENHANCED: Crypto Wallet Detection Only (Mobile Focus)
   function detectCryptoWallets() {
     return new Promise((resolve) => {
-      // CRYPTO-ONLY: Focus only on crypto wallets, exclude non-crypto browsers
       const cryptoWallets = {
+        // Major crypto wallets with proper detection
         metamask: !!window.ethereum?.isMetaMask,
         trust: !!window.ethereum?.isTrust,
         rainbow: !!window.ethereum?.isRainbow,
@@ -280,32 +280,32 @@ document.addEventListener('DOMContentLoaded', async () => {
         tokenpocket: !!window.ethereum?.isTokenPocket,
         safepal: !!window.ethereum?.isSafePal,
         mathwallet: !!window.ethereum?.isMathWallet,
-        // EXCLUDE: Regular browsers like Opera, Chrome, Safari, Firefox
+        // Additional mobile-specific crypto wallets
+        argent: !!window.ethereum?.isArgent,
+        imtoken: !!window.ethereum?.isImToken,
+        onto: !!window.ethereum?.isONTO,
+        bitizen: !!window.ethereum?.isBitizen,
       }
 
-      // Enhanced detection for EIP-6963 providers (crypto wallets only)
+      // Enhanced EIP-6963 detection for crypto wallets only
       if (window.eip6963Providers) {
         window.eip6963Providers.forEach(provider => {
           if (provider.info.rdns) {
             const rdns = provider.info.rdns.toLowerCase()
-            // CRYPTO-ONLY: Only include known crypto wallet identifiers
-            const isCryptoWallet = 
-              rdns.includes('metamask') ||
-              rdns.includes('trust') ||
-              rdns.includes('rainbow') ||
-              rdns.includes('coinbase') ||
-              rdns.includes('phantom') ||
-              rdns.includes('brave') ||
-              rdns.includes('rabby') ||
-              rdns.includes('okx') ||
-              rdns.includes('bitget') ||
-              rdns.includes('tokenpocket') ||
-              rdns.includes('safepal') ||
-              rdns.includes('mathwallet') ||
-              rdns.includes('wallet') ||
-              rdns.includes('crypto') ||
-              rdns.includes('defi')
-              
+            const walletName = provider.info.name.toLowerCase()
+            
+            // Only add known crypto wallets
+            const cryptoWalletIdentifiers = [
+              'metamask', 'trust', 'rainbow', 'coinbase', 'phantom', 'brave', 
+              'rabby', 'okx', 'bitget', 'tokenpocket', 'safepal', 'mathwallet',
+              'argent', 'imtoken', 'onto', 'bitizen', 'zerion', 'frame', 'frontier',
+              'pillar', 'ambire', 'alpha', 'sequence', 'crypto', 'defi', 'wallet'
+            ]
+
+            const isCryptoWallet = cryptoWalletIdentifiers.some(identifier => 
+              rdns.includes(identifier) || walletName.includes(identifier)
+            )
+
             if (isCryptoWallet) {
               if (rdns.includes('metamask')) cryptoWallets.metamask = true
               if (rdns.includes('trust')) cryptoWallets.trust = true
@@ -319,15 +319,19 @@ document.addEventListener('DOMContentLoaded', async () => {
               if (rdns.includes('tokenpocket')) cryptoWallets.tokenpocket = true
               if (rdns.includes('safepal')) cryptoWallets.safepal = true
               if (rdns.includes('mathwallet')) cryptoWallets.mathwallet = true
+              if (rdns.includes('argent')) cryptoWallets.argent = true
+              if (rdns.includes('imtoken')) cryptoWallets.imtoken = true
+              if (rdns.includes('onto')) cryptoWallets.onto = true
+              if (rdns.includes('bitizen')) cryptoWallets.bitizen = true
             }
           }
         })
       }
 
-      // Enhanced detection for multiple providers array (crypto only)
+      // Enhanced detection for multiple providers array (crypto wallets only)
       if (window.ethereum?.providers) {
         window.ethereum.providers.forEach(provider => {
-          // CRYPTO-ONLY: Only process crypto wallet providers
+          // Only process crypto wallet providers
           if (provider.isMetaMask && !cryptoWallets.metamask) cryptoWallets.metamask = true
           if (provider.isTrust && !cryptoWallets.trust) cryptoWallets.trust = true
           if (provider.isRainbow && !cryptoWallets.rainbow) cryptoWallets.rainbow = true
@@ -341,7 +345,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         })
       }
 
-      console.log('🔍 Crypto-only wallet detection:', cryptoWallets)
+      console.log('🔍 Crypto wallet detection results:', cryptoWallets)
       resolve(cryptoWallets)
     })
   }
@@ -362,16 +366,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Try direct connection with the primary detected crypto wallet
       let provider = window.ethereum
       
-      // Handle multiple providers (crypto wallets only)
+      // Handle multiple providers - prioritize crypto wallets
       if (window.ethereum?.providers && window.ethereum.providers.length > 0) {
-        // Use the first available crypto wallet provider
         provider = window.ethereum.providers[0]
         
-        // CRYPTO-ONLY: Try to find the user's most likely preferred crypto wallet
-        const preferredCryptoWallets = ['metamask', 'coinbase', 'rabby', 'trust', 'brave', 'phantom']
-        for (const walletName of preferredCryptoWallets) {
+        // Crypto wallet priority list
+        const cryptoWalletPriority = ['metamask', 'coinbase', 'rabby', 'trust', 'brave', 'phantom']
+        
+        for (const walletName of cryptoWalletPriority) {
           if (detectedWallets[walletName]) {
-            const preferredProvider = window.ethereum.providers.find(p => {
+            const cryptoProvider = window.ethereum.providers.find(p => {
               if (walletName === 'metamask' && p.isMetaMask) return true
               if (walletName === 'coinbase' && p.isCoinbaseWallet) return true
               if (walletName === 'rabby' && p.isRabby) return true
@@ -380,8 +384,8 @@ document.addEventListener('DOMContentLoaded', async () => {
               if (walletName === 'phantom' && p.isPhantom) return true
               return false
             })
-            if (preferredProvider) {
-              provider = preferredProvider
+            if (cryptoProvider) {
+              provider = cryptoProvider
               break
             }
           }
@@ -389,7 +393,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       if (provider) {
-        console.log(`🦊 Attempting direct connection with ${provider.isMetaMask ? 'MetaMask' : provider.isCoinbaseWallet ? 'Coinbase' : 'detected crypto wallet'}...`)
+        console.log(`🦊 Attempting direct connection with crypto wallet...`)
         
         try {
           const accounts = await provider.request({ 
@@ -413,12 +417,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       return false // Proceed with WalletConnect
       
     } catch (error) {
-      console.error('❌ Desktop crypto wallet connection error:', error)
+      console.error('❌ Crypto wallet connection error:', error)
       return false
     }
   }
 
-  // 1️⃣2️⃣ FIXED: Enhanced WalletConnect Connection with Crypto-Only Mobile Detection
+  // 1️⃣2️⃣ FIXED: Enhanced Mobile Crypto Wallet Deep Linking
   async function connectViaWalletConnect() {
     try {
       // Initialize WalletConnect
@@ -443,10 +447,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (uri) {
         if (isMobile()) {
-          // Use enhanced crypto-only deep linking for mobile
+          // Use enhanced crypto wallet deep linking for mobile
           await openCryptoWalletDeepLink(uri)
         } else {
-          // Desktop - use QR modal with enhanced crypto wallet list
+          // Desktop - use QR modal
           modal.openModal({ uri })
           showStatus('Select your crypto wallet from the list or scan QR code', 'info')
         }
@@ -485,26 +489,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣3️⃣ FIXED: Crypto-Only Deep Linking for Mobile
+  // 1️⃣3️⃣ FIXED: Enhanced Crypto-Only Deep Linking for Mobile
   async function openCryptoWalletDeepLink(uri) {
-    // CRYPTO-ONLY: Only crypto wallet deep links, no regular browsers
+    const detectedWallets = await detectCryptoWallets()
+    
+    // Crypto wallet specific deep links only
     const cryptoAppLinks = {
       metamask: `https://metamask.app.link/wc?uri=${encodeURIComponent(uri)}`,
       trust: `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`,
       rainbow: `https://rnbwapp.com/wc?uri=${encodeURIComponent(uri)}`,
       coinbase: `https://go.cb-w.com/wc?uri=${encodeURIComponent(uri)}`,
       phantom: `https://phantom.app/ul/browse/${encodeURIComponent(uri)}`,
-      safepal: `https://link.safepal.io/wc?uri=${encodeURIComponent(uri)}`,
-      tokenpocket: `https://tp-station.tokenpocket.pro/wc?uri=${encodeURIComponent(uri)}`,
-      bitget: `https://bkcode.vip/wc?uri=${encodeURIComponent(uri)}`,
-      okx: `https://www.okx.com/wc?uri=${encodeURIComponent(uri)}`,
-      mathwallet: `https://mathwallet.org/wc?uri=${encodeURIComponent(uri)}`
+      argent: `https://argent.link/app/wc?uri=${encodeURIComponent(uri)}`,
+      imtoken: `https://token.im/wc?uri=${encodeURIComponent(uri)}`,
+      safepal: `https://safepal.io/wc?uri=${encodeURIComponent(uri)}`,
+      tokenpocket: `https://tokenpocket.pro/wc?uri=${encodeURIComponent(uri)}`,
+      mathwallet: `https://mathwallet.org/wc?uri=${encodeURIComponent(uri)}`,
+      bitget: `https://web3.bitget.com/wc?uri=${encodeURIComponent(uri)}`,
+      okx: `https://www.okx.com/wc?uri=${encodeURIComponent(uri)}`
     }
 
-    // CRYPTO-ONLY: Universal WalletConnect URI handler (Trust Wallet - crypto only)
-    const universalCryptoLink = `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`
+    // Universal WalletConnect URI handler (Trust Wallet as primary fallback)
+    const universalLink = `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`
 
-    // Function to try opening a crypto app link
+    // Enhanced function to try opening crypto apps only
     const tryOpenCryptoApp = (link, appName) => {
       console.log(`📱 Attempting to open crypto wallet: ${appName}...`)
       
@@ -514,7 +522,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         const originalHref = window.location.href
         
-        // Create hidden iframe for crypto wallet deep links
+        // Create hidden iframe for universal links (crypto wallets only)
         const iframe = document.createElement('iframe')
         iframe.style.display = 'none'
         iframe.src = link
@@ -535,6 +543,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         }, 2000)
         
+        // Direct window location change as backup
         setTimeout(() => {
           if (!appOpened) {
             window.location.href = link
@@ -543,16 +552,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       })
     }
 
-    // CRYPTO-ONLY: Priority-based crypto wallet opening
+    // Crypto wallet priority for mobile deep linking
+    const cryptoWalletPriority = [
+      'metamask', 'trust', 'coinbase', 'rainbow', 'phantom', 
+      'argent', 'safepal', 'tokenpocket', 'mathwallet', 'bitget', 'okx', 'imtoken'
+    ]
+    
     let cryptoWalletOpened = false
 
-    // Try detected crypto wallets first
-    const detectedWallets = await detectCryptoWallets()
-    const cryptoWalletPriority = ['metamask', 'trust', 'rainbow', 'coinbase', 'phantom', 'safepal', 'tokenpocket', 'bitget', 'okx', 'mathwallet']
-    
+    // Try detected crypto wallets in priority order
     for (const wallet of cryptoWalletPriority) {
       if (detectedWallets[wallet] && cryptoAppLinks[wallet]) {
-        console.log(`🎯 Trying detected crypto wallet: ${wallet}...`)
+        console.log(`🎯 Trying crypto wallet: ${wallet}...`)
         cryptoWalletOpened = await tryOpenCryptoApp(cryptoAppLinks[wallet], wallet)
         if (cryptoWalletOpened) {
           console.log(`✅ Successfully opened crypto wallet: ${wallet}`)
@@ -562,10 +573,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-    // CRYPTO-ONLY: If no specific crypto wallet detected, try universal crypto link
+    // If no specific crypto wallet detected or opened, try universal WalletConnect link
     if (!cryptoWalletOpened) {
-      console.log('🌐 No specific crypto wallet detected, trying universal WalletConnect (Trust Wallet)...')
-      cryptoWalletOpened = await tryOpenCryptoApp(universalCryptoLink, 'Universal Crypto Wallet')
+      console.log('🌐 No specific crypto wallet detected, trying universal WalletConnect...')
+      cryptoWalletOpened = await tryOpenCryptoApp(universalLink, 'Universal WalletConnect')
       
       if (cryptoWalletOpened) {
         showStatus('Opening Trust Wallet...', 'info')
@@ -573,7 +584,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-    // Final fallback to QR modal after all crypto wallet attempts fail
+    // Final fallback to QR modal after all crypto wallet deep link attempts fail
     if (!cryptoWalletOpened) {
       console.log('📱 Opening QR modal as final fallback for crypto wallets...')
       setTimeout(() => {
@@ -603,26 +614,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣5️⃣ FIXED: Enhanced Connect Wallet Function with Crypto-Only Detection
+  // 1️⃣5️⃣ FIXED: Enhanced Connect Wallet Function with Crypto-Only Focus
   async function connectWallet() {
     try {
+      // Set loading state
       setButtonState(connectButton, 'loading')
       if (walletButton) setButtonState(walletButton, 'loading')
       showStatus('Initializing crypto wallet connection...', 'info')
 
-      // Enhanced crypto-only connection flow
+      // Enhanced connection flow with crypto-only detection
       if (!isMobile()) {
         console.log('🖥️ Desktop detected - attempting crypto wallet connection...')
         
+        // First try direct connection with installed crypto wallets
         const directConnected = await connectDesktopWallet()
         if (directConnected) {
-          return
+          return // Successfully connected via direct method
         }
         
-        console.log('🔄 Direct crypto connection not available, using WalletConnect...')
+        console.log('🔄 Direct crypto wallet connection not available, using WalletConnect...')
+        // If direct connection fails, use WalletConnect
         await connectViaWalletConnect()
       } else {
-        // Mobile crypto-only flow
+        // Mobile flow with crypto-only deep linking
+        console.log('📱 Mobile detected - using crypto wallet deep linking...')
         await connectViaWalletConnect()
       }
       
@@ -708,6 +723,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         clearSavedWallet()
       }
     } else if (savedWallet && !savedSession) {
+      // Handle direct crypto wallet connection restoration
       console.log('♻️ Restoring direct crypto wallet connection:', savedWallet)
       updateConnectedUI(savedWallet)
       showStatus('Crypto wallet connection restored', 'success')
@@ -717,7 +733,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Initialize and restore connection on page load
   await restoreWalletConnection()
 
-  // 1️⃣9️⃣ Enhanced session update listeners
+  // 1️⃣9️⃣ Enhanced session update listeners for crypto wallets
   setTimeout(() => {
     if (client) {
       client.on('session_update', ({ params }) => {
@@ -755,44 +771,38 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.eip6963Providers = []
       }
 
+      // Listen for EIP-6963 provider announcements (crypto wallets only)
       window.addEventListener('eip6963:announceProvider', (event) => {
-        const providerInfo = event.detail.info
-        console.log('🎯 EIP-6963 Provider detected:', providerInfo.name)
+        const provider = event.detail
+        const walletName = provider.info.name.toLowerCase()
         
-        // CRYPTO-ONLY: Filter to only include crypto wallets
-        const isCryptoWallet = 
-          providerInfo.name.toLowerCase().includes('wallet') ||
-          providerInfo.name.toLowerCase().includes('crypto') ||
-          providerInfo.name.toLowerCase().includes('defi') ||
-          providerInfo.name.toLowerCase().includes('meta') ||
-          providerInfo.name.toLowerCase().includes('trust') ||
-          providerInfo.name.toLowerCase().includes('rainbow') ||
-          providerInfo.name.toLowerCase().includes('coinbase') ||
-          providerInfo.name.toLowerCase().includes('phantom') ||
-          providerInfo.name.toLowerCase().includes('brave') ||
-          providerInfo.name.toLowerCase().includes('rabby') ||
-          providerInfo.name.toLowerCase().includes('okx') ||
-          providerInfo.name.toLowerCase().includes('bitget') ||
-          providerInfo.name.toLowerCase().includes('token') ||
-          providerInfo.name.toLowerCase().includes('safepal') ||
-          providerInfo.name.toLowerCase().includes('math')
-        
+        // Filter for crypto wallets only
+        const cryptoKeywords = [
+          'wallet', 'crypto', 'defi', 'meta', 'trust', 'rainbow', 'coinbase', 
+          'phantom', 'brave', 'rabby', 'okx', 'bitget', 'token', 'safe', 'math',
+          'argent', 'imtoken', 'onto', 'bitizen', 'zerion', 'frame', 'frontier'
+        ]
+
+        const isCryptoWallet = cryptoKeywords.some(keyword => 
+          walletName.includes(keyword)
+        )
+
         if (isCryptoWallet) {
           const exists = window.eip6963Providers.some(
-            p => p.info.uuid === providerInfo.uuid
+            p => p.info.uuid === provider.info.uuid
           )
           
           if (!exists) {
-            window.eip6963Providers.push(event.detail)
-            console.log(`✅ Added crypto wallet provider: ${providerInfo.name}`)
+            window.eip6963Providers.push(provider)
+            console.log(`✅ Added crypto wallet via EIP-6963: ${provider.info.name}`)
           }
-        } else {
-          console.log(`🚫 Skipped non-crypto provider: ${providerInfo.name}`)
         }
       })
 
+      // Dispatch the request event to trigger crypto wallet announcements
       window.dispatchEvent(new Event('eip6963:requestProvider'))
       
+      // Re-request crypto wallets after a short delay
       setTimeout(() => {
         window.dispatchEvent(new Event('eip6963:requestProvider'))
       }, 1000)
