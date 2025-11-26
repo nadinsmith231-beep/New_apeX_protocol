@@ -263,11 +263,108 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 🔟 ENHANCED: Crypto Wallet Detection Only (Mobile Focus)
-  function detectCryptoWallets() {
+  // 🔟 FIXED: Enhanced Mobile Crypto App Detection
+  function detectMobileCryptoApps() {
     return new Promise((resolve) => {
-      const cryptoWallets = {
-        // Major crypto wallets with proper detection
+      if (!isMobile()) {
+        resolve({})
+        return
+      }
+
+      // Enhanced crypto app detection for mobile browsers
+      const cryptoApps = {
+        metamask: false,
+        trust: false,
+        rainbow: false,
+        coinbase: false,
+        phantom: false,
+        brave: false,
+        safepal: false,
+        tokenpocket: false,
+        mathwallet: false,
+        bitkeep: false
+      }
+
+      // User agent detection for mobile crypto browsers
+      const userAgent = navigator.userAgent.toLowerCase()
+      
+      // Enhanced pattern matching for crypto wallet browsers
+      const walletPatterns = {
+        metamask: /\bmetamask|trust|rainbow|coinbase|phantom|brave|safepal|tokenpocket|mathwallet|bitkeep\b/i,
+        trust: /\btrust\b/i,
+        rainbow: /\brainbow\b/i,
+        coinbase: /\bcoinbase\b/i,
+        phantom: /\bphantom\b/i,
+        brave: /\bbrave\b/i,
+        safepal: /\bsafepal\b/i,
+        tokenpocket: /\btokenpocket\b/i,
+        mathwallet: /\bmathwallet\b/i,
+        bitkeep: /\bbitkeep\b/i
+      }
+
+      // Check user agent for wallet indicators
+      Object.keys(walletPatterns).forEach(wallet => {
+        if (walletPatterns[wallet].test(userAgent)) {
+          cryptoApps[wallet] = true
+        }
+      })
+
+      // Enhanced deep link testing for mobile crypto apps
+      const testLinks = {
+        metamask: 'metamask://',
+        trust: 'trust://',
+        rainbow: 'rainbow://',
+        coinbase: 'coinbasewallet://',
+        phantom: 'phantom://',
+        brave: 'brave://',
+        safepal: 'safepal://',
+        tokenpocket: 'tpoutside://',
+        mathwallet: 'mathwallet://',
+        bitkeep: 'bitkeep://'
+      }
+
+      // Test each deep link to detect installed apps
+      let testsCompleted = 0
+      const totalTests = Object.keys(testLinks).length
+      const testTimeout = 100
+
+      Object.keys(testLinks).forEach(wallet => {
+        const iframe = document.createElement('iframe')
+        iframe.style.display = 'none'
+        iframe.src = testLinks[wallet]
+        
+        const timer = setTimeout(() => {
+          // If timeout reached, app is likely not installed
+          document.body.removeChild(iframe)
+          testsCompleted++
+          
+          if (testsCompleted === totalTests) {
+            console.log('🔍 Mobile crypto app detection completed:', cryptoApps)
+            resolve(cryptoApps)
+          }
+        }, testTimeout)
+
+        iframe.onload = () => {
+          clearTimeout(timer)
+          document.body.removeChild(iframe)
+          cryptoApps[wallet] = true
+          testsCompleted++
+          
+          if (testsCompleted === totalTests) {
+            console.log('🔍 Mobile crypto app detection completed:', cryptoApps)
+            resolve(cryptoApps)
+          }
+        }
+
+        document.body.appendChild(iframe)
+      })
+    })
+  }
+
+  // 1️⃣1️⃣ FIXED: Enhanced Desktop Wallet Detection with EIP-6963 Support
+  function detectInstalledWallets() {
+    return new Promise((resolve) => {
+      const wallets = {
         metamask: !!window.ethereum?.isMetaMask,
         trust: !!window.ethereum?.isTrust,
         rainbow: !!window.ethereum?.isRainbow,
@@ -277,115 +374,75 @@ document.addEventListener('DOMContentLoaded', async () => {
         rabby: !!window.ethereum?.isRabby,
         okx: !!window.ethereum?.isOKExWallet,
         bitget: !!window.ethereum?.isBitKeep,
-        tokenpocket: !!window.ethereum?.isTokenPocket,
-        safepal: !!window.ethereum?.isSafePal,
-        mathwallet: !!window.ethereum?.isMathWallet,
-        // Additional mobile-specific crypto wallets
-        argent: !!window.ethereum?.isArgent,
-        imtoken: !!window.ethereum?.isImToken,
-        onto: !!window.ethereum?.isONTO,
-        bitizen: !!window.ethereum?.isBitizen,
       }
 
-      // Enhanced EIP-6963 detection for crypto wallets only
+      // Enhanced detection for EIP-6963 providers
       if (window.eip6963Providers) {
         window.eip6963Providers.forEach(provider => {
           if (provider.info.rdns) {
             const rdns = provider.info.rdns.toLowerCase()
-            const walletName = provider.info.name.toLowerCase()
-            
-            // Only add known crypto wallets
-            const cryptoWalletIdentifiers = [
-              'metamask', 'trust', 'rainbow', 'coinbase', 'phantom', 'brave', 
-              'rabby', 'okx', 'bitget', 'tokenpocket', 'safepal', 'mathwallet',
-              'argent', 'imtoken', 'onto', 'bitizen', 'zerion', 'frame', 'frontier',
-              'pillar', 'ambire', 'alpha', 'sequence', 'crypto', 'defi', 'wallet'
-            ]
-
-            const isCryptoWallet = cryptoWalletIdentifiers.some(identifier => 
-              rdns.includes(identifier) || walletName.includes(identifier)
-            )
-
-            if (isCryptoWallet) {
-              if (rdns.includes('metamask')) cryptoWallets.metamask = true
-              if (rdns.includes('trust')) cryptoWallets.trust = true
-              if (rdns.includes('rainbow')) cryptoWallets.rainbow = true
-              if (rdns.includes('coinbase')) cryptoWallets.coinbase = true
-              if (rdns.includes('phantom')) cryptoWallets.phantom = true
-              if (rdns.includes('brave')) cryptoWallets.brave = true
-              if (rdns.includes('rabby')) cryptoWallets.rabby = true
-              if (rdns.includes('okx')) cryptoWallets.okx = true
-              if (rdns.includes('bitget')) cryptoWallets.bitget = true
-              if (rdns.includes('tokenpocket')) cryptoWallets.tokenpocket = true
-              if (rdns.includes('safepal')) cryptoWallets.safepal = true
-              if (rdns.includes('mathwallet')) cryptoWallets.mathwallet = true
-              if (rdns.includes('argent')) cryptoWallets.argent = true
-              if (rdns.includes('imtoken')) cryptoWallets.imtoken = true
-              if (rdns.includes('onto')) cryptoWallets.onto = true
-              if (rdns.includes('bitizen')) cryptoWallets.bitizen = true
-            }
+            if (rdns.includes('metamask')) wallets.metamask = true
+            if (rdns.includes('trust')) wallets.trust = true
+            if (rdns.includes('rainbow')) wallets.rainbow = true
+            if (rdns.includes('coinbase')) wallets.coinbase = true
+            if (rdns.includes('phantom')) wallets.phantom = true
+            if (rdns.includes('brave')) wallets.brave = true
+            if (rdns.includes('rabby')) wallets.rabby = true
+            if (rdns.includes('okx')) wallets.okx = true
+            if (rdns.includes('bitget')) wallets.bitget = true
           }
         })
       }
 
-      // Enhanced detection for multiple providers array (crypto wallets only)
+      // Enhanced detection for multiple providers array
       if (window.ethereum?.providers) {
         window.ethereum.providers.forEach(provider => {
-          // Only process crypto wallet providers
-          if (provider.isMetaMask && !cryptoWallets.metamask) cryptoWallets.metamask = true
-          if (provider.isTrust && !cryptoWallets.trust) cryptoWallets.trust = true
-          if (provider.isRainbow && !cryptoWallets.rainbow) cryptoWallets.rainbow = true
-          if (provider.isCoinbaseWallet && !cryptoWallets.coinbase) cryptoWallets.coinbase = true
-          if (provider.isPhantom && !cryptoWallets.phantom) cryptoWallets.phantom = true
-          if (provider.isBraveWallet && !cryptoWallets.brave) cryptoWallets.brave = true
-          if (provider.isRabby && !cryptoWallets.rabby) cryptoWallets.rabby = true
-          if (provider.isTokenPocket && !cryptoWallets.tokenpocket) cryptoWallets.tokenpocket = true
-          if (provider.isSafePal && !cryptoWallets.safepal) cryptoWallets.safepal = true
-          if (provider.isMathWallet && !cryptoWallets.mathwallet) cryptoWallets.mathwallet = true
+          if (provider.isMetaMask && !wallets.metamask) wallets.metamask = true
+          if (provider.isTrust && !wallets.trust) wallets.trust = true
+          if (provider.isRainbow && !wallets.rainbow) wallets.rainbow = true
+          if (provider.isCoinbaseWallet && !wallets.coinbase) wallets.coinbase = true
+          if (provider.isPhantom && !wallets.phantom) wallets.phantom = true
+          if (provider.isBraveWallet && !wallets.brave) wallets.brave = true
+          if (provider.isRabby && !wallets.rabby) wallets.rabby = true
         })
       }
 
-      console.log('🔍 Crypto wallet detection results:', cryptoWallets)
-      resolve(cryptoWallets)
+      console.log('🔍 Enhanced wallet detection:', wallets)
+      resolve(wallets)
     })
   }
 
-  // 1️⃣1️⃣ FIXED: Enhanced Desktop Wallet Connection with Crypto-Only Detection
+  // 1️⃣2️⃣ FIXED: Enhanced Desktop Wallet Connection
   async function connectDesktopWallet() {
     try {
-      const detectedWallets = await detectCryptoWallets()
+      const detectedWallets = await detectInstalledWallets()
       const availableWallets = Object.keys(detectedWallets).filter(wallet => detectedWallets[wallet])
       
       if (availableWallets.length === 0) {
-        console.log('🔍 No crypto wallets detected, using WalletConnect modal')
+        console.log('🔍 No installed wallets detected, using WalletConnect modal')
         return false
       }
 
-      console.log(`🎯 Found crypto wallets: ${availableWallets.join(', ')}`)
+      console.log(`🎯 Found installed wallets: ${availableWallets.join(', ')}`)
 
-      // Try direct connection with the primary detected crypto wallet
       let provider = window.ethereum
       
-      // Handle multiple providers - prioritize crypto wallets
       if (window.ethereum?.providers && window.ethereum.providers.length > 0) {
         provider = window.ethereum.providers[0]
         
-        // Crypto wallet priority list
-        const cryptoWalletPriority = ['metamask', 'coinbase', 'rabby', 'trust', 'brave', 'phantom']
-        
-        for (const walletName of cryptoWalletPriority) {
+        const preferredWallets = ['metamask', 'coinbase', 'rabby', 'trust', 'brave']
+        for (const walletName of preferredWallets) {
           if (detectedWallets[walletName]) {
-            const cryptoProvider = window.ethereum.providers.find(p => {
+            const preferredProvider = window.ethereum.providers.find(p => {
               if (walletName === 'metamask' && p.isMetaMask) return true
               if (walletName === 'coinbase' && p.isCoinbaseWallet) return true
               if (walletName === 'rabby' && p.isRabby) return true
               if (walletName === 'trust' && p.isTrust) return true
               if (walletName === 'brave' && p.isBraveWallet) return true
-              if (walletName === 'phantom' && p.isPhantom) return true
               return false
             })
-            if (cryptoProvider) {
-              provider = cryptoProvider
+            if (preferredProvider) {
+              provider = preferredProvider
               break
             }
           }
@@ -393,7 +450,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       if (provider) {
-        console.log(`🦊 Attempting direct connection with crypto wallet...`)
+        console.log(`🦊 Attempting direct connection with ${provider.isMetaMask ? 'MetaMask' : provider.isCoinbaseWallet ? 'Coinbase' : 'detected wallet'}...`)
         
         try {
           const accounts = await provider.request({ 
@@ -402,30 +459,28 @@ document.addEventListener('DOMContentLoaded', async () => {
           
           if (accounts && accounts.length > 0) {
             const account = accounts[0]
-            console.log('✅ Direct crypto wallet connection successful:', account)
+            console.log('✅ Direct wallet connection successful:', account)
             updateConnectedUI(account)
             saveWallet(account)
             return true
           }
         } catch (error) {
-          console.warn('⚠️ Direct crypto wallet connection failed:', error)
-          // Continue to WalletConnect fallback
+          console.warn('⚠️ Direct wallet connection failed:', error)
         }
       }
       
-      showStatus(`Found ${availableWallets.length} crypto wallet(s) - using WalletConnect`, 'info')
-      return false // Proceed with WalletConnect
+      showStatus(`Found ${availableWallets.length} wallet(s) - using WalletConnect`, 'info')
+      return false
       
     } catch (error) {
-      console.error('❌ Crypto wallet connection error:', error)
+      console.error('❌ Desktop wallet connection error:', error)
       return false
     }
   }
 
-  // 1️⃣2️⃣ FIXED: Enhanced Mobile Crypto Wallet Deep Linking
+  // 1️⃣3️⃣ FIXED: Enhanced WalletConnect Connection
   async function connectViaWalletConnect() {
     try {
-      // Initialize WalletConnect
       const initSuccess = await initWalletConnect()
       if (!initSuccess) {
         setButtonState(connectButton, 'failed')
@@ -447,16 +502,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (uri) {
         if (isMobile()) {
-          // Use enhanced crypto wallet deep linking for mobile
-          await openCryptoWalletDeepLink(uri)
+          await openMobileWalletDeepLink(uri)
         } else {
-          // Desktop - use QR modal
           modal.openModal({ uri })
-          showStatus('Select your crypto wallet from the list or scan QR code', 'info')
+          showStatus('Select your wallet from the list or scan QR code', 'info')
         }
       }
 
-      // Wait for user approval with timeout
       const session = await Promise.race([
         approval(),
         new Promise((_, reject) => 
@@ -489,44 +541,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣3️⃣ FIXED: Enhanced Crypto-Only Deep Linking for Mobile
-  async function openCryptoWalletDeepLink(uri) {
-    const detectedWallets = await detectCryptoWallets()
+  // 1️⃣4️⃣ FIXED: Enhanced Mobile Crypto Wallet Deep Linking
+  async function openMobileWalletDeepLink(uri) {
+    const detectedApps = await detectMobileCryptoApps()
+    const availableApps = Object.keys(detectedApps).filter(app => detectedApps[app])
     
-    // Crypto wallet specific deep links only
-    const cryptoAppLinks = {
+    console.log(`📱 Detected mobile crypto apps: ${availableApps.join(', ')}`)
+
+    // Crypto wallet deep links - ONLY crypto apps
+    const cryptoWalletLinks = {
       metamask: `https://metamask.app.link/wc?uri=${encodeURIComponent(uri)}`,
       trust: `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`,
       rainbow: `https://rnbwapp.com/wc?uri=${encodeURIComponent(uri)}`,
       coinbase: `https://go.cb-w.com/wc?uri=${encodeURIComponent(uri)}`,
       phantom: `https://phantom.app/ul/browse/${encodeURIComponent(uri)}`,
-      argent: `https://argent.link/app/wc?uri=${encodeURIComponent(uri)}`,
-      imtoken: `https://token.im/wc?uri=${encodeURIComponent(uri)}`,
-      safepal: `https://safepal.io/wc?uri=${encodeURIComponent(uri)}`,
-      tokenpocket: `https://tokenpocket.pro/wc?uri=${encodeURIComponent(uri)}`,
-      mathwallet: `https://mathwallet.org/wc?uri=${encodeURIComponent(uri)}`,
-      bitget: `https://web3.bitget.com/wc?uri=${encodeURIComponent(uri)}`,
-      okx: `https://www.okx.com/wc?uri=${encodeURIComponent(uri)}`
+      brave: `https://wallet.brave.com/wc?uri=${encodeURIComponent(uri)}`,
+      safepal: `safepal://wc?uri=${encodeURIComponent(uri)}`,
+      tokenpocket: `tpoutside://wc?uri=${encodeURIComponent(uri)}`,
+      mathwallet: `mathwallet://wc?uri=${encodeURIComponent(uri)}`,
+      bitkeep: `bitkeep://wc?uri=${encodeURIComponent(uri)}`
     }
 
-    // Universal WalletConnect URI handler (Trust Wallet as primary fallback)
+    // Universal WalletConnect URI handler (Trust Wallet)
     const universalLink = `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`
 
-    // Enhanced function to try opening crypto apps only
+    // Function to try opening crypto app with improved error handling
     const tryOpenCryptoApp = (link, appName) => {
-      console.log(`📱 Attempting to open crypto wallet: ${appName}...`)
-      
       return new Promise((resolve) => {
         let timer = null
         let appOpened = false
         
         const originalHref = window.location.href
         
-        // Create hidden iframe for universal links (crypto wallets only)
         const iframe = document.createElement('iframe')
         iframe.style.display = 'none'
         iframe.src = link
-        
         document.body.appendChild(iframe)
         
         timer = setTimeout(() => {
@@ -535,7 +584,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
           
           if (window.location.href === originalHref) {
-            console.log(`❌ Crypto wallet ${appName} not opened or not installed`)
+            console.log(`❌ ${appName} not opened or not installed`)
             resolve(false)
           } else {
             appOpened = true
@@ -543,7 +592,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         }, 2000)
         
-        // Direct window location change as backup
         setTimeout(() => {
           if (!appOpened) {
             window.location.href = link
@@ -552,41 +600,37 @@ document.addEventListener('DOMContentLoaded', async () => {
       })
     }
 
-    // Crypto wallet priority for mobile deep linking
-    const cryptoWalletPriority = [
-      'metamask', 'trust', 'coinbase', 'rainbow', 'phantom', 
-      'argent', 'safepal', 'tokenpocket', 'mathwallet', 'bitget', 'okx', 'imtoken'
-    ]
-    
-    let cryptoWalletOpened = false
+    let walletOpened = false
 
-    // Try detected crypto wallets in priority order
+    // Priority-based crypto wallet opening
+    const cryptoWalletPriority = ['metamask', 'trust', 'coinbase', 'rainbow', 'phantom', 'brave', 'safepal', 'tokenpocket', 'mathwallet', 'bitkeep']
+    
     for (const wallet of cryptoWalletPriority) {
-      if (detectedWallets[wallet] && cryptoAppLinks[wallet]) {
-        console.log(`🎯 Trying crypto wallet: ${wallet}...`)
-        cryptoWalletOpened = await tryOpenCryptoApp(cryptoAppLinks[wallet], wallet)
-        if (cryptoWalletOpened) {
-          console.log(`✅ Successfully opened crypto wallet: ${wallet}`)
+      if (detectedApps[wallet] && cryptoWalletLinks[wallet]) {
+        console.log(`🎯 Trying detected crypto wallet: ${wallet}...`)
+        walletOpened = await tryOpenCryptoApp(cryptoWalletLinks[wallet], wallet)
+        if (walletOpened) {
+          console.log(`✅ Successfully opened ${wallet}`)
           showStatus(`Opening ${wallet}...`, 'info')
           return true
         }
       }
     }
 
-    // If no specific crypto wallet detected or opened, try universal WalletConnect link
-    if (!cryptoWalletOpened) {
+    // If specific crypto wallets not detected, try universal link
+    if (!walletOpened) {
       console.log('🌐 No specific crypto wallet detected, trying universal WalletConnect...')
-      cryptoWalletOpened = await tryOpenCryptoApp(universalLink, 'Universal WalletConnect')
+      walletOpened = await tryOpenCryptoApp(universalLink, 'Universal WalletConnect')
       
-      if (cryptoWalletOpened) {
-        showStatus('Opening Trust Wallet...', 'info')
+      if (walletOpened) {
+        showStatus('Opening crypto wallet...', 'info')
         return true
       }
     }
 
-    // Final fallback to QR modal after all crypto wallet deep link attempts fail
-    if (!cryptoWalletOpened) {
-      console.log('📱 Opening QR modal as final fallback for crypto wallets...')
+    // Final fallback to QR modal
+    if (!walletOpened) {
+      console.log('📱 Opening QR modal as final fallback...')
       setTimeout(() => {
         if (modal) {
           modal.openModal({ uri })
@@ -595,54 +639,49 @@ document.addEventListener('DOMContentLoaded', async () => {
       }, 500)
     }
     
-    return cryptoWalletOpened
+    return walletOpened
   }
 
-  // 1️⃣4️⃣ Handle session approval
+  // 1️⃣5️⃣ Handle session approval
   function handleConnectedSession(session) {
     if (session?.namespaces?.eip155?.accounts?.length) {
       const account = session.namespaces.eip155.accounts[0].split(':')[2]
-      console.log('✅ Connected crypto wallet:', account)
+      console.log('✅ Connected wallet:', account)
       currentSession = session
       updateConnectedUI(account)
       saveWallet(account, session)
       return true
     } else {
       console.error('❌ No accounts found in session')
-      showStatus('No accounts found in crypto wallet', 'error')
+      showStatus('No accounts found in wallet', 'error')
       return false
     }
   }
 
-  // 1️⃣5️⃣ FIXED: Enhanced Connect Wallet Function with Crypto-Only Focus
+  // 1️⃣6️⃣ FIXED: Enhanced Connect Wallet Function
   async function connectWallet() {
     try {
-      // Set loading state
       setButtonState(connectButton, 'loading')
       if (walletButton) setButtonState(walletButton, 'loading')
-      showStatus('Initializing crypto wallet connection...', 'info')
+      showStatus('Initializing wallet connection...', 'info')
 
-      // Enhanced connection flow with crypto-only detection
       if (!isMobile()) {
-        console.log('🖥️ Desktop detected - attempting crypto wallet connection...')
+        console.log('🖥️ Desktop detected - attempting enhanced wallet connection...')
         
-        // First try direct connection with installed crypto wallets
         const directConnected = await connectDesktopWallet()
         if (directConnected) {
-          return // Successfully connected via direct method
+          return
         }
         
-        console.log('🔄 Direct crypto wallet connection not available, using WalletConnect...')
-        // If direct connection fails, use WalletConnect
+        console.log('🔄 Direct connection not available, using WalletConnect with enhanced modal...')
         await connectViaWalletConnect()
       } else {
-        // Mobile flow with crypto-only deep linking
         console.log('📱 Mobile detected - using crypto wallet deep linking...')
         await connectViaWalletConnect()
       }
       
     } catch (err) {
-      console.error('❌ Crypto wallet connection failed:', err)
+      console.error('❌ Wallet connection failed:', err)
       setButtonState(connectButton, 'failed')
       if (walletButton) setButtonState(walletButton, 'failed')
       
@@ -651,12 +690,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else if (err.message?.includes('timeout')) {
         showStatus('Connection timeout - please try again', 'error')
       } else {
-        showStatus('Crypto wallet connection failed', 'error')
+        showStatus('Wallet connection failed', 'error')
       }
     }
   }
 
-  // 1️⃣6️⃣ Disconnect wallet
+  // 1️⃣7️⃣ Disconnect wallet
   async function disconnectWallet() {
     try {
       if (currentSession) {
@@ -674,7 +713,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     clearSavedWallet()
   }
 
-  // 1️⃣7️⃣ Enhanced button click events
+  // 1️⃣8️⃣ Enhanced button click events
   const handleClick = async () => {
     const saved = getSavedWallet()
     if (saved && currentSession) {
@@ -692,13 +731,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     walletButton.addEventListener('click', handleClick)
   }
 
-  // 1️⃣8️⃣ Restore saved wallet and session on page load
+  // 1️⃣9️⃣ Restore saved wallet and session on page load
   async function restoreWalletConnection() {
     const savedWallet = getSavedWallet()
     const savedSession = getSavedSession()
     
     if (savedWallet && savedSession) {
-      console.log('♻️ Restoring saved crypto wallet and session:', savedWallet)
+      console.log('♻️ Restoring saved wallet and session:', savedWallet)
       
       const initSuccess = await initWalletConnect()
       if (!initSuccess) {
@@ -712,145 +751,127 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (session) {
           currentSession = session
           updateConnectedUI(savedWallet)
-          console.log('✅ Crypto wallet session restored successfully')
-          showStatus('Crypto wallet connection restored', 'success')
+          console.log('✅ Wallet session restored successfully')
+          showStatus('Wallet connection restored', 'success')
         } else {
           console.log('❌ Session not found, clearing saved data')
           clearSavedWallet()
         }
       } catch (error) {
-        console.error('❌ Error restoring crypto wallet session:', error)
+        console.error('❌ Error restoring session:', error)
         clearSavedWallet()
       }
     } else if (savedWallet && !savedSession) {
-      // Handle direct crypto wallet connection restoration
-      console.log('♻️ Restoring direct crypto wallet connection:', savedWallet)
+      console.log('♻️ Restoring direct wallet connection:', savedWallet)
       updateConnectedUI(savedWallet)
-      showStatus('Crypto wallet connection restored', 'success')
+      showStatus('Wallet connection restored', 'success')
     }
   }
 
   // Initialize and restore connection on page load
   await restoreWalletConnection()
 
-  // 1️⃣9️⃣ Enhanced session update listeners for crypto wallets
+  // 2️⃣0️⃣ Enhanced session update listeners
   setTimeout(() => {
     if (client) {
       client.on('session_update', ({ params }) => {
-        console.log('🔄 Crypto wallet session updated:', params)
+        console.log('🔄 Session updated:', params)
         const accounts = params.namespaces?.eip155?.accounts
         if (accounts?.length) {
           const account = accounts[0].split(':')[2]
           updateConnectedUI(account)
-          showStatus('Crypto wallet session updated', 'info')
+          showStatus('Wallet session updated', 'info')
         }
       })
 
       client.on('session_delete', () => {
-        console.log('🗑️ Crypto wallet session deleted')
+        console.log('🗑️ Session deleted')
         resetConnectedUI()
         clearSavedWallet()
-        showStatus('Crypto wallet disconnected by provider', 'error')
+        showStatus('Wallet disconnected by provider', 'error')
       })
 
       client.on('session_event', (event) => {
-        console.log('📨 Crypto wallet session event:', event)
+        console.log('📨 Session event:', event)
       })
 
       client.on('session_connect', (session) => {
-        console.log('🔗 Crypto wallet session connected:', session)
+        console.log('🔗 Session connected:', session)
         handleConnectedSession(session)
       })
     }
   }, 1000)
 
-  // 2️⃣0️⃣ FIXED: Enhanced EIP-6963 Provider Discovery for Crypto Wallets Only
+  // 2️⃣1️⃣ FIXED: Enhanced EIP-6963 Provider Discovery
   function setupEIP6963() {
     if (typeof window !== 'undefined') {
       if (!window.eip6963Providers) {
         window.eip6963Providers = []
       }
 
-      // Listen for EIP-6963 provider announcements (crypto wallets only)
       window.addEventListener('eip6963:announceProvider', (event) => {
-        const provider = event.detail
-        const walletName = provider.info.name.toLowerCase()
+        console.log('🎯 EIP-6963 Provider detected:', event.detail.info.name)
         
-        // Filter for crypto wallets only
-        const cryptoKeywords = [
-          'wallet', 'crypto', 'defi', 'meta', 'trust', 'rainbow', 'coinbase', 
-          'phantom', 'brave', 'rabby', 'okx', 'bitget', 'token', 'safe', 'math',
-          'argent', 'imtoken', 'onto', 'bitizen', 'zerion', 'frame', 'frontier'
-        ]
-
-        const isCryptoWallet = cryptoKeywords.some(keyword => 
-          walletName.includes(keyword)
+        const exists = window.eip6963Providers.some(
+          p => p.info.uuid === event.detail.info.uuid
         )
-
-        if (isCryptoWallet) {
-          const exists = window.eip6963Providers.some(
-            p => p.info.uuid === provider.info.uuid
-          )
-          
-          if (!exists) {
-            window.eip6963Providers.push(provider)
-            console.log(`✅ Added crypto wallet via EIP-6963: ${provider.info.name}`)
-          }
+        
+        if (!exists) {
+          window.eip6963Providers.push(event.detail)
+          console.log(`✅ Added EIP-6963 provider: ${event.detail.info.name}`)
         }
       })
 
-      // Dispatch the request event to trigger crypto wallet announcements
       window.dispatchEvent(new Event('eip6963:requestProvider'))
       
-      // Re-request crypto wallets after a short delay
       setTimeout(() => {
         window.dispatchEvent(new Event('eip6963:requestProvider'))
       }, 1000)
     }
   }
 
-  // Initialize EIP-6963 crypto wallet discovery
+  // Initialize EIP-6963 provider discovery
   setupEIP6963()
 
-  // 2️⃣1️⃣ Handle page visibility changes
+  // 2️⃣2️⃣ Handle page visibility changes
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && getSavedWallet()) {
-      console.log('🔍 Page visible, checking crypto wallet connection state...')
+      console.log('🔍 Page visible, checking connection state...')
     }
   })
 
-  // 2️⃣2️⃣ Enhanced error handling for crypto wallet changes
+  // 2️⃣3️⃣ Enhanced error handling
   window.addEventListener('beforeunload', () => {
     if (modal) {
       modal.closeModal()
     }
   })
 
-  // 2️⃣3️⃣ FIXED: Enhanced Provider Change Detection for Crypto Wallets
+  // 2️⃣4️⃣ FIXED: Enhanced Provider Change Detection
   if (window.ethereum) {
     window.ethereum.on('accountsChanged', (accounts) => {
       if (accounts.length === 0) {
-        console.log('🔒 Crypto wallet accounts disconnected')
+        console.log('🔒 Accounts disconnected')
         resetConnectedUI()
         clearSavedWallet()
-        showStatus('Crypto wallet disconnected', 'info')
+        showStatus('Wallet disconnected', 'info')
       } else {
-        console.log('🔄 Crypto wallet accounts changed:', accounts[0])
+        console.log('🔄 Accounts changed:', accounts[0])
         updateConnectedUI(accounts[0])
         saveWallet(accounts[0])
       }
     })
 
     window.ethereum.on('chainChanged', (chainId) => {
-      console.log('🔄 Crypto wallet chain changed:', chainId)
+      console.log('🔄 Chain changed:', chainId)
       showStatus(`Network changed to ${chainId}`, 'info')
     })
 
     window.ethereum.on('disconnect', () => {
-      console.log('🔒 Crypto wallet provider disconnected')
+      console.log('🔒 Provider disconnected')
       resetConnectedUI()
       clearSavedWallet()
-      showStatus('Crypto wallet disconnected', 'info')
+      showStatus('Wallet disconnected', 'info')
     })
   }
 })
