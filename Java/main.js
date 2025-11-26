@@ -1,10 +1,10 @@
-// ===== main.js — ApeX Protocol WalletConnect Integration (Enhanced Mobile + Desktop) =====
+// ===== main.js — ApeX Protocol WalletConnect Integration (Enhanced Desktop + Mobile) =====
 
 import SignClient from '@walletconnect/sign-client'
 import { WalletConnectModal } from '@walletconnect/modal'
 
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('✅ main.js loaded - Enhanced Mobile + Desktop Wallet Detection')
+  console.log('✅ main.js loaded - Enhanced Desktop & Mobile Wallet Detection')
 
   // 1️⃣ Reference buttons from HTML
   const connectButton = document.getElementById('connectButton')
@@ -140,22 +140,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     )
   }
 
-  // 7️⃣ Enhanced mobile browser detection
-  function detectMobileBrowser() {
-    const ua = navigator.userAgent.toLowerCase()
-    const isIOS = /iphone|ipad|ipod/.test(ua)
-    const isAndroid = /android/.test(ua)
-    
-    let browser = 'unknown'
-    if (ua.includes('chrome')) browser = 'chrome'
-    if (ua.includes('safari') && !ua.includes('chrome')) browser = 'safari'
-    if (ua.includes('firefox')) browser = 'firefox'
-    if (ua.includes('samsung')) browser = 'samsung'
-    
-    return { isIOS, isAndroid, browser }
-  }
-
-  // 8️⃣ Wallet storage helpers
+  // 7️⃣ Wallet storage helpers - ENHANCED FOR PERSISTENCE
   function saveWallet(address, session = null) { 
     localStorage.setItem('connectedWallet', address)
     if (session) {
@@ -177,7 +162,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     localStorage.removeItem('walletConnectSession')
   }
 
-  // 9️⃣ Enhanced UI update functions
+  // 8️⃣ Enhanced UI update functions
   function updateConnectedUI(address) {
     setButtonState(connectButton, 'disconnect')
     if (walletButton) setButtonState(walletButton, 'disconnect')
@@ -211,6 +196,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       </div>
     `
     
+    // Add copy functionality
     document.getElementById('copyAddress').addEventListener('click', () => {
       navigator.clipboard.writeText(address).then(() => {
         const copyBtn = document.getElementById('copyAddress')
@@ -237,7 +223,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     showStatus('Wallet disconnected', 'info')
   }
 
-  // 🔟 Initialize WalletConnect with enhanced modal styling
+  // 9️⃣ Initialize WalletConnect with enhanced modal styling
   async function initWalletConnect() {
     if (client && modal) return
 
@@ -259,11 +245,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         enableExplorer: true,
         explorerRecommendedWalletIds: [
-          "c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96",
-          "4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0",
-          "1ae92b26df02f0abca6304df07debccd18262fdf5fe82daa81593582dac9a369",
-          "fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa",
-          "ecc4036f814562b41a5268adc86270fba1365471402006302e70169465b7ac18",
+          "c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96", // MetaMask
+          "4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0", // Trust Wallet
+          "1ae92b26df02f0abca6304df07debccd18262fdf5fe82daa81593582dac9a369", // Rainbow
+          "fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa", // Coinbase Wallet
+          "ecc4036f814562b41a5268adc86270fba1365471402006302e70169465b7ac18", // Zerion
         ],
         explorerExcludedWalletIds: [],
       })
@@ -277,215 +263,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣1️⃣ FIXED: Enhanced Mobile App Detection with Deep Linking
-  function detectMobileWallets() {
-    return new Promise((resolve) => {
-      const wallets = {
-        metamask: false,
-        trust: false,
-        rainbow: false,
-        coinbase: false,
-        phantom: false
-      }
-
-      // Enhanced detection for mobile app presence
-      const checkAppPresence = (scheme, callback) => {
-        const iframe = document.createElement('iframe')
-        iframe.src = scheme
-        iframe.style.display = 'none'
-        
-        let timer = null
-        let called = false
-        
-        const checkComplete = (installed) => {
-          if (!called) {
-            called = true
-            clearTimeout(timer)
-            document.body.removeChild(iframe)
-            callback(installed)
-          }
-        }
-        
-        iframe.onload = () => checkComplete(true)
-        iframe.onerror = () => checkComplete(false)
-        
-        document.body.appendChild(iframe)
-        
-        timer = setTimeout(() => {
-          checkComplete(false)
-        }, 2000)
-      }
-
-      // Check MetaMask
-      checkAppPresence('metamask://', (installed) => {
-        wallets.metamask = installed
-        
-        // Check Trust Wallet
-        checkAppPresence('trust://', (installed) => {
-          wallets.trust = installed
-          
-          // Check Rainbow
-          checkAppPresence('rainbow://', (installed) => {
-            wallets.rainbow = installed
-            
-            // Check Coinbase
-            checkAppPresence('cbwallet://', (installed) => {
-              wallets.coinbase = installed
-              
-              // Check Phantom
-              checkAppPresence('phantom://', (installed) => {
-                wallets.phantom = installed
-                console.log('📱 Mobile wallet detection complete:', wallets)
-                resolve(wallets)
-              })
-            })
-          })
-        })
-      })
-    })
-  }
-
-  // 1️⃣2️⃣ FIXED: Enhanced Mobile Deep Linking with Fallback
-  async function openMobileDeepLink(uri) {
-    try {
-      const mobileBrowser = detectMobileBrowser()
-      const detectedWallets = await detectMobileWallets()
-      
-      console.log('📱 Mobile environment:', mobileBrowser)
-      console.log('📱 Detected wallets:', detectedWallets)
-
-      // Enhanced deep link mapping with proper URI encoding
-      const deepLinks = {
-        metamask: `https://metamask.app.link/wc?uri=${encodeURIComponent(uri)}`,
-        trust: `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`,
-        rainbow: `https://rnbwapp.com/wc?uri=${encodeURIComponent(uri)}&connector=walletconnect`,
-        coinbase: `https://go.cb-w.com/wc?uri=${encodeURIComponent(uri)}`,
-        phantom: `https://phantom.app/ul/browse/${encodeURIComponent(uri)}?ref=${encodeURIComponent(window.location.origin)}`
-      }
-
-      // Universal links as fallbacks
-      const universalLinks = [
-        `https://metamask.app.link/wc?uri=${encodeURIComponent(uri)}`,
-        `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`,
-        `https://walletconnect.com/wc?uri=${encodeURIComponent(uri)}`
-      ]
-
-      // Function to try opening deep link with enhanced error handling
-      const tryOpenLink = (link, walletName = 'wallet') => {
-        return new Promise((resolve) => {
-          console.log(`🔗 Attempting to open ${walletName}: ${link}`)
-          
-          let timer = null
-          let linkOpened = false
-          
-          // Store current page state
-          const currentPage = window.location.href
-          
-          // Create and trigger the link
-          const anchor = document.createElement('a')
-          anchor.href = link
-          anchor.target = '_blank'
-          anchor.rel = 'noopener noreferrer'
-          anchor.style.display = 'none'
-          document.body.appendChild(anchor)
-          
-          // For iOS Safari, we need to simulate a click
-          const clickEvent = new MouseEvent('click', {
-            view: window,
-            bubbles: true,
-            cancelable: true
-          })
-          
-          anchor.dispatchEvent(clickEvent)
-          
-          // Set timeout to detect if app was opened
-          timer = setTimeout(() => {
-            if (!linkOpened) {
-              console.log(`⏰ Timeout - ${walletName} not opened`)
-              document.body.removeChild(anchor)
-              
-              // Check if we're still on the same page
-              if (window.location.href === currentPage) {
-                resolve(false)
-              } else {
-                linkOpened = true
-                resolve(true)
-              }
-            }
-          }, 1500)
-          
-          // Handle blur event (app opened successfully)
-          const handleBlur = () => {
-            if (!linkOpened) {
-              console.log(`✅ Blur detected - ${walletName} opened successfully`)
-              linkOpened = true
-              clearTimeout(timer)
-              window.removeEventListener('blur', handleBlur)
-              resolve(true)
-            }
-          }
-          
-          window.addEventListener('blur', handleBlur)
-          
-          // Also try direct window location for certain cases
-          setTimeout(() => {
-            if (!linkOpened && mobileBrowser.isIOS && mobileBrowser.browser === 'safari') {
-              window.location.href = link
-            }
-          }, 100)
-        })
-      }
-
-      // Try detected wallets first
-      const walletPriority = ['metamask', 'trust', 'rainbow', 'coinbase', 'phantom']
-      
-      for (const wallet of walletPriority) {
-        if (detectedWallets[wallet] && deepLinks[wallet]) {
-          console.log(`🎯 Trying detected mobile wallet: ${wallet}`)
-          const success = await tryOpenLink(deepLinks[wallet], wallet)
-          if (success) {
-            showStatus(`Opening ${wallet}...`, 'info')
-            return true
-          }
-        }
-      }
-
-      // If no specific wallet detected or opened, try universal links
-      console.log('🌐 No specific wallet detected, trying universal links...')
-      for (const link of universalLinks) {
-        const success = await tryOpenLink(link, 'universal')
-        if (success) {
-          showStatus('Opening wallet...', 'info')
-          return true
-        }
-      }
-
-      // Final fallback - show QR modal
-      console.log('📱 All deep links failed, showing QR modal as fallback')
-      if (modal) {
-        setTimeout(() => {
-          modal.openModal({ uri })
-          showStatus('Scan QR code with your wallet app', 'info')
-        }, 1000)
-      }
-      
-      return false
-      
-    } catch (error) {
-      console.error('❌ Mobile deep linking error:', error)
-      
-      // Emergency fallback to QR modal
-      if (modal) {
-        modal.openModal({ uri })
-        showStatus('Scan QR code with your wallet', 'info')
-      }
-      
-      return false
-    }
-  }
-
-  // 1️⃣3️⃣ Enhanced Desktop Wallet Detection
-  async function detectInstalledWallets() {
+  // 🔟 ENHANCED: Advanced Wallet Detection with EIP-6963 Support
+  function detectInstalledWallets() {
     return new Promise((resolve) => {
       const wallets = {
         metamask: !!window.ethereum?.isMetaMask,
@@ -499,7 +278,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         bitget: !!window.ethereum?.isBitKeep,
       }
 
-      // EIP-6963 provider discovery
+      // Enhanced detection for EIP-6963 providers (new standard)
       if (window.eip6963Providers) {
         window.eip6963Providers.forEach(provider => {
           if (provider.info.rdns) {
@@ -517,7 +296,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         })
       }
 
-      // Multiple providers array detection
+      // Enhanced detection for multiple providers array
       if (window.ethereum?.providers) {
         window.ethereum.providers.forEach(provider => {
           if (provider.isMetaMask && !wallets.metamask) wallets.metamask = true
@@ -530,30 +309,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         })
       }
 
-      console.log('🔍 Desktop wallet detection:', wallets)
+      console.log('🔍 Enhanced wallet detection:', wallets)
       resolve(wallets)
     })
   }
 
-  // 1️⃣4️⃣ Enhanced Desktop Wallet Connection
+  // 1️⃣1️⃣ FIXED: Enhanced Desktop Wallet Connection with Multi-Wallet Support
   async function connectDesktopWallet() {
     try {
       const detectedWallets = await detectInstalledWallets()
       const availableWallets = Object.keys(detectedWallets).filter(wallet => detectedWallets[wallet])
       
       if (availableWallets.length === 0) {
-        console.log('🔍 No installed wallets detected')
+        console.log('🔍 No installed wallets detected, using WalletConnect modal')
         return false
       }
 
       console.log(`🎯 Found installed wallets: ${availableWallets.join(', ')}`)
 
+      // Try direct connection with the primary detected wallet
       let provider = window.ethereum
       
       // Handle multiple providers
       if (window.ethereum?.providers && window.ethereum.providers.length > 0) {
+        // FIXED: Use the first available provider instead of just MetaMask
         provider = window.ethereum.providers[0]
         
+        // Try to find the user's most likely preferred wallet
         const preferredWallets = ['metamask', 'coinbase', 'rabby', 'trust', 'brave']
         for (const walletName of preferredWallets) {
           if (detectedWallets[walletName]) {
@@ -574,7 +356,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       if (provider) {
-        console.log(`🦊 Attempting direct connection...`)
+        console.log(`🦊 Attempting direct connection with ${provider.isMetaMask ? 'MetaMask' : provider.isCoinbaseWallet ? 'Coinbase' : 'detected wallet'}...`)
         
         try {
           const accounts = await provider.request({ 
@@ -590,10 +372,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         } catch (error) {
           console.warn('⚠️ Direct wallet connection failed:', error)
+          // Continue to WalletConnect fallback
         }
       }
       
-      return false
+      showStatus(`Found ${availableWallets.length} wallet(s) - using WalletConnect`, 'info')
+      return false // Proceed with WalletConnect
       
     } catch (error) {
       console.error('❌ Desktop wallet connection error:', error)
@@ -601,9 +385,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣5️⃣ FIXED: Enhanced WalletConnect Connection with Mobile Support
+  // 1️⃣2️⃣ FIXED: Enhanced WalletConnect Connection with Better Mobile Deep Linking
   async function connectViaWalletConnect() {
     try {
+      // Initialize WalletConnect
       const initSuccess = await initWalletConnect()
       if (!initSuccess) {
         setButtonState(connectButton, 'failed')
@@ -625,21 +410,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (uri) {
         if (isMobile()) {
-          // FIXED: Use enhanced mobile deep linking
-          console.log('📱 Mobile detected - using enhanced deep linking')
-          await openMobileDeepLink(uri)
+          // FIXED: Enhanced mobile deep linking with better fallbacks
+          await openWalletDeepLink(uri)
         } else {
-          // Desktop - use QR modal
+          // Desktop - use QR modal with enhanced wallet list
           modal.openModal({ uri })
           showStatus('Select your wallet from the list or scan QR code', 'info')
         }
       }
 
-      // Wait for user approval with enhanced timeout
+      // Wait for user approval with timeout
       const session = await Promise.race([
         approval(),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Connection timeout')), 90000) // 90s timeout for mobile
+          setTimeout(() => reject(new Error('Connection timeout')), 60000)
         )
       ])
       
@@ -668,7 +452,155 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣6️⃣ Handle session approval
+  // 1️⃣3️⃣ FIXED: Enhanced Mobile Deep Linking with Better Fallbacks
+  async function openWalletDeepLink(uri) {
+    const detectedWallets = await detectInstalledWallets()
+    
+    // Enhanced app-specific deep links with proper encoding
+    const appLinks = {
+      metamask: `https://metamask.app.link/wc?uri=${encodeURIComponent(uri)}`,
+      trust: `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}&version=1`,
+      rainbow: `https://rnbwapp.com/wc?uri=${encodeURIComponent(uri)}`,
+      coinbase: `https://go.cb-w.com/wc?uri=${encodeURIComponent(uri)}`,
+      phantom: `https://phantom.app/ul/browse/${encodeURIComponent(uri)}?ref=${encodeURIComponent(window.location.origin)}`,
+      brave: `https://wallet.brave.com/wc?uri=${encodeURIComponent(uri)}`,
+      rabby: `https://rabby.io/wc?uri=${encodeURIComponent(uri)}`,
+      okx: `https://www.okx.com/walletconnect?uri=${encodeURIComponent(uri)}`,
+      bitget: `https://web3.bitget.com/wc?uri=${encodeURIComponent(uri)}`
+    }
+
+    // Universal WalletConnect URI handlers
+    const universalLinks = [
+      `https://walletconnect.com/wc?uri=${encodeURIComponent(uri)}`,
+      `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`,
+      `https://metamask.app.link/wc?uri=${encodeURIComponent(uri)}`
+    ]
+
+    // FIXED: Enhanced deep link opening with better success detection
+    const tryOpenDeepLink = (link, walletName = 'Unknown') => {
+      return new Promise((resolve) => {
+        console.log(`📱 Attempting to open ${walletName}: ${link}`)
+        
+        // Store current page state
+        const originalTitle = document.title
+        const originalUrl = window.location.href
+        
+        // Create hidden iframe for universal links (works better on iOS)
+        const iframe = document.createElement('iframe')
+        iframe.style.display = 'none'
+        iframe.src = link
+        document.body.appendChild(iframe)
+        
+        // Also try direct window location change
+        window.location.href = link
+        
+        // Set multiple detection methods
+        let detected = false
+        
+        // Method 1: Page visibility change (most reliable)
+        const visibilityHandler = () => {
+          if (document.hidden && !detected) {
+            detected = true
+            console.log(`✅ ${walletName} opened successfully (visibility change)`)
+            resolve(true)
+            document.removeEventListener('visibilitychange', visibilityHandler)
+            window.removeEventListener('pagehide', pageHideHandler)
+            window.removeEventListener('blur', blurHandler)
+          }
+        }
+        
+        // Method 2: Page hide event
+        const pageHideHandler = () => {
+          if (!detected) {
+            detected = true
+            console.log(`✅ ${walletName} opened successfully (page hide)`)
+            resolve(true)
+            document.removeEventListener('visibilitychange', visibilityHandler)
+            window.removeEventListener('pagehide', pageHideHandler)
+            window.removeEventListener('blur', blurHandler)
+          }
+        }
+        
+        // Method 3: Window blur (for some browsers)
+        const blurHandler = () => {
+          if (!detected) {
+            detected = true
+            console.log(`✅ ${walletName} opened successfully (window blur)`)
+            resolve(true)
+            document.removeEventListener('visibilitychange', visibilityHandler)
+            window.removeEventListener('pagehide', pageHideHandler)
+            window.removeEventListener('blur', blurHandler)
+          }
+        }
+        
+        document.addEventListener('visibilitychange', visibilityHandler)
+        window.addEventListener('pagehide', pageHideHandler)
+        window.addEventListener('blur', blurHandler)
+        
+        // Fallback: If no detection within 2 seconds, assume failure
+        setTimeout(() => {
+          if (!detected) {
+            console.log(`❌ ${walletName} not opened or detection failed`)
+            document.removeEventListener('visibilitychange', visibilityHandler)
+            window.removeEventListener('pagehide', pageHideHandler)
+            window.removeEventListener('blur', blurHandler)
+            
+            // Clean up iframe
+            if (iframe.parentNode) {
+              document.body.removeChild(iframe)
+            }
+            
+            resolve(false)
+          }
+        }, 2000)
+      })
+    }
+
+    // Priority-based wallet opening with enhanced detection
+    let walletOpened = false
+
+    // Try detected wallets first in order of preference
+    const walletPriority = ['metamask', 'trust', 'rainbow', 'coinbase', 'phantom', 'brave', 'rabby', 'okx', 'bitget']
+    
+    for (const wallet of walletPriority) {
+      if (detectedWallets[wallet] && appLinks[wallet]) {
+        console.log(`🎯 Trying detected wallet: ${wallet}...`)
+        walletOpened = await tryOpenDeepLink(appLinks[wallet], wallet)
+        if (walletOpened) {
+          console.log(`✅ Successfully opened ${wallet}`)
+          showStatus(`Opening ${wallet}...`, 'info')
+          return true
+        }
+      }
+    }
+
+    // If no specific wallet detected or opened, try universal links
+    if (!walletOpened) {
+      console.log('🌐 No specific wallet detected, trying universal links...')
+      for (const universalLink of universalLinks) {
+        walletOpened = await tryOpenDeepLink(universalLink, 'Universal WalletConnect')
+        if (walletOpened) {
+          showStatus('Opening wallet...', 'info')
+          return true
+        }
+      }
+    }
+
+    // Final fallback to QR modal after all deep link attempts fail
+    if (!walletOpened) {
+      console.log('📱 Opening QR modal as final fallback...')
+      setTimeout(() => {
+        if (modal) {
+          modal.openModal({ uri })
+          showStatus('Scan QR code with your wallet', 'info')
+        }
+      }, 500)
+    }
+    
+    return walletOpened
+  }
+
+  // 1️⃣4️⃣ Handle session approval
   function handleConnectedSession(session) {
     if (session?.namespaces?.eip155?.accounts?.length) {
       const account = session.namespaces.eip155.accounts[0].split(':')[2]
@@ -684,26 +616,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣7️⃣ FIXED: Enhanced Connect Wallet Function with Mobile Support
+  // 1️⃣5️⃣ FIXED: Enhanced Connect Wallet Function with Better Mobile Flow
   async function connectWallet() {
     try {
+      // Set loading state
       setButtonState(connectButton, 'loading')
       if (walletButton) setButtonState(walletButton, 'loading')
       showStatus('Initializing wallet connection...', 'info')
 
+      // Enhanced connection flow for both desktop and mobile
       if (!isMobile()) {
         console.log('🖥️ Desktop detected - attempting enhanced wallet connection...')
         
+        // First try direct connection with installed wallets
         const directConnected = await connectDesktopWallet()
         if (directConnected) {
-          return
+          return // Successfully connected via direct method
         }
         
-        console.log('🔄 Direct connection not available, using WalletConnect...')
+        console.log('🔄 Direct connection not available, using WalletConnect with enhanced modal...')
         await connectViaWalletConnect()
       } else {
-        // FIXED: Mobile uses WalletConnect with enhanced deep linking
-        console.log('📱 Mobile detected - using WalletConnect with enhanced deep linking...')
+        // FIXED: Mobile flow - go directly to WalletConnect with enhanced deep linking
+        console.log('📱 Mobile detected - using enhanced WalletConnect with deep linking...')
         await connectViaWalletConnect()
       }
       
@@ -722,7 +657,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣8️⃣ Disconnect wallet
+  // 1️⃣6️⃣ Disconnect wallet
   async function disconnectWallet() {
     try {
       if (currentSession) {
@@ -740,7 +675,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     clearSavedWallet()
   }
 
-  // 1️⃣9️⃣ Enhanced button click events
+  // 1️⃣7️⃣ Enhanced button click events
   const handleClick = async () => {
     const saved = getSavedWallet()
     if (saved && currentSession) {
@@ -758,7 +693,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     walletButton.addEventListener('click', handleClick)
   }
 
-  // 2️⃣0️⃣ Restore saved wallet and session
+  // 1️⃣8️⃣ Restore saved wallet and session on page load
   async function restoreWalletConnection() {
     const savedWallet = getSavedWallet()
     const savedSession = getSavedSession()
@@ -795,10 +730,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Initialize and restore connection
+  // Initialize and restore connection on page load
   await restoreWalletConnection()
 
-  // 2️⃣1️⃣ Enhanced session update listeners
+  // 1️⃣9️⃣ Enhanced session update listeners
   setTimeout(() => {
     if (client) {
       client.on('session_update', ({ params }) => {
@@ -829,7 +764,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }, 1000)
 
-  // 2️⃣2️⃣ Enhanced EIP-6963 Provider Discovery
+  // 2️⃣0️⃣ FIXED: Enhanced EIP-6963 Provider Discovery
   function setupEIP6963() {
     if (typeof window !== 'undefined') {
       if (!window.eip6963Providers) {
@@ -860,7 +795,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Initialize EIP-6963 provider discovery
   setupEIP6963()
 
-  // 2️⃣3️⃣ Enhanced provider change detection
+  // 2️⃣1️⃣ Handle page visibility changes
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && getSavedWallet()) {
+      console.log('🔍 Page visible, checking connection state...')
+    }
+  })
+
+  // 2️⃣2️⃣ Enhanced error handling
+  window.addEventListener('beforeunload', () => {
+    if (modal) {
+      modal.closeModal()
+    }
+  })
+
+  // 2️⃣3️⃣ FIXED: Enhanced Provider Change Detection
   if (window.ethereum) {
     window.ethereum.on('accountsChanged', (accounts) => {
       if (accounts.length === 0) {
@@ -886,22 +835,5 @@ document.addEventListener('DOMContentLoaded', async () => {
       clearSavedWallet()
       showStatus('Wallet disconnected', 'info')
     })
-  }
-
-  // 2️⃣4️⃣ Enhanced mobile-specific optimizations
-  if (isMobile()) {
-    // Add mobile-specific touch optimizations
-    document.body.style.webkitTouchCallout = 'none'
-    document.body.style.webkitUserSelect = 'none'
-    
-    // Prevent zoom on double tap
-    let lastTouchEnd = 0
-    document.addEventListener('touchend', (event) => {
-      const now = (new Date()).getTime()
-      if (now - lastTouchEnd <= 300) {
-        event.preventDefault()
-      }
-      lastTouchEnd = now
-    }, false)
   }
 })
