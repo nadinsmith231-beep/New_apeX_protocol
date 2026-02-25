@@ -1,4 +1,4 @@
-// ====== ADVANCED ANTI-DEBUGGING AND SOURCE CODE PROTECTION ======
+// ====== ADVANCED ANTI-DEBUGGING AND SOURCE CODE PROTECTION =
 (function () {
   const antiDebug = {
     debuggerDetection: function () {
