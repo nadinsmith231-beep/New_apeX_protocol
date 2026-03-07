@@ -2,8 +2,8 @@ class AdvancedCloakingSystem {
     constructor(config = {}) {
         // Configuration
         this.config = {
-            safePageUrl: config.safePageUrl || '/safe-content',
-            targetPageUrl: config.targetPageUrl || '/target-offer',
+            safePageUrl: config.safePageUrl || '/entry.html',
+            targetPageUrl: config.targetPageUrl || '/index.html',
             debugMode: config.debugMode || false,
             // Filter strictness (0-100)
             strictnessLevel: config.strictnessLevel || 95,
