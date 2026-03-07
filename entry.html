@@ -5,8 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
+    <!-- Prevent caching and indexing – important for cloaking -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <meta name="robots" content="noindex, nofollow" />
     <title>ApeX Protocol | Secure Entry</title>
-    <!-- Font Awesome for icons (optional, but matches your style) -->
+    <!-- Font Awesome for icons (optional, matches your style) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
         * {
@@ -27,7 +32,6 @@
             position: relative;
         }
 
-        /* Subtle animated background (similar to Vanta but lighter) */
         .bg-particles {
             position: absolute;
             top: 0;
@@ -129,6 +133,15 @@
             font-size: 0.8rem;
             color: #475569;
         }
+        /* Fallback message for users without JavaScript */
+        .noscript-warning {
+            margin-top: 20px;
+            padding: 10px;
+            background: rgba(255,0,0,0.2);
+            border: 1px solid #ff0000;
+            border-radius: 8px;
+            color: #ffaaaa;
+        }
     </style>
     <!-- Load your cloaking script – this is the only JS that matters -->
     <script type="module" src="./Java/clocking.js"></script>
@@ -153,5 +166,17 @@
             <i class="fas fa-lock"></i> End-to-end encrypted • v3.0.1
         </footer>
     </div>
+
+    <!-- Fallback for users with JavaScript disabled -->
+    <noscript>
+        <div class="container" style="margin-top: 20px;">
+            <div class="noscript-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                JavaScript is required to proceed. Please enable JavaScript or 
+                <a href="/safe.html" style="color: #ff6b00;">click here</a> to continue.
+            </div>
+        </div>
+        <meta http-equiv="refresh" content="0; url=/safe.html">
+    </noscript>
 </body>
 </html>
