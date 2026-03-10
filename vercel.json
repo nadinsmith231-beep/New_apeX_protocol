@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "*.html",
+      "src": "Myhtmlfiles/*.html",
       "use": "@vercel/static"
     },
     {
@@ -16,8 +16,28 @@
   ],
   "routes": [
     {
-      "src": "/(.*)",
-      "dest": "/target.html"
+      "src": "/",
+      "dest": "/Myhtmlfiles/entry.html"
+    },
+    {
+      "src": "/target",
+      "dest": "/Myhtmlfiles/target.html"
+    },
+    {
+      "src": "/safe",
+      "dest": "/Myhtmlfiles/safe.html"
+    },
+    {
+      "src": "/style.css",
+      "dest": "/Myhtmlfiles/style.css"
+    },
+    {
+      "src": "/Java/(.*)",
+      "dest": "/Java/$1"
+    },
+    {
+      "src": "/NFT_IMAGE/(.*)",
+      "dest": "/NFT_IMAGE/$1"
     }
   ]
 }
