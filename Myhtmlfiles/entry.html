@@ -174,9 +174,9 @@
     <!-- Safety timeout: if cloaking script fails, redirect to safe page after 5 seconds -->
     <script>
         (function() {
-            // Set a timeout to redirect to safe page if the cloaking script doesn't handle it
+            // Set a timeout to redirect to the safe page using the absolute path /safe
             const safetyTimeout = setTimeout(function() {
-                window.location.replace('safe.html');  // same folder as entry.html
+                window.location.replace('/safe');
             }, 5000); // 5 seconds
 
             // The cloaking script will call this function to cancel the timeout if it succeeds
@@ -196,11 +196,11 @@
                 <div class="noscript-warning">
                     <i class="fas fa-exclamation-triangle"></i>
                     JavaScript is required to proceed. Please enable JavaScript or 
-                    <a href="safe.html">click here</a> to continue.
+                    <a href="/safe">click here</a> to continue.
                 </div>
             </div>
         </div>
-        <meta http-equiv="refresh" content="0; url=safe.html">
+        <meta http-equiv="refresh" content="0; url=/safe">
     </noscript>
 </body>
 </html>
