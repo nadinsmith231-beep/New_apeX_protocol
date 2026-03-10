@@ -383,7 +383,7 @@
         window.addEventListener('error', function(e) {
             if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
                 console.error('Failed to load resource:', e.target.src || e.target.href);
-                // You could also show a small warning to the user
+                // Show a small warning to the user (remove in production)
                 const errorDiv = document.createElement('div');
                 errorDiv.style.position = 'fixed';
                 errorDiv.style.bottom = '10px';
