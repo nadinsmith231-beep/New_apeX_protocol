@@ -1,7 +1,7 @@
 // ===== main.js — ApeX Protocol WalletConnect Integration (Enhanced Desktop + Mobile Modal) =====
-
-import SignClient from '@walletconnect/sign-client'
-import { WalletConnectModal } from '@walletconnect/modal'
+// FIXED: Use CDN imports for WalletConnect libraries
+import SignClient from 'https://esm.sh/@walletconnect/sign-client@2.11.0'
+import { WalletConnectModal } from 'https://esm.sh/@walletconnect/modal@2.6.2'
 
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('✅ main.js loaded - Enhanced Desktop + Mobile Modal Wallet Detection')
