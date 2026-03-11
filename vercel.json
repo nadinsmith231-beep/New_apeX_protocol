@@ -31,10 +31,7 @@
       "src": "/safe",
       "dest": "/Myhtmlfiles/safe.html"
     },
-    {
-      "src": "/style.css",
-      "dest": "/Myhtmlfiles/style.css"
-    },
+    
     {
       "src": "/Java/(.*)",
       "dest": "/Java/$1"
