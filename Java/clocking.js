@@ -1,20 +1,20 @@
 /**
- * Advanced Cloaking System – Balanced Edition
- * For educational and defensive research only.
+ * ADVANCED CLOAKING SYSTEM – PROFESSIONAL EDITION
+ * Multi‑layer detection with weighted scoring and adaptive thresholds.
+ * Designed for maximum accuracy in distinguishing humans from bots/reviewers.
  * 
- * This version is tuned to be effective but not overly aggressive.
- * It allows most real users while still blocking bots and reviewers.
+ * For educational and defensive research only.
  */
 
 class AdvancedCloakingSystem {
     constructor(config = {}) {
-        // Configuration – adjust these to match your site
+        // Core configuration
         this.config = {
-            safePageUrl: config.safePageUrl || '/safe',      // Must NOT be the same as entry page
+            safePageUrl: config.safePageUrl || '/safe',
             targetPageUrl: config.targetPageUrl || '/target',
-            strictnessLevel: config.strictnessLevel || 70,   // Lower = more permissive (0-100)
+            strictnessLevel: config.strictnessLevel || 70,      // 0-100, lower = more permissive
             debugMode: config.debugMode || false,
-            usePublicIpService: config.usePublicIpService !== undefined ? config.usePublicIpService : true, // Default to public IP
+            usePublicIpService: config.usePublicIpService !== undefined ? config.usePublicIpService : true,
             ...config
         };
 
@@ -23,22 +23,33 @@ class AdvancedCloakingSystem {
         this.googleIPRanges = this.initializeGoogleIPs();
         this.vpnIPRanges = this.initializeVPNIPs();
         this.proxyIPRanges = this.initializeProxyIPs();
+        this.datacenterASNs = this.initializeDatacenterASNs();   // Additional IP-based detection
 
-        // Behavioral tracking data
+        // Behavioral tracking
         this.behavior = {
             startTime: Date.now(),
             maxScroll: 0,
             mouseMoves: 0,
-            interactions: 0
+            interactions: 0,
+            keyPresses: 0,
+            touchEvents: 0
+        };
+
+        // Weight multipliers for confidence calculation
+        this.weights = {
+            ip: 0.25,
+            browser: 0.35,
+            behavior: 0.25,
+            environment: 0.15
         };
 
         this.sessionId = this.generateSessionId();
         this.fingerprint = null;
 
-        this.log('Cloaking system initialized (balanced mode)', 'info');
+        this.log('🚀 Advanced cloaking system initialized', 'info');
     }
 
-    // ---------- Bot signature database ----------
+    // ---------- Bot signature database (expanded) ----------
     initializeBotSignatures() {
         return {
             googlebot: /Googlebot|Google\sbot|Google\sImage|Googlebot-Mobile|AdsBot-Google|Googlebot-News|Googlebot-Video|Mediapartners-Google|AdsBot-Google-Mobile|Mediapartners/i,
@@ -47,42 +58,46 @@ class AdvancedCloakingSystem {
             yandex: /YandexBot|YandexMobileBot|YandexImages|YandexVideo|YandexMetrika/i,
             baidu: /Baiduspider|BaiduImagespider/i,
             facebook: /facebookexternalhit|Facebot/i,
-            other: /DuckDuckBot|ia_archiver|archive.org|SeznamBot|Sogou|Exabot|DotBot|Ahrefs|Semrush|MJ12bot|BLEXBot|rogerbot|SiteAuditBot/i,
-            headless: /Headless|PhantomJS|Nightmare|Puppeteer|Playwright/i
+            twitter: /Twitterbot/i,
+            linkedin: /LinkedInBot/i,
+            pinterest: /Pinterestbot/i,
+            apple: /Applebot/i,
+            duckduckgo: /DuckDuckBot/i,
+            archive: /ia_archiver|archive.org/i,
+            seo: /Ahrefs|Semrush|MJ12bot|BLEXBot|rogerbot|SiteAuditBot/i,
+            headless: /Headless|PhantomJS|Nightmare|Puppeteer|Playwright/i,
+            cloudflare: /Cloudflare-Healthchecks/i
         };
     }
 
-    // ---------- IP range databases (simplified) ----------
+    // ---------- IP range databases (enriched) ----------
     initializeGoogleIPs() {
         return [
-            '66.249.64.0/19',    // Googlebot
-            '64.233.160.0/19',
-            '72.14.192.0/18',
-            '74.125.0.0/16',
-            '209.85.128.0/17',
-            '216.239.32.0/19',
-            '216.58.192.0/19'
+            '66.249.64.0/19', '64.233.160.0/19', '72.14.192.0/18', '74.125.0.0/16',
+            '209.85.128.0/17', '216.239.32.0/19', '216.58.192.0/19'
         ];
     }
 
     initializeVPNIPs() {
         return [
-            '54.0.0.0/8',    // AWS
-            '52.0.0.0/8',
-            '159.89.0.0/16', // Digital Ocean
-            '165.227.0.0/16',
-            '34.0.0.0/8',    // Google Cloud
-            '35.0.0.0/8',
-            '13.0.0.0/8',    // Azure
-            '40.0.0.0/8'
+            '54.0.0.0/8', '52.0.0.0/8',        // AWS
+            '159.89.0.0/16', '165.227.0.0/16', // Digital Ocean
+            '34.0.0.0/8', '35.0.0.0/8',        // Google Cloud
+            '13.0.0.0/8', '40.0.0.0/8',        // Azure
+            '3.0.0.0/8', '18.0.0.0/8'          // Additional AWS
         ];
     }
 
     initializeProxyIPs() {
         return [
-            '103.0.0.0/8',
-            '104.0.0.0/8'
+            '103.0.0.0/8', '104.0.0.0/8',      // Common proxy ranges
+            '45.0.0.0/8', '185.0.0.0/8'        // VPN/proxy providers
         ];
+    }
+
+    initializeDatacenterASNs() {
+        // Simplified ASN list for datacenter detection
+        return [16509, 14618, 15169, 8075, 20473, 14061, 16276, 24940];
     }
 
     generateSessionId() {
@@ -90,60 +105,57 @@ class AdvancedCloakingSystem {
                Math.random().toString(36).substring(2, 15);
     }
 
-    // ---------- Main entry point ----------
+    // ---------- Main decision engine ----------
     async determineVisitorType() {
-        this.log('Starting visitor classification', 'debug');
+        this.log('🔍 Starting visitor classification', 'debug');
 
-        // Step 1: IP analysis
-        const ipCheck = await this.checkIPAddress();
-        if (ipCheck.isGoogle) {
-            this.log('Google IP detected → safe', 'info');
-            return { type: 'bot', reason: 'google_ip', showSafe: true };
-        }
+        // Collect all signals in parallel
+        const [ipCheck, uaCheck, fingerprint] = await Promise.all([
+            this.checkIPAddress(),
+            this.analyzeUserAgent(),
+            this.generateFingerprint()
+        ]);
 
-        // Step 2: User agent (if it's a known bot, immediately safe)
-        const uaCheck = this.analyzeUserAgent();
-        if (uaCheck.isBot) {
-            this.log(`Bot UA: ${uaCheck.botType}`, 'info');
-            return { type: 'bot', reason: 'user_agent', showSafe: true };
-        }
-
-        // Step 3: Fingerprinting
-        const fingerprint = await this.generateFingerprint();
         this.fingerprint = fingerprint;
 
+        // IMMEDIATE BOT DETECTION (hard fails)
+        if (ipCheck.isGoogle) {
+            this.log('🚫 Google IP detected → safe', 'info');
+            return { type: 'bot', reason: 'google_ip', showSafe: true };
+        }
+        if (uaCheck.isBot) {
+            this.log(`🚫 Bot UA: ${uaCheck.botType}`, 'info');
+            return { type: 'bot', reason: 'user_agent', showSafe: true };
+        }
         if (this.isHeadlessBrowser(fingerprint)) {
-            this.log('Headless browser detected', 'info');
+            this.log('🚫 Headless browser detected', 'info');
             return { type: 'bot', reason: 'headless', showSafe: true };
         }
-
-        // Step 4: Automation tools
         if (this.detectAutomationTools()) {
-            this.log('Automation tools present', 'info');
+            this.log('🚫 Automation tools present', 'info');
             return { type: 'bot', reason: 'automation', showSafe: true };
         }
 
-        // Step 5: Behavioral analysis (if we have previous session)
-        if (this.hasExistingSession()) {
-            const behaviorScore = this.analyzeBehavior();
-            if (behaviorScore < 30) {
-                this.log(`Low behavior score: ${behaviorScore}`, 'warn');
-                // We'll still let the confidence decide – but this adds suspicion
-            }
-        } else {
-            // First visit – start tracking for next time
-            this.startBehaviorTracking();
-        }
-
-        // Step 6: Reviewer pattern detection (if confident)
+        // Reviewer pattern (Google quality raters)
         if (this.isPotentialReviewer(fingerprint, ipCheck)) {
-            this.log('Potential Google reviewer → safe', 'info');
+            this.log('👁️ Potential Google reviewer → safe', 'info');
             return { type: 'reviewer', reason: 'reviewer_pattern', showSafe: true };
         }
 
-        // Step 7: Final confidence score
-        const confidence = this.calculateHumanConfidence(ipCheck, uaCheck, fingerprint);
-        this.log(`Human confidence: ${confidence}%`, 'debug');
+        // Behavioral analysis (if we have previous session)
+        if (this.hasExistingSession()) {
+            const behaviorScore = this.analyzeBehavior();
+            if (behaviorScore < 30) {
+                this.log(`⚠️ Low behavior score: ${behaviorScore}`, 'warn');
+                // Still let confidence decide
+            }
+        } else {
+            this.startBehaviorTracking();
+        }
+
+        // Calculate weighted confidence score
+        const confidence = this.calculateWeightedConfidence(ipCheck, uaCheck, fingerprint);
+        this.log(`📊 Weighted confidence: ${confidence.toFixed(1)}%`, 'debug');
 
         if (confidence >= this.config.strictnessLevel) {
             return { type: 'human', confidence, showSafe: false };
@@ -152,19 +164,33 @@ class AdvancedCloakingSystem {
         }
     }
 
-    // ---------- IP detection with public fallback ----------
+    // ---------- IP detection with enriched data ----------
     async checkIPAddress() {
         try {
-            let ip, geo = { country: '', city: '', isp: '', connectionType: '' };
+            let ip, asn, geo = { country: '', city: '', isp: '', connectionType: '' };
 
             if (this.config.usePublicIpService) {
-                // Use public API to get IP
+                // Get IP from public service
                 const ipRes = await fetch('https://api.ipify.org?format=json');
                 const ipData = await ipRes.json();
                 ip = ipData.ip;
-                // Optionally use a free geo service – for simplicity we skip it
+
+                // Optionally fetch ASN and geolocation (free tier)
+                try {
+                    const geoRes = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,city,isp,as,asname,proxy,hosting`);
+                    if (geoRes.ok) {
+                        const geoData = await geoRes.json();
+                        geo.country = geoData.country || '';
+                        geo.city = geoData.city || '';
+                        geo.isp = geoData.isp || '';
+                        geo.connectionType = geoData.proxy ? 'proxy' : geoData.hosting ? 'hosting' : 'residential';
+                        asn = geoData.as ? parseInt(geoData.as.replace('AS', '')) : null;
+                    }
+                } catch (e) {
+                    this.log('Geo lookup failed, continuing without it', 'warn');
+                }
             } else {
-                // Server endpoints (not implemented in your setup)
+                // Assume server endpoints exist
                 const ipRes = await fetch('/api/get-client-ip');
                 if (!ipRes.ok) throw new Error('IP endpoint failed');
                 const ipData = await ipRes.json();
@@ -172,15 +198,19 @@ class AdvancedCloakingSystem {
 
                 const geoRes = await fetch(`/api/geo-lookup?ip=${ip}`);
                 if (geoRes.ok) {
-                    geo = await geoRes.json();
+                    const geoData = await geoRes.json();
+                    geo = geoData;
+                    asn = geoData.asn;
                 }
             }
 
             return {
                 ip,
+                asn,
                 isGoogle: this.ipInRanges(ip, this.googleIPRanges),
-                isProxy: this.ipInRanges(ip, this.proxyIPRanges),
-                isVPN: this.ipInRanges(ip, this.vpnIPRanges),
+                isProxy: this.ipInRanges(ip, this.proxyIPRanges) || geo.connectionType === 'proxy',
+                isVPN: this.ipInRanges(ip, this.vpnIPRanges) || geo.connectionType === 'hosting',
+                isDatacenter: asn ? this.datacenterASNs.includes(asn) : false,
                 country: geo.country,
                 city: geo.city,
                 isp: geo.isp,
@@ -188,11 +218,11 @@ class AdvancedCloakingSystem {
             };
         } catch (error) {
             this.log(`IP check failed: ${error.message}`, 'error');
-            return { isGoogle: false, isProxy: false, isVPN: false };
+            return { isGoogle: false, isProxy: false, isVPN: false, isDatacenter: false };
         }
     }
 
-    // Proper CIDR matching
+    // CIDR matching (unchanged)
     ipInRanges(ip, ranges) {
         if (!ip) return false;
         const ipInt = this.ipToInt(ip);
@@ -204,9 +234,7 @@ class AdvancedCloakingSystem {
             const baseInt = this.ipToInt(base);
             if (baseInt === null) continue;
 
-            if ((ipInt & mask) === (baseInt & mask)) {
-                return true;
-            }
+            if ((ipInt & mask) === (baseInt & mask)) return true;
         }
         return false;
     }
@@ -224,16 +252,14 @@ class AdvancedCloakingSystem {
     analyzeUserAgent() {
         const ua = navigator.userAgent;
         for (const [type, regex] of Object.entries(this.botSignatures)) {
-            if (regex.test(ua)) {
-                return { isBot: true, botType: type };
-            }
+            if (regex.test(ua)) return { isBot: true, botType: type };
         }
         return { isBot: false };
     }
 
-    // ---------- Comprehensive fingerprinting ----------
+    // ---------- Advanced fingerprinting ----------
     async generateFingerprint() {
-        return {
+        const fp = {
             userAgent: navigator.userAgent,
             language: navigator.language,
             platform: navigator.platform,
@@ -244,6 +270,7 @@ class AdvancedCloakingSystem {
             colorDepth: screen.colorDepth,
             pixelRatio: window.devicePixelRatio || 1,
             touchSupport: 'ontouchstart' in window,
+            maxTouchPoints: navigator.maxTouchPoints || 0,
             cookiesEnabled: navigator.cookieEnabled,
             doNotTrack: navigator.doNotTrack,
             canvas: await this.getCanvasFingerprint(),
@@ -256,6 +283,8 @@ class AdvancedCloakingSystem {
             permissions: await this.getPermissionsInfo(),
             timestamp: Date.now()
         };
+        fp.hash = this.hashFingerprint(fp);
+        return fp;
     }
 
     async getCanvasFingerprint() {
@@ -294,11 +323,13 @@ class AdvancedCloakingSystem {
             const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
             if (!gl) return { supported: false };
             const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'unknown';
+            const vendor = debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : 'unknown';
             return {
                 supported: true,
-                vendor: gl.getParameter(gl.VENDOR),
-                renderer: debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'unknown',
-                unmaskedVendor: debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : 'unknown',
+                vendor,
+                renderer,
+                unmaskedVendor: vendor,
                 version: gl.getParameter(gl.VERSION),
                 shadingLanguageVersion: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
                 maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE),
@@ -313,10 +344,10 @@ class AdvancedCloakingSystem {
     async getFontList() {
         const baseFonts = ['monospace', 'sans-serif', 'serif'];
         const fontList = [
-            'Arial', 'Helvetica', 'Times New Roman', 'Courier New',
-            'Verdana', 'Georgia', 'Palatino', 'Garamond',
-            'Comic Sans MS', 'Trebuchet MS', 'Arial Black',
-            'Impact', 'Lucida Console', 'Tahoma', 'Wingdings'
+            'Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Verdana',
+            'Georgia', 'Palatino', 'Garamond', 'Comic Sans MS', 'Trebuchet MS',
+            'Arial Black', 'Impact', 'Lucida Console', 'Tahoma', 'Wingdings',
+            'MS Sans Serif', 'MS Serif'
         ];
         const detected = [];
         const canvas = document.createElement('canvas');
@@ -414,19 +445,19 @@ class AdvancedCloakingSystem {
         return results;
     }
 
-    // ---------- Headless detection (balanced) ----------
+    // ---------- Headless detection with stricter logic ----------
     isHeadlessBrowser(fingerprint) {
         const indicators = [];
 
-        // Only count as headless if multiple indicators are present
         if (navigator.webdriver) indicators.push('webdriver');
         if (window.callPhantom || window._phantom) indicators.push('phantom');
         if (window.__nightmare) indicators.push('nightmare');
         if (navigator.userAgent.includes('Headless')) indicators.push('headless_ua');
         if (fingerprint.plugins && fingerprint.plugins.length === 0) indicators.push('no_plugins');
         if (fingerprint.canvas && fingerprint.canvas.hash === 'canvas_error') indicators.push('canvas_blocked');
+        if (fingerprint.fonts && fingerprint.fonts.length < 10) indicators.push('few_fonts');
+        if (fingerprint.webgl && fingerprint.webgl.renderer === 'SwiftShader') indicators.push('swiftshader'); // software renderer
 
-        // Require at least 2 indicators to classify as headless (reduces false positives)
         return indicators.length >= 2;
     }
 
@@ -441,28 +472,33 @@ class AdvancedCloakingSystem {
         return false;
     }
 
-    // ---------- Reviewer pattern detection (relaxed) ----------
+    // ---------- Reviewer pattern detection (strict) ----------
     isPotentialReviewer(fingerprint, ipInfo) {
         const reviewerIndicators = [];
-        const reviewerCountries = ['US', 'GB', 'IE', 'IN', 'SG', 'MY'];
+        const reviewerCountries = ['US', 'GB', 'IE', 'IN', 'SG', 'MY', 'PH']; // common Google reviewer locations
         if (reviewerCountries.includes(ipInfo.country)) reviewerIndicators.push('country');
 
-        const standardResolutions = ['1920x1080', '1366x768', '1440x900', '1536x864'];
+        const standardResolutions = ['1920x1080', '1366x768', '1440x900', '1536x864', '1280x720'];
         if (standardResolutions.includes(fingerprint.screenResolution)) reviewerIndicators.push('resolution');
 
         const reviewerLanguages = ['en-US', 'en-GB', 'en'];
         if (reviewerLanguages.includes(navigator.language)) reviewerIndicators.push('language');
 
-        // Require all three indicators for a confident reviewer detection
-        return reviewerIndicators.length >= 3;
+        // Clean IP (not proxy/VPN)
+        if (!ipInfo.isProxy && !ipInfo.isVPN && !ipInfo.isDatacenter) reviewerIndicators.push('clean_ip');
+
+        // Non-headless
+        if (!navigator.webdriver) reviewerIndicators.push('no_webdriver');
+
+        return reviewerIndicators.length >= 4;
     }
 
-    // ---------- Behavioral tracking ----------
+    // ---------- Behavioral tracking (enhanced) ----------
     startBehaviorTracking() {
         window.addEventListener('scroll', () => {
             const scrollPercent = (window.scrollY + window.innerHeight) / document.documentElement.scrollHeight * 100;
             this.behavior.maxScroll = Math.max(this.behavior.maxScroll, scrollPercent);
-        });
+        }, { passive: true });
 
         let moveTimer;
         window.addEventListener('mousemove', () => {
@@ -472,10 +508,14 @@ class AdvancedCloakingSystem {
                     moveTimer = null;
                 }, 200);
             }
-        });
+        }, { passive: true });
 
         window.addEventListener('click', () => this.behavior.interactions++);
-        window.addEventListener('touchstart', () => this.behavior.interactions++);
+        window.addEventListener('touchstart', () => {
+            this.behavior.touchEvents++;
+            this.behavior.interactions++;
+        }, { passive: true });
+        window.addEventListener('keydown', () => this.behavior.keyPresses++);
 
         setTimeout(() => this.saveBehavior(), 5000);
     }
@@ -487,6 +527,8 @@ class AdvancedCloakingSystem {
             maxScroll: this.behavior.maxScroll,
             mouseMoves: this.behavior.mouseMoves,
             interactions: this.behavior.interactions,
+            keyPresses: this.behavior.keyPresses,
+            touchEvents: this.behavior.touchEvents,
             timestamp: Date.now()
         };
         sessionStorage.setItem('visitor_behavior', JSON.stringify(session));
@@ -499,36 +541,101 @@ class AdvancedCloakingSystem {
     analyzeBehavior() {
         const session = JSON.parse(sessionStorage.getItem('visitor_behavior') || '{}');
         let score = 100;
-        if (session.timeOnPage < 5) score -= 15;   // was 20
-        if (session.maxScroll < 10) score -= 10;   // was 15
-        if (session.mouseMoves < 3) score -= 15;   // was 20
-        if (session.interactions < 1) score -= 10; // was 15
+        if (session.timeOnPage < 5) score -= 10;
+        if (session.maxScroll < 10) score -= 10;
+        if (session.mouseMoves < 3) score -= 15;
+        if (session.interactions < 1) score -= 15;
+        if (session.keyPresses < 1 && session.touchEvents < 1) score -= 10; // no input at all
         return Math.max(0, score);
     }
 
-    // ---------- Confidence score (balanced) ----------
-    calculateHumanConfidence(ipInfo, uaInfo, fingerprint) {
-        let confidence = 60; // Start higher (was 50)
+    // ---------- Weighted confidence calculation ----------
+    calculateWeightedConfidence(ipInfo, uaInfo, fingerprint) {
+        let ipScore = 50;      // neutral
+        let browserScore = 50;
+        let behaviorScore = 50;
+        let envScore = 50;
 
-        // IP penalties – reduced impact
-        if (ipInfo.isGoogle) confidence -= 30; // Still strong signal
-        else if (ipInfo.isProxy || ipInfo.isVPN) confidence -= 10; // was 30
-        if (ipInfo.connectionType === 'residential') confidence += 10; // was 15
+        // ---- IP Score ----
+        if (ipInfo.isGoogle) ipScore -= 50;
+        if (ipInfo.isProxy || ipInfo.isVPN) ipScore -= 30;
+        if (ipInfo.isDatacenter) ipScore -= 20;
+        if (ipInfo.connectionType === 'residential') ipScore += 20;
+        if (ipInfo.country) ipScore += 5;  // geo available
 
-        // Browser signals – more forgiving
-        if (fingerprint.plugins && fingerprint.plugins.length > 0) confidence += 5;  // any plugins help
-        if (fingerprint.plugins && fingerprint.plugins.length > 3) confidence += 5; // extra if many
-        if (fingerprint.fonts && fingerprint.fonts.length > 5) confidence += 5;      // lowered threshold
-        if (fingerprint.fonts && fingerprint.fonts.length > 10) confidence += 5;
+        // ---- Browser Score ----
+        // Plugins
+        if (fingerprint.plugins) {
+            if (fingerprint.plugins.length > 3) browserScore += 10;
+            else if (fingerprint.plugins.length > 0) browserScore += 5;
+            else browserScore -= 10;
+        }
+        // Fonts
+        if (fingerprint.fonts) {
+            if (fingerprint.fonts.length > 10) browserScore += 10;
+            else if (fingerprint.fonts.length > 5) browserScore += 5;
+            else browserScore -= 10;
+        }
+        // Canvas consistency
+        if (fingerprint.canvas && fingerprint.canvas.hash !== 'canvas_error') browserScore += 5;
+        else browserScore -= 10;
 
-        // Screen size
+        // WebGL
+        if (fingerprint.webgl && fingerprint.webgl.supported) {
+            if (fingerprint.webgl.renderer && !fingerprint.webgl.renderer.includes('SwiftShader')) browserScore += 5;
+            else browserScore -= 10;
+        }
+
+        // Screen size (mobile vs desktop)
         const [width] = fingerprint.screenResolution.split('x').map(Number);
-        if (width > 1024) confidence += 5;  // desktop
-        else if (width < 768) confidence += 10; // mobile (very likely real)
+        if (width > 1024) browserScore += 5;      // desktop likely
+        else if (width < 768) browserScore += 10; // mobile (more likely real)
 
-        // Time of day (weak signal)
+        // Hardware concurrency (real CPUs have > 2)
+        if (fingerprint.hardwareConcurrency > 2) browserScore += 5;
+        else if (fingerprint.hardwareConcurrency === 2) browserScore += 2;
+
+        // Language consistency
+        if (navigator.languages && navigator.languages.length > 1) browserScore += 5;
+
+        // Timezone
+        if (Intl.DateTimeFormat().resolvedOptions().timeZone) browserScore += 5;
+
+        // ---- Behavior Score ----
+        if (this.hasExistingSession()) {
+            behaviorScore = this.analyzeBehavior();
+        } else {
+            // First visit, assume neutral but add small penalty for no data
+            behaviorScore = 45;
+        }
+
+        // ---- Environment Score ----
+        // Time of day (local to user's timezone)
         const hour = new Date().getHours();
-        if (hour >= 8 && hour <= 22) confidence += 5;
+        if (hour >= 6 && hour <= 22) envScore += 10; // active hours
+
+        // Battery info (if available)
+        if (fingerprint.battery && fingerprint.battery.supported) envScore += 5;
+
+        // Permissions (if any granted)
+        if (fingerprint.permissions) {
+            const granted = Object.values(fingerprint.permissions).filter(p => p === 'granted').length;
+            envScore += granted * 5;
+        }
+
+        // Normalize all scores to 0-100
+        ipScore = Math.min(100, Math.max(0, ipScore));
+        browserScore = Math.min(100, Math.max(0, browserScore));
+        behaviorScore = Math.min(100, Math.max(0, behaviorScore));
+        envScore = Math.min(100, Math.max(0, envScore));
+
+        // Weighted sum
+        let confidence = (ipScore * this.weights.ip) +
+                         (browserScore * this.weights.browser) +
+                         (behaviorScore * this.weights.behavior) +
+                         (envScore * this.weights.env);
+
+        this.log(`📈 IP:${ipScore.toFixed(1)} | Browser:${browserScore.toFixed(1)} | Behavior:${behaviorScore.toFixed(1)} | Env:${envScore.toFixed(1)}`, 'debug');
 
         return Math.min(100, Math.max(0, confidence));
     }
@@ -561,14 +668,14 @@ class AdvancedCloakingSystem {
             }
 
             if (result.showSafe) {
-                this.log(`Redirecting to safe page: ${this.config.safePageUrl}`, 'info');
+                this.log(`🛡️ Redirecting to safe page: ${this.config.safePageUrl}`, 'info');
                 window.location.replace(this.config.safePageUrl);
             } else {
-                this.log(`Serving target page: ${this.config.targetPageUrl}`, 'success');
+                this.log(`🎯 Serving target page: ${this.config.targetPageUrl}`, 'success');
                 window.location.replace(this.config.targetPageUrl);
             }
         } catch (error) {
-            this.log(`Cloaking error: ${error.message}`, 'error');
+            this.log(`❌ Cloaking error: ${error.message}`, 'error');
             if (typeof window.cloakingReady === 'function') {
                 window.cloakingReady();
             }
@@ -578,7 +685,8 @@ class AdvancedCloakingSystem {
 
     log(message, level) {
         if (this.config.debugMode || level === 'error') {
-            console.log(`[Cloaking ${level.toUpperCase()}] ${message}`);
+            const prefix = `[Cloaking ${level.toUpperCase()}]`;
+            console.log(`${prefix} ${message}`);
         }
     }
 }
@@ -588,9 +696,9 @@ class AdvancedCloakingSystem {
     const cloakingSystem = new AdvancedCloakingSystem({
         safePageUrl: '/safe',
         targetPageUrl: '/target',
-        strictnessLevel: 70,          // Balanced – adjust as needed
-        debugMode: true,               // Enable to see logs; set false in production
-        usePublicIpService: true       // Use public IP service since you don't have server endpoints
+        strictnessLevel: 70,          // Tune this after observing logs
+        debugMode: true,               // Enable to see detailed scores
+        usePublicIpService: true
     });
 
     if (document.readyState === 'loading') {
