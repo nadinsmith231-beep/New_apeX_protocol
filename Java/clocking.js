@@ -1,9 +1,10 @@
 /**
- * Advanced Cloaking System v3.1 – Human‑First Edition
+ * Advanced Cloaking System v3.2 – Mobile‑Enhanced Edition
  * For educational and defensive research only.
  *
  * Features:
  * - Very high weights for wallet, battery, and behavioral signals
+ * - Mobile‑specific signals: device motion/orientation, network info, multi‑touch, visual viewport
  * - Other signals contribute modestly to avoid false penalties
  * - Multi‑layer fingerprinting (canvas, WebGL, audio, fonts, plugins, etc.)
  * - IP reputation (public IP, datacenter/VPN detection via external API)
@@ -37,6 +38,13 @@ class AdvancedCloakingSystem {
             battery: 20,               // strong
             batteryCharging: 5,         // extra
             behavior: 60,               // maximum from behavior
+            // Mobile‑specific bonuses
+            deviceMotion: 5,
+            deviceOrientation: 5,
+            networkInfo: 5,
+            visualViewport: 5,
+            highTouchPoints: 5,
+            // Other signals (low impact)
             plugins: { many: 5, none: -2 },
             fonts: { many: 5, few: -2 },
             canvasError: -5,
@@ -71,7 +79,7 @@ class AdvancedCloakingSystem {
         this.walletInfo = null;
         this.ipInfo = null;
 
-        this.log('Cloaking system initialized (human‑first mode)', 'info');
+        this.log('Cloaking system initialized (mobile‑enhanced mode)', 'info');
     }
 
     // ---------- Bot signature database ----------
@@ -279,9 +287,37 @@ class AdvancedCloakingSystem {
         };
     }
 
-    // ---------- Comprehensive fingerprint ----------
+    // ---------- Comprehensive fingerprint (with mobile‑specific signals) ----------
     async generateFingerprint() {
         const screen = this.getScreenMetrics();
+
+        // Device motion / orientation support
+        const deviceMotionSupported = 'DeviceMotionEvent' in window;
+        const deviceOrientationSupported = 'DeviceOrientationEvent' in window;
+
+        // Network information
+        let networkInfo = null;
+        if (navigator.connection) {
+            networkInfo = {
+                effectiveType: navigator.connection.effectiveType,
+                downlink: navigator.connection.downlink,
+                rtt: navigator.connection.rtt,
+                saveData: navigator.connection.saveData
+            };
+        }
+
+        // Visual viewport (mobile viewport scaling and insets)
+        let visualViewportInfo = null;
+        if (window.visualViewport) {
+            visualViewportInfo = {
+                scale: window.visualViewport.scale,
+                width: window.visualViewport.width,
+                height: window.visualViewport.height,
+                offsetLeft: window.visualViewport.offsetLeft,
+                offsetTop: window.visualViewport.offsetTop
+            };
+        }
+
         return {
             userAgent: navigator.userAgent,
             platform: navigator.platform,
@@ -302,6 +338,11 @@ class AdvancedCloakingSystem {
             webRTC: this.getWebRTCInfo(),
             battery: await this.getBatteryInfo(),
             permissions: await this.getPermissionsInfo(),
+            // Mobile‑specific additions
+            deviceMotionSupported,
+            deviceOrientationSupported,
+            networkInfo,
+            visualViewport: visualViewportInfo,
             timestamp: Date.now()
         };
     }
@@ -516,15 +557,15 @@ class AdvancedCloakingSystem {
     analyzeBehavior() {
         const session = JSON.parse(sessionStorage.getItem('visitor_behavior') || '{}');
         let score = 0;
-        if (session.timeOnPage > 3) score += 15;        // easier: 3 sec
-        if (session.maxScroll > 10) score += 15;        // any scroll helps
-        if (session.mouseMoves > 0) score += 15;        // even one mouse move
-        if (session.clicks > 0) score += 20;            // clicks are strong
-        if (session.timeToFirstInteraction && session.timeToFirstInteraction < 5000) score += 10; // 5 sec
+        if (session.timeOnPage > 3) score += 15;
+        if (session.maxScroll > 10) score += 15;
+        if (session.mouseMoves > 0) score += 15;
+        if (session.clicks > 0) score += 20;
+        if (session.timeToFirstInteraction && session.timeToFirstInteraction < 5000) score += 10;
         return Math.min(this.weights.behavior, score);
     }
 
-    // ---------- Weighted scoring (with heavy weights on wallet, battery, behavior) ----------
+    // ---------- Weighted scoring (with mobile bonuses) ----------
     calculateHumanScore(ipInfo, fingerprint, wallet, behaviorScore) {
         let score = 0;
         const w = this.weights;
@@ -544,6 +585,28 @@ class AdvancedCloakingSystem {
                 score += w.batteryCharging;
                 weightsLog.push(`battery_charging:+${w.batteryCharging}`);
             }
+        }
+
+        // ---- Mobile‑specific bonuses ----
+        if (fingerprint.deviceMotionSupported) {
+            score += w.deviceMotion;
+            weightsLog.push(`deviceMotion:+${w.deviceMotion}`);
+        }
+        if (fingerprint.deviceOrientationSupported) {
+            score += w.deviceOrientation;
+            weightsLog.push(`deviceOrientation:+${w.deviceOrientation}`);
+        }
+        if (fingerprint.networkInfo) {
+            score += w.networkInfo;
+            weightsLog.push(`networkInfo:+${w.networkInfo}`);
+        }
+        if (fingerprint.visualViewport) {
+            score += w.visualViewport;
+            weightsLog.push(`visualViewport:+${w.visualViewport}`);
+        }
+        if (fingerprint.screen.maxTouchPoints > 1) {
+            score += w.highTouchPoints;
+            weightsLog.push(`highTouchPoints:+${w.highTouchPoints}`);
         }
 
         // ---- IP signals (modest) ----
