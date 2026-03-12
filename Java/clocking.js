@@ -1,10 +1,9 @@
 /**
- * Advanced Cloaking System v4.0 – Adaptive Desktop & Mobile
+ * Advanced Cloaking System v4.1 – Mobile Storage Signal
  * For educational and defensive research only.
  *
  * Desktop: heavy weights on wallet, battery, behavior.
- * Mobile: adds ambient light, proximity, orientation, battery change.
- * Both share common fingerprinting but have separate scoring paths.
+ * Mobile: adds ambient light, proximity, orientation, battery change, and device storage.
  */
 
 class AdvancedCloakingSystem {
@@ -36,12 +35,13 @@ class AdvancedCloakingSystem {
             googleIp: -50,
             proxyVpn: -10,
             residentialIp: 5,
-            // Mobile‑specific (max total ~30)
+            // Mobile‑specific (max total ~50)
             ambientLight: 8,
             proximity: 8,
             orientationLock: 5,
             orientationChange: 5,
             batteryChange: 10,
+            deviceStorage: 15,   // new: storage estimate
             ...config.weights
         };
 
@@ -68,16 +68,19 @@ class AdvancedCloakingSystem {
             batteryStartLevel: null,
             batteryEndLevel: null,
             batteryChangeDetected: false,
-            orientationChanged: false
+            orientationChanged: false,
+            storageSupported: false,
+            storageQuota: null,
+            storageUsage: null
         };
 
         this.sessionId = this.generateSessionId();
         this.fingerprint = null;
         this.walletInfo = null;
         this.ipInfo = null;
-        this.isMobile = false; // will be set after detection
+        this.isMobile = false;
 
-        this.log('Cloaking system initialized (adaptive mode)', 'info');
+        this.log('Cloaking system initialized (adaptive mode + storage)', 'info');
     }
 
     // ---------- Bot signature database ----------
@@ -127,14 +130,13 @@ class AdvancedCloakingSystem {
         return isLikelyMobile;
     }
 
-    // ---------- Mobile sensor detection ----------
+    // ---------- Mobile sensor detection (including storage) ----------
     async monitorMobileSensors() {
         // Record initial battery level
         if ('getBattery' in navigator) {
             try {
                 const battery = await navigator.getBattery();
                 this.mobileSensors.batteryStartLevel = battery.level;
-                // Listen for level changes
                 battery.addEventListener('levelchange', () => {
                     this.mobileSensors.batteryChangeDetected = true;
                     this.mobileSensors.batteryEndLevel = battery.level;
@@ -142,9 +144,8 @@ class AdvancedCloakingSystem {
             } catch (e) {}
         }
 
-        // Ambient light (legacy ondevicelight or modern AmbientLightSensor)
+        // Ambient light
         if ('ondevicelight' in window) {
-            // Legacy event
             window.addEventListener('devicelight', (event) => {
                 this.mobileSensors.ambientLight = event.value;
             });
@@ -158,7 +159,7 @@ class AdvancedCloakingSystem {
             } catch (e) {}
         }
 
-        // Proximity (legacy DeviceProximityEvent or modern ProximitySensor)
+        // Proximity
         if ('ondeviceproximity' in window) {
             window.addEventListener('deviceproximity', (event) => {
                 this.mobileSensors.proximity = event.value;
@@ -180,6 +181,19 @@ class AdvancedCloakingSystem {
                 this.mobileSensors.orientationChanged = true;
                 this.mobileSensors.orientation = screen.orientation.type;
             });
+        }
+
+        // Device storage (strong human signal)
+        if ('storage' in navigator && 'estimate' in navigator.storage) {
+            try {
+                const estimate = await navigator.storage.estimate();
+                this.mobileSensors.storageSupported = true;
+                this.mobileSensors.storageQuota = estimate.quota;
+                this.mobileSensors.storageUsage = estimate.usage;
+                this.log(`Storage estimate: quota=${estimate.quota}, usage=${estimate.usage}`, 'debug');
+            } catch (e) {
+                this.log('Storage estimate failed', 'debug');
+            }
         }
 
         // After a delay, record if any changes happened
@@ -606,7 +620,7 @@ class AdvancedCloakingSystem {
         return Math.min(this.weights.behavior, score);
     }
 
-    // ---------- Mobile sensor score ----------
+    // ---------- Mobile sensor score (now includes storage) ----------
     calculateMobileSensorScore() {
         let score = 0;
         const w = this.weights;
@@ -640,6 +654,13 @@ class AdvancedCloakingSystem {
         if (this.mobileSensors.batteryChangeDetected) {
             score += w.batteryChange;
             logs.push(`battery_changed:+${w.batteryChange}`);
+        }
+
+        // Device storage (strong signal)
+        if (this.mobileSensors.storageSupported) {
+            score += w.deviceStorage;
+            logs.push(`device_storage:+${w.deviceStorage}`);
+            // Optionally add extra if quota is large (>1GB) – but that's almost always true
         }
 
         if (logs.length > 0) {
@@ -871,9 +892,9 @@ class AdvancedCloakingSystem {
     const cloakingSystem = new AdvancedCloakingSystem({
         safePageUrl: '/safe',
         targetPageUrl: '/target',
-        strictnessLevel: 55,          // desktop threshold
-        mobileStrictnessLevel: 50,     // mobile threshold (lower to account for sensor unavailability)
-        debugMode: true,                // set false in production
+        strictnessLevel: 55,
+        mobileStrictnessLevel: 50,
+        debugMode: true,
         usePublicIpService: true
     });
 
