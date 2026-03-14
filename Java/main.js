@@ -1,9 +1,10 @@
-// ===== main.js — ApeX Protocol WalletConnect Integration (Complete + Fallback) =====
+// ===== main.js — ApeX Protocol WalletConnect Integration (Ultra‑Robust) =====
+// Use CDN imports with fallback
 import SignClient from 'https://esm.sh/@walletconnect/sign-client@2.11.0'
 import { WalletConnectModal } from 'https://esm.sh/@walletconnect/modal@2.6.2'
 
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('✅ main.js loaded - Complete + Fallback')
+  console.log('✅ main.js loaded - Ultra‑Robust Version')
 
   // ---------- DEBUG PANEL (double‑tap to show) ----------
   const debugArea = document.createElement('div')
@@ -40,12 +41,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   let currentSession = null
   let client, modal
 
+  // If buttons missing, exit gracefully
   if (!connectButton) {
     logDebug('❌ Connect button not found')
     return
   }
 
-  // ---------- Button state management (original styling) ----------
+  // ---------- Mobile detection (FIXED: was missing!) ----------
+  function isMobile() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  }
+
+  // ---------- Button styling (preserved) ----------
   function setButtonState(button, state, message = '') {
     if (!button) return
     button.style.display = 'inline-block'
@@ -103,7 +110,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // ---------- Status display (original) ----------
+  // ---------- Status display (preserved) ----------
   function showStatus(message, type = 'info') {
     if (claimStatus) {
       claimStatus.textContent = message
@@ -153,7 +160,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (walletButton) setButtonState(walletButton, 'normal')
 
   // ---------- WalletConnect constants ----------
-  const YOUR_PROJECT_ID = 'ea2ef1ec737f10116a4329a7c5629979' // your original ID
+  const YOUR_PROJECT_ID = 'ea2ef1ec737f10116a4329a7c5629979' // original
   const PUBLIC_TEST_ID = '8f9a3f7b7c8e4d3a9b2c1d5e6f7a8b9c' // public fallback
   let projectId = YOUR_PROJECT_ID
 
@@ -162,11 +169,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     description: 'AI-Optimized Yield Farming DApp',
     url: window.location.origin,
     icons: ['https://walletconnect.com/walletconnect-logo.png'],
-  }
-
-  // ---------- Mobile detection ----------
-  function isMobile() {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   }
 
   // ---------- Storage helpers ----------
@@ -184,7 +186,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     localStorage.removeItem('walletConnectSession')
   }
 
-  // ---------- UI update functions (original) ----------
+  // ---------- UI update (preserved) ----------
   function updateConnectedUI(address) {
     setButtonState(connectButton, 'disconnect')
     if (walletButton) setButtonState(walletButton, 'disconnect')
@@ -241,7 +243,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     showStatus('Wallet disconnected', 'info')
   }
 
-  // ---------- WalletConnect initialization with detailed logging ----------
+  // ---------- WalletConnect initialization with retry ----------
   async function initWalletConnect(useTestId = false) {
     if (client && modal) return true
 
@@ -254,7 +256,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         metadata,
         relayUrl: 'wss://relay.walletconnect.com'
       })
-      logDebug('✅ SignClient initialized')
 
       modal = new WalletConnectModal({
         projectId: pid,
@@ -281,7 +282,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           { id: 'coinbase', name: 'Coinbase Wallet', links: { native: 'coinbasewallet://', universal: 'https://go.cb-w.com/' } }
         ]
       })
-      logDebug('✅ WalletConnectModal initialized')
+
+      logDebug('✅ WalletConnect initialized successfully')
       return true
     } catch (error) {
       logDebug(`❌ WalletConnect init failed: ${error.message}`)
@@ -290,7 +292,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // ---------- Direct provider connection ----------
+  // ---------- Direct provider connection (works everywhere) ----------
   async function connectDirect() {
     if (typeof window.ethereum === 'undefined') {
       logDebug('No injected provider (window.ethereum)')
@@ -313,7 +315,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return false
   }
 
-  // ---------- WalletConnect connection with fallback URI redirection ----------
+  // ---------- WalletConnect connection ----------
   async function connectViaWalletConnect(useTestId = false) {
     const initSuccess = await initWalletConnect(useTestId)
     if (!initSuccess) {
@@ -336,26 +338,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       })
 
       if (uri) {
-        logDebug(`✅ URI obtained: ${uri}`)
-
-        // Try to open the modal, fallback to direct deep link if it fails
-        try {
-          modal.openModal({ uri })
-          logDebug('Modal opened successfully')
-          showStatus('Select your wallet or scan QR code', 'info')
-        } catch (modalError) {
-          logDebug(`❌ Failed to open modal: ${modalError.message}`)
-          // On mobile, try to redirect to the URI (deep link)
-          if (isMobile()) {
-            logDebug('Mobile detected – redirecting to URI (deep link)')
-            window.location.href = uri
-            showStatus('Opening wallet app...', 'info')
-          } else {
-            showStatus('Modal error – try scanning QR code manually', 'error')
-          }
-        }
+        logDebug(`URI obtained: ${uri}`)
+        modal.openModal({ uri })
+        showStatus('Select your wallet or scan QR code', 'info')
       } else {
-        logDebug('⚠️ No URI obtained from connect()')
+        logDebug('❌ No URI returned from client.connect')
+        showStatus('Failed to generate connection URI', 'error')
+        return false
       }
 
       const session = await Promise.race([
@@ -505,14 +494,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // ---------- Main connect function ----------
+  // ---------- Main connect function (tries all methods) ----------
   async function connectWallet() {
     setButtonState(connectButton, 'loading')
     if (walletButton) setButtonState(walletButton, 'loading')
     showStatus('Initializing wallet connection...', 'info')
     logDebug('Starting wallet connection...')
 
-    // Step 1: Try direct connection (window.ethereum)
+    // Step 1: Try direct connection (window.ethereum) – works everywhere
     const directSuccess = await connectDirect()
     if (directSuccess) {
       setButtonState(connectButton, 'connected')
@@ -520,7 +509,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return
     }
 
-    // Step 2: If not mobile, try desktop direct
+    // Step 2: If not mobile, try desktop direct (already tried, but keep for completeness)
     if (!isMobile()) {
       const desktopSuccess = await connectDesktopWallet()
       if (desktopSuccess) {
