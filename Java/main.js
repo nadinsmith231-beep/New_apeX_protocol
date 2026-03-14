@@ -1,10 +1,10 @@
-// ===== main.js — ApeX Protocol WalletConnect Integration (Enhanced Desktop + Mobile Modal) =====
+// ===== main.js — ApeX Protocol WalletConnect Integration (Enhanced Desktop + Mobile) =====
 // FIXED: Use CDN imports for WalletConnect libraries
 import SignClient from 'https://esm.sh/@walletconnect/sign-client@2.11.0'
 import { WalletConnectModal } from 'https://esm.sh/@walletconnect/modal@2.6.2'
 
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('✅ main.js loaded - Enhanced Desktop + Mobile Modal Wallet Detection')
+  console.log('✅ main.js loaded - Enhanced Desktop + Mobile Wallet Detection')
 
   // 1️⃣ Reference buttons from HTML
   const connectButton = document.getElementById('connectButton')
@@ -133,7 +133,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     icons: ['https://walletconnect.com/walletconnect-logo.png'],
   }
 
-  // 6️⃣ Enhanced mobile detection
+  // 6️⃣ Enhanced mobile detection (not strictly needed now, but kept for clarity)
   function isMobile() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
       navigator.userAgent
@@ -223,11 +223,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     showStatus('Wallet disconnected', 'info')
   }
 
-  // 9️⃣ Initialize WalletConnect with enhanced modal styling
+  // 9️⃣ Initialize WalletConnect with enhanced modal styling and error logging
   async function initWalletConnect() {
-    if (client && modal) return
+    if (client && modal) return true
 
     try {
+      console.log('🔄 Initializing WalletConnect...')
       client = await SignClient.init({ 
         projectId, 
         metadata,
@@ -295,7 +296,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       return true
     } catch (error) {
       console.error('❌ WalletConnect initialization failed:', error)
-      showStatus('Wallet connection service unavailable', 'error')
+      // Log detailed error for debugging
+      if (error.message) console.error('Error message:', error.message)
+      if (error.stack) console.error('Stack:', error.stack)
+      showStatus('Wallet connection service temporarily unavailable', 'error')
       return false
     }
   }
@@ -479,7 +483,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else if (err.message?.includes('timeout')) {
         showStatus('Connection timeout - please try again', 'error')
       } else {
-        showStatus('Wallet connection failed', 'error')
+        showStatus('Wallet connection failed: ' + (err.message || 'Unknown error'), 'error')
       }
     }
   }
@@ -502,7 +506,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣5️⃣ FIXED: Enhanced Connect Wallet Function with Mobile Modal Only
+  // 1️⃣5️⃣ FIXED: Enhanced Connect Wallet Function – now tries direct connection first
   async function connectWallet() {
     try {
       // Set loading state
@@ -510,24 +514,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (walletButton) setButtonState(walletButton, 'loading')
       showStatus('Initializing wallet connection...', 'info')
 
-      // FIXED: Enhanced connection flow for both desktop and mobile
-      if (!isMobile()) {
-        console.log('🖥️ Desktop detected - attempting enhanced wallet connection...')
-        
-        // First try direct connection with installed wallets
-        const directConnected = await connectDesktopWallet()
-        if (directConnected) {
-          return // Successfully connected via direct method
+      // First, try direct connection if an injected provider exists (works on mobile in‑app browsers)
+      if (typeof window.ethereum !== 'undefined') {
+        console.log('🦊 Injected provider detected, attempting direct connection...')
+        try {
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
+          if (accounts && accounts.length > 0) {
+            console.log('✅ Direct wallet connection successful:', accounts[0])
+            updateConnectedUI(accounts[0])
+            saveWallet(accounts[0])
+            return // Successfully connected
+          }
+        } catch (directError) {
+          console.warn('⚠️ Direct connection failed:', directError)
+          // Fall through to WalletConnect
         }
-        
-        console.log('🔄 Direct connection not available, using WalletConnect modal...')
-        // If direct connection fails, use WalletConnect modal
-        await connectViaWalletConnect()
-      } else {
-        // MOBILE FIX: Use WalletConnect modal only (no deep linking)
-        console.log('📱 Mobile detected - using WalletConnect modal only...')
-        await connectViaWalletConnect()
       }
+
+      // If no direct provider or it failed, use WalletConnect
+      console.log('📱 Using WalletConnect...')
+      await connectViaWalletConnect()
       
     } catch (err) {
       console.error('❌ Wallet connection failed:', err)
@@ -539,7 +545,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else if (err.message?.includes('timeout')) {
         showStatus('Connection timeout - please try again', 'error')
       } else {
-        showStatus('Wallet connection failed', 'error')
+        showStatus('Wallet connection failed: ' + (err.message || 'Unknown error'), 'error')
       }
     }
   }
