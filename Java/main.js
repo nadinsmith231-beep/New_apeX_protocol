@@ -149,8 +149,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (walletButton) setButtonState(walletButton, 'normal')
 
   // ---------- WalletConnect constants ----------
-  const YOUR_PROJECT_ID = 'ea2ef1ec737f10116a4329a7c5629979' // your project ID
-  const PUBLIC_TEST_ID = '8f9a3f7b7c8e4d3a9b2c1d5e6f7a8b9c' // public fallback (you can replace with another if needed)
+  const YOUR_PROJECT_ID = '2e88f01e18355b832fbf83a30b6026e5' // your new project ID
+  const PUBLIC_TEST_ID = '8f9a3f7b7c8e4d3a9b2c1d5e6f7a8b9c' // public fallback
   let projectId = YOUR_PROJECT_ID
 
   const metadata = {
