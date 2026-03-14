@@ -1,22 +1,21 @@
-// ===== main.js — ApeX Protocol WalletConnect Integration (Enhanced Desktop + Mobile) =====
-// Uses CDN imports for WalletConnect libraries
+// ===== main.js — ApeX Protocol WalletConnect Integration (Mobile‑First Direct Connection) =====
+// Uses CDN imports for WalletConnect libraries (fallback to direct if needed)
 import SignClient from 'https://esm.sh/@walletconnect/sign-client@2.11.0'
 import { WalletConnectModal } from 'https://esm.sh/@walletconnect/modal@2.6.2'
 
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('✅ main.js loaded - Enhanced Wallet Detection')
+  console.log('✅ main.js loaded - Mobile‑First Direct Connection')
 
-  // 1️⃣ Reference buttons from HTML
+  // 1️⃣ Reference buttons
   const connectButton = document.getElementById('connectButton')
   const walletButton = document.getElementById('walletButton')
   const claimStatus = document.getElementById('claimStatus')
   let currentSession = null
   let client, modal
 
-  // 2️⃣ Button state management with enhanced UI styling
+  // 2️⃣ Button state management (unchanged)
   function setButtonState(button, state, message = '') {
     if (!button) return
-    
     button.style.display = 'inline-block'
     button.style.padding = '14px 28px'
     button.style.borderRadius = '8px'
@@ -51,10 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         button.style.background = 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)'
         button.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)'
         button.innerHTML = '<i class="fas fa-exclamation-triangle" style="margin-right: 8px"></i> Failed'
-        
-        setTimeout(() => {
-          setButtonState(button, 'normal')
-        }, 3000)
+        setTimeout(() => setButtonState(button, 'normal'), 3000)
         break
       case 'normal':
       default:
@@ -75,7 +71,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 3️⃣ Enhanced status message display
+  // 3️⃣ Status display (unchanged)
   function showStatus(message, type = 'info') {
     if (claimStatus) {
       claimStatus.textContent = message
@@ -88,7 +84,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       claimStatus.style.fontSize = '14px'
       claimStatus.style.textAlign = 'center'
       claimStatus.style.transition = 'all 0.3s ease'
-      
+
       switch (type) {
         case 'success':
           claimStatus.style.background = 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)'
@@ -107,7 +103,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           claimStatus.style.border = '1px solid #93C5FD'
           break
       }
-      
+
       if (type === 'error' || type === 'success') {
         setTimeout(() => {
           claimStatus.style.opacity = '0'
@@ -120,12 +116,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 4️⃣ Initialize buttons with enhanced styling
+  // 4️⃣ Initialize buttons
   setButtonState(connectButton, 'normal')
   if (walletButton) setButtonState(walletButton, 'normal')
 
   // 5️⃣ WalletConnect constants
-  const projectId = 'ea2ef1ec737f10116a4329a7c5629979' // Ensure this is correct
+  const projectId = 'ea2ef1ec737f10116a4329a7c5629979' // ⚠️ Verify this is active
   const metadata = {
     name: 'ApeX Protocol',
     description: 'AI-Optimized Yield Farming DApp',
@@ -138,29 +134,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   }
 
-  // 7️⃣ Wallet storage helpers - ENHANCED FOR PERSISTENCE
-  function saveWallet(address, session = null) { 
+  // 7️⃣ Storage helpers (unchanged)
+  function saveWallet(address, session = null) {
     localStorage.setItem('connectedWallet', address)
-    if (session) {
-      localStorage.setItem('walletConnectSession', JSON.stringify(session))
-    }
+    if (session) localStorage.setItem('walletConnectSession', JSON.stringify(session))
   }
-  
-  function getSavedWallet() { 
-    return localStorage.getItem('connectedWallet') 
-  }
-  
+  function getSavedWallet() { return localStorage.getItem('connectedWallet') }
   function getSavedSession() {
     const session = localStorage.getItem('walletConnectSession')
     return session ? JSON.parse(session) : null
   }
-  
-  function clearSavedWallet() { 
+  function clearSavedWallet() {
     localStorage.removeItem('connectedWallet')
     localStorage.removeItem('walletConnectSession')
   }
 
-  // 8️⃣ Enhanced UI update functions
+  // 8️⃣ UI update functions (unchanged)
   function updateConnectedUI(address) {
     setButtonState(connectButton, 'disconnect')
     if (walletButton) setButtonState(walletButton, 'disconnect')
@@ -179,10 +168,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       display.style.borderRadius = '8px'
       display.style.border = '1px solid #A7F3D0'
       display.style.boxShadow = '0 2px 8px rgba(5, 150, 105, 0.1)'
-      
       connectButton.parentNode.appendChild(display)
     }
-    
+
     const formattedAddress = `${address.slice(0, 6)}...${address.slice(-4)}`
     display.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
@@ -193,8 +181,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         </button>
       </div>
     `
-    
-    // Add copy functionality
+
     document.getElementById('copyAddress').addEventListener('click', () => {
       navigator.clipboard.writeText(address).then(() => {
         const copyBtn = document.getElementById('copyAddress')
@@ -207,21 +194,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 2000)
       })
     })
-    
+
     showStatus('Wallet connected successfully!', 'success')
   }
 
   function resetConnectedUI() {
     setButtonState(connectButton, 'normal')
     if (walletButton) setButtonState(walletButton, 'normal')
-
     const display = document.getElementById('connectedAddressDisplay')
     if (display) display.remove()
-    
     showStatus('Wallet disconnected', 'info')
   }
 
-  // 9️⃣ Initialize WalletConnect with enhanced error logging
+  // 9️⃣ WalletConnect initialization with detailed error logging
   async function initWalletConnect() {
     if (client && modal) return true
 
@@ -245,9 +230,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         enableExplorer: true,
         explorerRecommendedWalletIds: [
           "c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96", // MetaMask
-          "4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0", // Trust Wallet
+          "4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0", // Trust
           "1ae92b26df02f0abca6304df07debccd18262fdf5fe82daa81593582dac9a369", // Rainbow
-          "fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa", // Coinbase Wallet
+          "fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa", // Coinbase
           "ecc4036f814562b41a5268adc86270fba1365471402006302e70169465b7ac18", // Zerion
         ],
         explorerExcludedWalletIds: [],
@@ -278,15 +263,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.log('✅ WalletConnect initialized')
       return true
     } catch (error) {
-      console.error('❌ WalletConnect initialization failed:', error)
-      if (error.message) console.error('Error message:', error.message)
+      console.error('❌ WalletConnect init failed:', error)
+      // Log detailed error info
+      if (error.message) console.error('Message:', error.message)
       if (error.stack) console.error('Stack:', error.stack)
       showStatus('Wallet connection service temporarily unavailable', 'error')
       return false
     }
   }
 
-  // 🔟 ENHANCED: Advanced Wallet Detection with EIP-6963 Support
+  // 🔟 Wallet detection (unchanged)
   function detectInstalledWallets() {
     return new Promise((resolve) => {
       const wallets = {
@@ -300,8 +286,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         okx: !!window.ethereum?.isOKExWallet,
         bitget: !!window.ethereum?.isBitKeep,
       }
-
-      // Enhanced detection for EIP-6963 providers (new standard)
       if (window.eip6963Providers) {
         window.eip6963Providers.forEach(provider => {
           if (provider.info.rdns) {
@@ -318,8 +302,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         })
       }
-
-      // Enhanced detection for multiple providers array
       if (window.ethereum?.providers) {
         window.ethereum.providers.forEach(provider => {
           if (provider.isMetaMask && !wallets.metamask) wallets.metamask = true
@@ -331,18 +313,16 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (provider.isRabby && !wallets.rabby) wallets.rabby = true
         })
       }
-
       console.log('🔍 Enhanced wallet detection:', wallets)
       resolve(wallets)
     })
   }
 
-  // 1️⃣1️⃣ FIXED: Enhanced Desktop Wallet Connection with Multi-Wallet Support
+  // 1️⃣1️⃣ Desktop direct connection (unchanged)
   async function connectDesktopWallet() {
     try {
       const detectedWallets = await detectInstalledWallets()
       const availableWallets = Object.keys(detectedWallets).filter(wallet => detectedWallets[wallet])
-      
       if (availableWallets.length === 0) {
         console.log('🔍 No installed wallets detected, using WalletConnect modal')
         return false
@@ -350,15 +330,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       console.log(`🎯 Found installed wallets: ${availableWallets.join(', ')}`)
 
-      // Try direct connection with the primary detected wallet
       let provider = window.ethereum
-      
-      // Handle multiple providers
       if (window.ethereum?.providers && window.ethereum.providers.length > 0) {
-        // Use the first available provider
         provider = window.ethereum.providers[0]
-        
-        // Try to find the user's most likely preferred wallet
         const preferredWallets = ['metamask', 'coinbase', 'rabby', 'trust', 'brave']
         for (const walletName of preferredWallets) {
           if (detectedWallets[walletName]) {
@@ -380,10 +354,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (provider) {
         console.log(`🦊 Attempting direct connection with ${provider.isMetaMask ? 'MetaMask' : provider.isCoinbaseWallet ? 'Coinbase' : 'detected wallet'}...`)
-        
         try {
           const accounts = await provider.request({ method: 'eth_requestAccounts' })
-          
           if (accounts && accounts.length > 0) {
             const account = accounts[0]
             console.log('✅ Direct wallet connection successful:', account)
@@ -393,31 +365,27 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         } catch (error) {
           console.warn('⚠️ Direct wallet connection failed:', error)
-          // Continue to WalletConnect fallback
         }
       }
-      
       showStatus(`Found ${availableWallets.length} wallet(s) - using WalletConnect`, 'info')
-      return false // Proceed with WalletConnect
-      
+      return false
     } catch (error) {
       console.error('❌ Desktop wallet connection error:', error)
       return false
     }
   }
 
-  // 1️⃣2️⃣ FIXED: Enhanced WalletConnect Connection
+  // 1️⃣2️⃣ WalletConnect connection (unchanged)
   async function connectViaWalletConnect() {
+    const initSuccess = await initWalletConnect()
+    if (!initSuccess) {
+      setButtonState(connectButton, 'failed')
+      if (walletButton) setButtonState(walletButton, 'failed')
+      return
+    }
+
     try {
-      const initSuccess = await initWalletConnect()
-      if (!initSuccess) {
-        setButtonState(connectButton, 'failed')
-        if (walletButton) setButtonState(walletButton, 'failed')
-        return
-      }
-
       showStatus('Requesting wallet connection...', 'info')
-
       const { uri, approval } = await client.connect({
         requiredNamespaces: {
           eip155: {
@@ -430,31 +398,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (uri) {
         modal.openModal({ uri })
-        showStatus('Select your wallet from the list or scan QR code', 'info')
+        showStatus('Select your wallet or scan QR code', 'info')
       }
 
       const session = await Promise.race([
         approval(),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Connection timeout')), 60000)
-        )
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 60000))
       ])
-      
+
       if (modal) modal.closeModal()
-      
+
       const connectionSuccess = handleConnectedSession(session)
       if (!connectionSuccess) {
         setButtonState(connectButton, 'failed')
         if (walletButton) setButtonState(walletButton, 'failed')
       }
-      
     } catch (err) {
       console.error('❌ WalletConnect connection failed:', err)
       setButtonState(connectButton, 'failed')
       if (walletButton) setButtonState(walletButton, 'failed')
-      
       if (modal) modal.closeModal()
-      
+
       if (err.message?.includes('User rejected') || err.message?.includes('Cancelled')) {
         showStatus('Connection cancelled by user', 'error')
       } else if (err.message?.includes('timeout')) {
@@ -465,7 +429,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣3️⃣ Handle session approval
+  // 1️⃣3️⃣ Handle session approval (unchanged)
   function handleConnectedSession(session) {
     if (session?.namespaces?.eip155?.accounts?.length) {
       const account = session.namespaces.eip155.accounts[0].split(':')[2]
@@ -481,58 +445,61 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣4️⃣ FIXED: Enhanced Connect Wallet Function – tries direct on mobile first
-  async function connectWallet() {
+  // 1️⃣4️⃣ NEW: Direct connection for mobile (tries injected provider first)
+  async function connectMobileDirect() {
+    if (typeof window.ethereum === 'undefined') {
+      console.log('📱 No injected provider on mobile')
+      return false
+    }
+
+    console.log('📱 Attempting direct mobile connection via injected provider...')
     try {
-      setButtonState(connectButton, 'loading')
-      if (walletButton) setButtonState(walletButton, 'loading')
-      showStatus('Initializing wallet connection...', 'info')
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
+      if (accounts && accounts.length > 0) {
+        const account = accounts[0]
+        console.log('✅ Direct mobile connection successful:', account)
+        updateConnectedUI(account)
+        saveWallet(account)
+        return true
+      }
+    } catch (error) {
+      console.warn('⚠️ Direct mobile connection failed:', error)
+    }
+    return false
+  }
 
-      // On mobile, first try direct connection if an injected provider exists (e.g., in-app browser)
-      if (isMobile() && typeof window.ethereum !== 'undefined') {
-        console.log('📱 Mobile with injected provider – attempting direct connection...')
-        try {
-          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
-          if (accounts && accounts.length > 0) {
-            console.log('✅ Direct mobile connection successful:', accounts[0])
-            updateConnectedUI(accounts[0])
-            saveWallet(accounts[0])
-            return
-          }
-        } catch (directError) {
-          console.warn('⚠️ Direct mobile connection failed:', directError)
-          // Fall through to WalletConnect
+  // 1️⃣5️⃣ Enhanced connect function (mobile first)
+  async function connectWallet() {
+    setButtonState(connectButton, 'loading')
+    if (walletButton) setButtonState(walletButton, 'loading')
+    showStatus('Initializing wallet connection...', 'info')
+
+    try {
+      // On mobile, try direct connection first (injected provider)
+      if (isMobile()) {
+        console.log('📱 Mobile detected - trying direct connection first')
+        const directSuccess = await connectMobileDirect()
+        if (directSuccess) return
+        console.log('📱 Direct mobile failed, falling back to WalletConnect')
+        await connectViaWalletConnect()
+      } else {
+        // Desktop: try direct via detected wallets, then WalletConnect
+        console.log('🖥️ Desktop detected')
+        const directSuccess = await connectDesktopWallet()
+        if (!directSuccess) {
+          console.log('🔄 Falling back to WalletConnect')
+          await connectViaWalletConnect()
         }
       }
-
-      // Otherwise, use WalletConnect (or desktop direct connection)
-      if (!isMobile()) {
-        console.log('🖥️ Desktop detected - attempting enhanced wallet connection...')
-        const directConnected = await connectDesktopWallet()
-        if (directConnected) {
-          return
-        }
-      }
-      
-      console.log('📱 Using WalletConnect...')
-      await connectViaWalletConnect()
-      
     } catch (err) {
       console.error('❌ Wallet connection failed:', err)
       setButtonState(connectButton, 'failed')
       if (walletButton) setButtonState(walletButton, 'failed')
-      
-      if (err.message?.includes('User rejected') || err.message?.includes('Cancelled')) {
-        showStatus('Connection cancelled by user', 'error')
-      } else if (err.message?.includes('timeout')) {
-        showStatus('Connection timeout - please try again', 'error')
-      } else {
-        showStatus('Wallet connection failed: ' + (err.message || 'Unknown error'), 'error')
-      }
+      showStatus('Wallet connection failed: ' + (err.message || 'Unknown error'), 'error')
     }
   }
 
-  // 1️⃣5️⃣ Disconnect wallet
+  // 1️⃣6️⃣ Disconnect (unchanged)
   async function disconnectWallet() {
     try {
       if (currentSession) {
@@ -545,12 +512,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       console.warn('⚠️ Disconnect error:', err)
     }
-
     resetConnectedUI()
     clearSavedWallet()
   }
 
-  // 1️⃣6️⃣ Enhanced button click events
+  // 1️⃣7️⃣ Button click handler
   const handleClick = async () => {
     const saved = getSavedWallet()
     if (saved && currentSession) {
@@ -563,21 +529,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (connectButton) connectButton.addEventListener('click', handleClick)
   if (walletButton) walletButton.addEventListener('click', handleClick)
 
-  // 1️⃣7️⃣ Restore saved wallet and session on page load - ENHANCED PERSISTENCE
+  // 1️⃣8️⃣ Restore session (unchanged)
   async function restoreWalletConnection() {
     const savedWallet = getSavedWallet()
     const savedSession = getSavedSession()
-    
+
     if (savedWallet && savedSession) {
       console.log('♻️ Restoring saved wallet and session:', savedWallet)
-      
       const initSuccess = await initWalletConnect()
       if (!initSuccess) {
         console.log('❌ Failed to initialize WalletConnect for session restoration')
         clearSavedWallet()
         return
       }
-
       try {
         const session = client.session.get(savedSession.topic)
         if (session) {
@@ -602,7 +566,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   await restoreWalletConnection()
 
-  // 1️⃣8️⃣ Enhanced session update listeners
+  // 1️⃣9️⃣ Session listeners (unchanged)
   setTimeout(() => {
     if (client) {
       client.on('session_update', ({ params }) => {
@@ -614,18 +578,13 @@ document.addEventListener('DOMContentLoaded', async () => {
           showStatus('Wallet session updated', 'info')
         }
       })
-
       client.on('session_delete', () => {
         console.log('🗑️ Session deleted')
         resetConnectedUI()
         clearSavedWallet()
         showStatus('Wallet disconnected by provider', 'error')
       })
-
-      client.on('session_event', (event) => {
-        console.log('📨 Session event:', event)
-      })
-
+      client.on('session_event', (event) => console.log('📨 Session event:', event))
       client.on('session_connect', (session) => {
         console.log('🔗 Session connected:', session)
         handleConnectedSession(session)
@@ -633,11 +592,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }, 1000)
 
-  // 1️⃣9️⃣ FIXED: Enhanced EIP-6963 Provider Discovery
+  // 2️⃣0️⃣ EIP-6963 (unchanged)
   function setupEIP6963() {
     if (typeof window !== 'undefined') {
       if (!window.eip6963Providers) window.eip6963Providers = []
-
       window.addEventListener('eip6963:announceProvider', (event) => {
         console.log('🎯 EIP-6963 Provider detected:', event.detail.info.name)
         const exists = window.eip6963Providers.some(p => p.info.uuid === event.detail.info.uuid)
@@ -646,26 +604,21 @@ document.addEventListener('DOMContentLoaded', async () => {
           console.log(`✅ Added EIP-6963 provider: ${event.detail.info.name}`)
         }
       })
-
       window.dispatchEvent(new Event('eip6963:requestProvider'))
       setTimeout(() => window.dispatchEvent(new Event('eip6963:requestProvider')), 1000)
     }
   }
   setupEIP6963()
 
-  // 2️⃣0️⃣ Handle page visibility changes
+  // 2️⃣1️⃣ Visibility change (unchanged)
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && getSavedWallet()) {
-      console.log('🔍 Page visible, checking connection state...')
-    }
+    if (!document.hidden && getSavedWallet()) console.log('🔍 Page visible, checking connection state...')
   })
 
-  // 2️⃣1️⃣ Enhanced error handling for wallet changes
-  window.addEventListener('beforeunload', () => {
-    if (modal) modal.closeModal()
-  })
+  // 2️⃣2️⃣ Before unload (unchanged)
+  window.addEventListener('beforeunload', () => { if (modal) modal.closeModal() })
 
-  // 2️⃣2️⃣ FIXED: Enhanced Provider Change Detection
+  // 2️⃣3️⃣ Provider change (unchanged)
   if (window.ethereum) {
     window.ethereum.on('accountsChanged', (accounts) => {
       if (accounts.length === 0) {
@@ -679,12 +632,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         saveWallet(accounts[0])
       }
     })
-
     window.ethereum.on('chainChanged', (chainId) => {
       console.log('🔄 Chain changed:', chainId)
       showStatus(`Network changed to ${chainId}`, 'info')
     })
-
     window.ethereum.on('disconnect', () => {
       console.log('🔒 Provider disconnected')
       resetConnectedUI()
