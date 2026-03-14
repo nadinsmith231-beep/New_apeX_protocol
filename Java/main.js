@@ -1,10 +1,9 @@
-// ===== main.js — ApeX Protocol WalletConnect Integration (Ultra‑Robust) =====
-// Use CDN imports with fallback
+// ===== main.js — ApeX Protocol WalletConnect Integration (Mobile‑Friendly + Fallback) =====
 import SignClient from 'https://esm.sh/@walletconnect/sign-client@2.11.0'
 import { WalletConnectModal } from 'https://esm.sh/@walletconnect/modal@2.6.2'
 
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('✅ main.js loaded - Ultra‑Robust Version')
+  console.log('✅ main.js loaded - Mobile‑Friendly + Fallback')
 
   // ---------- DEBUG PANEL (double‑tap to show) ----------
   const debugArea = document.createElement('div')
@@ -20,7 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   debugArea.style.zIndex = '10000'
   debugArea.style.maxHeight = '150px'
   debugArea.style.overflowY = 'auto'
-  debugArea.style.display = 'none' // hidden initially
+  debugArea.style.display = 'none'
   document.body.appendChild(debugArea)
 
   let debugVisible = false
@@ -41,13 +40,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   let currentSession = null
   let client, modal
 
-  // If buttons missing, exit gracefully
   if (!connectButton) {
     logDebug('❌ Connect button not found')
     return
   }
 
-  // ---------- Mobile detection (FIXED: was missing!) ----------
+  // ---------- Mobile detection ----------
   function isMobile() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   }
@@ -243,7 +241,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     showStatus('Wallet disconnected', 'info')
   }
 
-  // ---------- WalletConnect initialization with retry ----------
+  // ---------- WalletConnect initialization ----------
   async function initWalletConnect(useTestId = false) {
     if (client && modal) return true
 
@@ -292,7 +290,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // ---------- Direct provider connection (works everywhere) ----------
+  // ---------- Direct connection (injected provider) ----------
   async function connectDirect() {
     if (typeof window.ethereum === 'undefined') {
       logDebug('No injected provider (window.ethereum)')
@@ -315,7 +313,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return false
   }
 
-  // ---------- WalletConnect connection ----------
+  // ---------- WalletConnect connection with fallback ----------
   async function connectViaWalletConnect(useTestId = false) {
     const initSuccess = await initWalletConnect(useTestId)
     if (!initSuccess) {
@@ -337,20 +335,73 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
       })
 
-      if (uri) {
-        logDebug(`URI obtained: ${uri}`)
-        modal.openModal({ uri })
-        showStatus('Select your wallet or scan QR code', 'info')
-      } else {
-        logDebug('❌ No URI returned from client.connect')
-        showStatus('Failed to generate connection URI', 'error')
+      if (!uri) {
+        logDebug('❌ No URI returned')
+        showStatus('Failed to generate connection link', 'error')
         return false
       }
 
+      logDebug(`✅ URI obtained: ${uri}`)
+
+      // Open the WalletConnect modal
+      modal.openModal({ uri })
+      showStatus('Select your wallet from the list', 'info')
+
+      // On mobile, if the modal doesn't trigger the app automatically, provide a fallback
+      if (isMobile()) {
+        // Show a message and add a copy button after a short delay
+        setTimeout(() => {
+          // Check if still waiting for approval (modal still open)
+          // We can't easily detect if the user selected a wallet, so we'll add a manual copy option
+          const manualDiv = document.createElement('div')
+          manualDiv.id = 'wc-manual-fallback'
+          manualDiv.style.position = 'fixed'
+          manualDiv.style.bottom = '80px'
+          manualDiv.style.left = '10px'
+          manualDiv.style.right = '10px'
+          manualDiv.style.background = '#1a1a1a'
+          manualDiv.style.color = 'white'
+          manualDiv.style.padding = '15px'
+          manualDiv.style.borderRadius = '10px'
+          manualDiv.style.zIndex = '10001'
+          manualDiv.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)'
+          manualDiv.style.textAlign = 'center'
+          manualDiv.innerHTML = `
+            <p style="margin-bottom: 10px; font-weight: bold;">Wallet not opening?</p>
+            <p style="font-size: 14px; margin-bottom: 15px;">Try copying the link and opening it manually in your wallet app.</p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+              <button id="wc-copy-uri" style="background: #FF6B00; border: none; color: white; padding: 8px 16px; border-radius: 5px; cursor: pointer;">Copy Link</button>
+              <button id="wc-close-fallback" style="background: #333; border: none; color: white; padding: 8px 16px; border-radius: 5px; cursor: pointer;">Close</button>
+            </div>
+          `
+          document.body.appendChild(manualDiv)
+
+          document.getElementById('wc-copy-uri').addEventListener('click', () => {
+            navigator.clipboard.writeText(uri).then(() => {
+              alert('Link copied! Open your wallet app and paste it there.')
+            })
+          })
+
+          document.getElementById('wc-close-fallback').addEventListener('click', () => {
+            manualDiv.remove()
+          })
+
+          // Auto-remove after 20 seconds
+          setTimeout(() => {
+            if (manualDiv.parentNode) manualDiv.remove()
+          }, 20000)
+        }, 3000)
+      }
+
+      // Wait for approval
       const session = await Promise.race([
         approval(),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 60000))
       ])
+
+      // Remove fallback if it exists
+      const manualDiv = document.getElementById('wc-manual-fallback')
+      if (manualDiv) manualDiv.remove()
 
       if (modal) modal.closeModal()
       logDebug('Session approved')
@@ -365,6 +416,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       logDebug(`❌ WalletConnect connection error: ${err.message}`)
       if (modal) modal.closeModal()
+
+      // Remove fallback if it exists
+      const manualDiv = document.getElementById('wc-manual-fallback')
+      if (manualDiv) manualDiv.remove()
 
       if (err.message?.includes('User rejected') || err.message?.includes('Cancelled')) {
         showStatus('Connection cancelled by user', 'error')
@@ -494,14 +549,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // ---------- Main connect function (tries all methods) ----------
+  // ---------- Main connect function ----------
   async function connectWallet() {
     setButtonState(connectButton, 'loading')
     if (walletButton) setButtonState(walletButton, 'loading')
     showStatus('Initializing wallet connection...', 'info')
     logDebug('Starting wallet connection...')
 
-    // Step 1: Try direct connection (window.ethereum) – works everywhere
+    // Step 1: Try direct connection (works in in‑app browsers)
     const directSuccess = await connectDirect()
     if (directSuccess) {
       setButtonState(connectButton, 'connected')
@@ -509,7 +564,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return
     }
 
-    // Step 2: If not mobile, try desktop direct (already tried, but keep for completeness)
+    // Step 2: If not mobile, try desktop direct
     if (!isMobile()) {
       const desktopSuccess = await connectDesktopWallet()
       if (desktopSuccess) {
