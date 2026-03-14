@@ -1,10 +1,10 @@
 // ===== main.js — ApeX Protocol WalletConnect Integration (Enhanced Desktop + Mobile) =====
-// FIXED: Use CDN imports for WalletConnect libraries
+// Uses CDN imports for WalletConnect libraries
 import SignClient from 'https://esm.sh/@walletconnect/sign-client@2.11.0'
 import { WalletConnectModal } from 'https://esm.sh/@walletconnect/modal@2.6.2'
 
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('✅ main.js loaded - Enhanced Desktop + Mobile Wallet Detection')
+  console.log('✅ main.js loaded - Enhanced Wallet Detection')
 
   // 1️⃣ Reference buttons from HTML
   const connectButton = document.getElementById('connectButton')
@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (walletButton) setButtonState(walletButton, 'normal')
 
   // 5️⃣ WalletConnect constants
-  const projectId = 'ea2ef1ec737f10116a4329a7c5629979'
+  const projectId = 'ea2ef1ec737f10116a4329a7c5629979' // Ensure this is correct
   const metadata = {
     name: 'ApeX Protocol',
     description: 'AI-Optimized Yield Farming DApp',
@@ -133,11 +133,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     icons: ['https://walletconnect.com/walletconnect-logo.png'],
   }
 
-  // 6️⃣ Enhanced mobile detection (not strictly needed now, but kept for clarity)
+  // 6️⃣ Enhanced mobile detection
   function isMobile() {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-      navigator.userAgent
-    )
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   }
 
   // 7️⃣ Wallet storage helpers - ENHANCED FOR PERSISTENCE
@@ -223,7 +221,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     showStatus('Wallet disconnected', 'info')
   }
 
-  // 9️⃣ Initialize WalletConnect with enhanced modal styling and error logging
+  // 9️⃣ Initialize WalletConnect with enhanced error logging
   async function initWalletConnect() {
     if (client && modal) return true
 
@@ -244,7 +242,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           '--wcm-background-color': '#1F2937',
           '--wcm-font-family': "'Inter', sans-serif"
         },
-        // FIXED: Enhanced wallet discovery for desktop and mobile
         enableExplorer: true,
         explorerRecommendedWalletIds: [
           "c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96", // MetaMask
@@ -253,50 +250,35 @@ document.addEventListener('DOMContentLoaded', async () => {
           "fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa", // Coinbase Wallet
           "ecc4036f814562b41a5268adc86270fba1365471402006302e70169465b7ac18", // Zerion
         ],
-        // FIXED: Don't exclude any wallets - show all available
         explorerExcludedWalletIds: [],
-        // MOBILE FIX: Force modal display on mobile
         mobileWallets: [
           {
             id: 'metamask',
             name: 'MetaMask',
-            links: {
-              native: 'metamask://',
-              universal: 'https://metamask.app.link/'
-            }
+            links: { native: 'metamask://', universal: 'https://metamask.app.link/' }
           },
           {
             id: 'trust',
             name: 'Trust Wallet',
-            links: {
-              native: 'trust://',
-              universal: 'https://link.trustwallet.com/'
-            }
+            links: { native: 'trust://', universal: 'https://link.trustwallet.com/' }
           },
           {
             id: 'rainbow',
             name: 'Rainbow',
-            links: {
-              native: 'rainbow://',
-              universal: 'https://rnbwapp.com/'
-            }
+            links: { native: 'rainbow://', universal: 'https://rnbwapp.com/' }
           },
           {
             id: 'coinbase',
             name: 'Coinbase Wallet',
-            links: {
-              native: 'coinbasewallet://',
-              universal: 'https://go.cb-w.com/'
-            }
+            links: { native: 'coinbasewallet://', universal: 'https://go.cb-w.com/' }
           }
         ]
       })
 
-      console.log('✅ WalletConnect SignClient + Modal initialized')
+      console.log('✅ WalletConnect initialized')
       return true
     } catch (error) {
       console.error('❌ WalletConnect initialization failed:', error)
-      // Log detailed error for debugging
       if (error.message) console.error('Error message:', error.message)
       if (error.stack) console.error('Stack:', error.stack)
       showStatus('Wallet connection service temporarily unavailable', 'error')
@@ -373,7 +355,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       // Handle multiple providers
       if (window.ethereum?.providers && window.ethereum.providers.length > 0) {
-        // FIXED: Use the first available provider instead of just MetaMask
+        // Use the first available provider
         provider = window.ethereum.providers[0]
         
         // Try to find the user's most likely preferred wallet
@@ -400,9 +382,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log(`🦊 Attempting direct connection with ${provider.isMetaMask ? 'MetaMask' : provider.isCoinbaseWallet ? 'Coinbase' : 'detected wallet'}...`)
         
         try {
-          const accounts = await provider.request({ 
-            method: 'eth_requestAccounts' 
-          })
+          const accounts = await provider.request({ method: 'eth_requestAccounts' })
           
           if (accounts && accounts.length > 0) {
             const account = accounts[0]
@@ -426,10 +406,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣2️⃣ FIXED: Enhanced WalletConnect Connection - MOBILE MODAL ONLY
+  // 1️⃣2️⃣ FIXED: Enhanced WalletConnect Connection
   async function connectViaWalletConnect() {
     try {
-      // Initialize WalletConnect
       const initSuccess = await initWalletConnect()
       if (!initSuccess) {
         setButtonState(connectButton, 'failed')
@@ -450,16 +429,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       })
 
       if (uri) {
-        // MOBILE FIX: Always use modal for both desktop and mobile
         modal.openModal({ uri })
         showStatus('Select your wallet from the list or scan QR code', 'info')
       }
 
-      // Wait for user approval with timeout
       const session = await Promise.race([
         approval(),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Connection timeout')), 60000) // Increased timeout
+          setTimeout(() => reject(new Error('Connection timeout')), 60000)
         )
       ])
       
@@ -488,16 +465,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣3️⃣ REMOVED: Deep linking functionality completely
-
-  // 1️⃣4️⃣ Handle session approval
+  // 1️⃣3️⃣ Handle session approval
   function handleConnectedSession(session) {
     if (session?.namespaces?.eip155?.accounts?.length) {
       const account = session.namespaces.eip155.accounts[0].split(':')[2]
       console.log('✅ Connected wallet:', account)
       currentSession = session
       updateConnectedUI(account)
-      saveWallet(account, session) // Save both address and session
+      saveWallet(account, session)
       return true
     } else {
       console.error('❌ No accounts found in session')
@@ -506,32 +481,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣5️⃣ FIXED: Enhanced Connect Wallet Function – now tries direct connection first
+  // 1️⃣4️⃣ FIXED: Enhanced Connect Wallet Function – tries direct on mobile first
   async function connectWallet() {
     try {
-      // Set loading state
       setButtonState(connectButton, 'loading')
       if (walletButton) setButtonState(walletButton, 'loading')
       showStatus('Initializing wallet connection...', 'info')
 
-      // First, try direct connection if an injected provider exists (works on mobile in‑app browsers)
-      if (typeof window.ethereum !== 'undefined') {
-        console.log('🦊 Injected provider detected, attempting direct connection...')
+      // On mobile, first try direct connection if an injected provider exists (e.g., in-app browser)
+      if (isMobile() && typeof window.ethereum !== 'undefined') {
+        console.log('📱 Mobile with injected provider – attempting direct connection...')
         try {
           const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
           if (accounts && accounts.length > 0) {
-            console.log('✅ Direct wallet connection successful:', accounts[0])
+            console.log('✅ Direct mobile connection successful:', accounts[0])
             updateConnectedUI(accounts[0])
             saveWallet(accounts[0])
-            return // Successfully connected
+            return
           }
         } catch (directError) {
-          console.warn('⚠️ Direct connection failed:', directError)
+          console.warn('⚠️ Direct mobile connection failed:', directError)
           // Fall through to WalletConnect
         }
       }
 
-      // If no direct provider or it failed, use WalletConnect
+      // Otherwise, use WalletConnect (or desktop direct connection)
+      if (!isMobile()) {
+        console.log('🖥️ Desktop detected - attempting enhanced wallet connection...')
+        const directConnected = await connectDesktopWallet()
+        if (directConnected) {
+          return
+        }
+      }
+      
       console.log('📱 Using WalletConnect...')
       await connectViaWalletConnect()
       
@@ -550,7 +532,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 1️⃣6️⃣ Disconnect wallet
+  // 1️⃣5️⃣ Disconnect wallet
   async function disconnectWallet() {
     try {
       if (currentSession) {
@@ -568,7 +550,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     clearSavedWallet()
   }
 
-  // 1️⃣7️⃣ Enhanced button click events
+  // 1️⃣6️⃣ Enhanced button click events
   const handleClick = async () => {
     const saved = getSavedWallet()
     if (saved && currentSession) {
@@ -578,15 +560,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  if (connectButton) {
-    connectButton.addEventListener('click', handleClick)
-  }
-  
-  if (walletButton) {
-    walletButton.addEventListener('click', handleClick)
-  }
+  if (connectButton) connectButton.addEventListener('click', handleClick)
+  if (walletButton) walletButton.addEventListener('click', handleClick)
 
-  // 1️⃣8️⃣ Restore saved wallet and session on page load - ENHANCED PERSISTENCE
+  // 1️⃣7️⃣ Restore saved wallet and session on page load - ENHANCED PERSISTENCE
   async function restoreWalletConnection() {
     const savedWallet = getSavedWallet()
     const savedSession = getSavedSession()
@@ -594,7 +571,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (savedWallet && savedSession) {
       console.log('♻️ Restoring saved wallet and session:', savedWallet)
       
-      // Initialize WalletConnect first
       const initSuccess = await initWalletConnect()
       if (!initSuccess) {
         console.log('❌ Failed to initialize WalletConnect for session restoration')
@@ -603,7 +579,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       try {
-        // Check if session still exists in client
         const session = client.session.get(savedSession.topic)
         if (session) {
           currentSession = session
@@ -619,17 +594,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         clearSavedWallet()
       }
     } else if (savedWallet && !savedSession) {
-      // ENHANCED: Handle case where we have wallet address but no session (direct connection)
       console.log('♻️ Restoring direct wallet connection:', savedWallet)
       updateConnectedUI(savedWallet)
       showStatus('Wallet connection restored', 'success')
     }
   }
 
-  // Initialize and restore connection on page load
   await restoreWalletConnection()
 
-  // 1️⃣9️⃣ Enhanced session update listeners
+  // 1️⃣8️⃣ Enhanced session update listeners
   setTimeout(() => {
     if (client) {
       client.on('session_update', ({ params }) => {
@@ -653,7 +626,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log('📨 Session event:', event)
       })
 
-      // Listen for connection events
       client.on('session_connect', (session) => {
         console.log('🔗 Session connected:', session)
         handleConnectedSession(session)
@@ -661,59 +633,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }, 1000)
 
-  // 2️⃣0️⃣ FIXED: Enhanced EIP-6963 Provider Discovery for Better Desktop Support
+  // 1️⃣9️⃣ FIXED: Enhanced EIP-6963 Provider Discovery
   function setupEIP6963() {
     if (typeof window !== 'undefined') {
-      // Initialize the providers array
-      if (!window.eip6963Providers) {
-        window.eip6963Providers = []
-      }
+      if (!window.eip6963Providers) window.eip6963Providers = []
 
-      // Listen for EIP-6963 provider announcements
       window.addEventListener('eip6963:announceProvider', (event) => {
         console.log('🎯 EIP-6963 Provider detected:', event.detail.info.name)
-        
-        // Check if provider already exists to avoid duplicates
-        const exists = window.eip6963Providers.some(
-          p => p.info.uuid === event.detail.info.uuid
-        )
-        
+        const exists = window.eip6963Providers.some(p => p.info.uuid === event.detail.info.uuid)
         if (!exists) {
           window.eip6963Providers.push(event.detail)
           console.log(`✅ Added EIP-6963 provider: ${event.detail.info.name}`)
         }
       })
 
-      // Dispatch the request event to trigger provider announcements
       window.dispatchEvent(new Event('eip6963:requestProvider'))
-      
-      // Re-request providers after a short delay to catch any late announcements
-      setTimeout(() => {
-        window.dispatchEvent(new Event('eip6963:requestProvider'))
-      }, 1000)
+      setTimeout(() => window.dispatchEvent(new Event('eip6963:requestProvider')), 1000)
     }
   }
-
-  // Initialize EIP-6963 provider discovery
   setupEIP6963()
 
-  // 2️⃣1️⃣ Handle page visibility changes
+  // 2️⃣0️⃣ Handle page visibility changes
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && getSavedWallet()) {
       console.log('🔍 Page visible, checking connection state...')
-      // Optional: Add connection health check here
     }
   })
 
-  // 2️⃣2️⃣ Enhanced error handling for wallet changes
+  // 2️⃣1️⃣ Enhanced error handling for wallet changes
   window.addEventListener('beforeunload', () => {
-    // Clean up any pending operations
-    if (modal) {
-      modal.closeModal()
-    }
+    if (modal) modal.closeModal()
   })
 
-  // 2️⃣3️⃣ FIXED: Enhanced Provider Change Detection
+  // 2️⃣2️⃣ FIXED: Enhanced Provider Change Detection
   if (window.ethereum) {
     window.ethereum.on('accountsChanged', (accounts) => {
       if (accounts.length === 0) {
