@@ -47,7 +47,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     return
   }
 
-  // ---------- Button styling (preserved from original) ----------
+  // ---------- Mobile detection (FIXED: was missing!) ----------
+  function isMobile() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  }
+
+  // ---------- Button styling (preserved) ----------
   function setButtonState(button, state, message = '') {
     if (!button) return
     button.style.display = 'inline-block'
@@ -336,6 +341,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         logDebug(`URI obtained: ${uri}`)
         modal.openModal({ uri })
         showStatus('Select your wallet or scan QR code', 'info')
+      } else {
+        logDebug('❌ No URI returned from client.connect')
+        showStatus('Failed to generate connection URI', 'error')
+        return false
       }
 
       const session = await Promise.race([
