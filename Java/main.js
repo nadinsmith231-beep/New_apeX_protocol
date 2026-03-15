@@ -30,38 +30,34 @@
     debugArea.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${msg}</div>`
   }
 
-  // ---------- Platform detection ----------
+  // ---------- Device detection ----------
   function isMobile() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   }
-
   function isIOS() {
     return /iPhone|iPad|iPod/i.test(navigator.userAgent) && !window.MSStream
   }
 
-  function isSafari() {
-    return /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
-  }
-
-  // ---------- WebSocket connectivity check with retries (iOS‑friendly) ----------
+  // ---------- WebSocket connectivity check with retries (longer timeout on iOS) ----------
   async function checkWebSocket(retries = 3, delay = 1000) {
+    const timeout = isIOS() ? 8000 : 5000 // iOS sometimes needs more time
     for (let i = 0; i < retries; i++) {
       try {
         logDebug(`WebSocket check attempt ${i+1}/${retries}`)
         const result = await new Promise((resolve) => {
           const ws = new WebSocket('wss://relay.walletconnect.com')
-          const timeout = setTimeout(() => {
+          const t = setTimeout(() => {
             ws.close()
             resolve(false)
-          }, 5000)
+          }, timeout)
 
           ws.onopen = () => {
-            clearTimeout(timeout)
+            clearTimeout(t)
             ws.close()
             resolve(true)
           }
           ws.onerror = () => {
-            clearTimeout(timeout)
+            clearTimeout(t)
             ws.close()
             resolve(false)
           }
@@ -80,17 +76,18 @@
     return false
   }
 
-  // ---------- Dynamic import with multiple CDN fallbacks ----------
+  // ---------- Dynamic import with multiple CDN fallbacks (iOS‑friendly) ----------
   async function loadWalletConnect() {
+    // CDN order: jsdelivr (often most reliable), esm.sh, unpkg
     const cdns = [
-      'https://unpkg.com/@walletconnect/sign-client@2.11.0/dist/index.mjs',
+      'https://cdn.jsdelivr.net/npm/@walletconnect/sign-client@2.11.0/+esm',
       'https://esm.sh/@walletconnect/sign-client@2.11.0',
-      'https://cdn.jsdelivr.net/npm/@walletconnect/sign-client@2.11.0/+esm'
+      'https://unpkg.com/@walletconnect/sign-client@2.11.0/dist/index.mjs'
     ]
     const modalCdns = [
-      'https://unpkg.com/@walletconnect/modal@2.6.2/dist/index.mjs',
+      'https://cdn.jsdelivr.net/npm/@walletconnect/modal@2.6.2/+esm',
       'https://esm.sh/@walletconnect/modal@2.6.2',
-      'https://cdn.jsdelivr.net/npm/@walletconnect/modal@2.6.2/+esm'
+      'https://unpkg.com/@walletconnect/modal@2.6.2/dist/index.mjs'
     ]
 
     let SignClient, WalletConnectModal
@@ -123,22 +120,6 @@
     return { SignClient, WalletConnectModal }
   }
 
-  // ---------- iOS‑friendly universal link opener ----------
-  function openUniversalLink(url) {
-    if (isIOS()) {
-      // On iOS, using window.location.href can be blocked. Use window.open or create a temporary iframe.
-      const iframe = document.createElement('iframe')
-      iframe.style.display = 'none'
-      iframe.src = url
-      document.body.appendChild(iframe)
-      setTimeout(() => {
-        document.body.removeChild(iframe)
-      }, 1000)
-    } else {
-      window.location.href = url
-    }
-  }
-
   // ---------- Main execution ----------
   document.addEventListener('DOMContentLoaded', async () => {
     logDebug('DOMContentLoaded')
@@ -151,8 +132,106 @@
     let client, modal, SignClient, WalletConnectModal
 
     // UI functions (unchanged)
-    function setButtonState(button, state, message = '') { /* ... unchanged ... */ }
-    function showStatus(message, type = 'info') { /* ... unchanged ... */ }
+    function setButtonState(button, state, message = '') {
+      if (!button) return
+      button.style.display = 'inline-block'
+      button.style.padding = '14px 28px'
+      button.style.borderRadius = '8px'
+      button.style.fontWeight = '600'
+      button.style.border = 'none'
+      button.style.cursor = state === 'loading' ? 'not-allowed' : 'pointer'
+      button.style.transition = 'all 0.3s ease'
+      button.style.color = 'white'
+      button.style.fontSize = '16px'
+      button.style.fontFamily = "'Inter', sans-serif"
+      button.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)'
+      button.style.minWidth = '180px'
+      button.disabled = state === 'loading'
+
+      switch (state) {
+        case 'loading':
+          button.style.background = 'linear-gradient(135deg, #666666 0%, #888888 100%)'
+          button.style.boxShadow = '0 2px 8px rgba(102, 102, 102, 0.3)'
+          button.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 8px"></i> Connecting...'
+          break
+        case 'connected':
+          button.style.background = 'linear-gradient(135deg, #10B981 0%, #059669 100%)'
+          button.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)'
+          button.innerHTML = '<i class="fas fa-check-circle" style="margin-right: 8px"></i> Connected'
+          break
+        case 'disconnect':
+          button.style.background = 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)'
+          button.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)'
+          button.innerHTML = '<i class="fas fa-power-off" style="margin-right: 8px"></i> Disconnect'
+          break
+        case 'failed':
+          button.style.background = 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)'
+          button.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)'
+          button.innerHTML = '<i class="fas fa-exclamation-triangle" style="margin-right: 8px"></i> Failed'
+          setTimeout(() => setButtonState(button, 'normal'), 3000)
+          break
+        case 'normal':
+        default:
+          button.style.background = 'linear-gradient(135deg, #FF6B00 0%, #FF8C00 100%)'
+          button.style.boxShadow = '0 4px 12px rgba(255, 107, 0, 0.3)'
+          button.innerHTML = '<i class="fas fa-wallet" style="margin-right: 8px"></i> Connect Wallet to Mint'
+          button.onmouseenter = () => {
+            if (!button.disabled) {
+              button.style.transform = 'translateY(-2px)'
+              button.style.boxShadow = '0 6px 16px rgba(255, 107, 0, 0.4)'
+            }
+          }
+          button.onmouseleave = () => {
+            button.style.transform = 'translateY(0)'
+            button.style.boxShadow = '0 4px 12px rgba(255, 107, 0, 0.3)'
+          }
+          break
+      }
+    }
+
+    function showStatus(message, type = 'info') {
+      if (claimStatus) {
+        claimStatus.textContent = message
+        claimStatus.className = `status ${type}`
+        claimStatus.style.display = 'block'
+        claimStatus.style.padding = '12px 16px'
+        claimStatus.style.borderRadius = '8px'
+        claimStatus.style.marginTop = '12px'
+        claimStatus.style.fontWeight = '500'
+        claimStatus.style.fontSize = '14px'
+        claimStatus.style.textAlign = 'center'
+        claimStatus.style.transition = 'all 0.3s ease'
+
+        switch (type) {
+          case 'success':
+            claimStatus.style.background = 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)'
+            claimStatus.style.color = '#166534'
+            claimStatus.style.border = '1px solid #86EFAC'
+            break
+          case 'error':
+            claimStatus.style.background = 'linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%)'
+            claimStatus.style.color = '#991B1B'
+            claimStatus.style.border = '1px solid #FCA5A5'
+            break
+          case 'info':
+          default:
+            claimStatus.style.background = 'linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%)'
+            claimStatus.style.color = '#1E40AF'
+            claimStatus.style.border = '1px solid #93C5FD'
+            break
+        }
+
+        if (type === 'error' || type === 'success') {
+          setTimeout(() => {
+            claimStatus.style.opacity = '0'
+            setTimeout(() => {
+              claimStatus.style.display = 'none'
+              claimStatus.style.opacity = '1'
+            }, 300)
+          }, 5000)
+        }
+      }
+    }
 
     // Initialize buttons
     setButtonState(connectButton, 'normal')
@@ -253,8 +332,11 @@
         logDebug(`🔄 Initializing WalletConnect with projectId: ${projectId}`)
       }
 
+      // Check WebSocket connectivity (with retries, longer timeout on iOS)
       const wsOk = await checkWebSocket(3, 1500)
-      if (!wsOk) logDebug('⚠️ WebSocket check failed – proceeding anyway')
+      if (!wsOk) {
+        logDebug('⚠️ WebSocket check failed – proceeding anyway, but likely to fail')
+      }
 
       try {
         client = await SignClient.init({
@@ -298,7 +380,7 @@
       }
     }
 
-    // ---------- Direct connection (via window.ethereum) ----------
+    // ---------- Direct connection (works via window.ethereum) ----------
     async function connectDirect() {
       if (typeof window.ethereum === 'undefined') {
         logDebug('No injected provider (window.ethereum)')
@@ -321,7 +403,7 @@
       return false
     }
 
-    // ---------- iOS‑optimized WalletConnect connection ----------
+    // ---------- iOS‑friendly WalletConnect connection ----------
     async function connectViaWalletConnect(useTestId = false) {
       const initSuccess = await initWalletConnect(useTestId)
       if (!initSuccess) {
@@ -345,27 +427,30 @@
 
         if (uri) {
           logDebug(`URI obtained: ${uri}`)
-          
-          // Always open modal immediately (Safari requires user gesture)
-          modal.openModal({ uri })
-          showStatus('Select your wallet or scan QR code', 'info')
 
-          // On mobile, attempt to open the wallet via universal link (after a short delay)
-          if (isMobile()) {
+          // On iOS, the modal may not work; we attempt both modal and direct universal link
+          if (isIOS()) {
+            logDebug('iOS detected – trying universal link directly')
+            // Try to open the first recommended mobile wallet via universal link
+            const wallet = metadata.mobileWallets?.[0]
+            if (wallet && wallet.links.universal) {
+              const universalUrl = `${wallet.links.universal}wc?uri=${encodeURIComponent(uri)}`
+              logDebug(`Universal link: ${universalUrl}`)
+              // Open in same tab – will switch to wallet app
+              window.location.href = universalUrl
+            }
+          } else {
+            // On Android/desktop, just show modal
+            modal.openModal({ uri })
+            showStatus('Select your wallet or scan QR code', 'info')
+          }
+
+          // Also set a timeout to show modal even on iOS after a delay (in case universal link fails)
+          if (isIOS()) {
             setTimeout(() => {
-              // Use the first recommended mobile wallet's universal link
-              const wallet = metadata.mobileWallets?.[0]
-              if (wallet && wallet.links.universal) {
-                const universalUrl = `${wallet.links.universal}wc?uri=${encodeURIComponent(uri)}`
-                logDebug(`Attempting universal link: ${universalUrl}`)
-                openUniversalLink(universalUrl)
-
-                // Also provide clipboard fallback for users who need to copy manually
-                setTimeout(() => {
-                  showStatus('If wallet doesn\'t open, copy the URI from debug panel', 'info')
-                }, 2000)
-              }
-            }, 500) // shorter delay on iOS to feel responsive
+              // If user is still on the page, modal might still help
+              modal.openModal({ uri })
+            }, 2000)
           }
         }
 
