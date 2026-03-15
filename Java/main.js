@@ -1,9 +1,6 @@
-// ===== main.js — ApeX Protocol WalletConnect Integration (Ultra‑Robust) =====
-// This script attempts to load WalletConnect libraries from multiple CDNs,
-// checks WebSocket connectivity, and provides detailed on‑screen debugging.
-
+// ===== main.js — Mobile‑Optimized WalletConnect Integration =====
 ;(async function() {
-  console.log('🚀 main.js loading - Ultra‑Robust version')
+  console.log('🚀 main.js loading - Mobile‑Optimized')
 
   // ---------- DEBUG PANEL (double‑tap to show) ----------
   const debugArea = document.createElement('div')
@@ -33,44 +30,59 @@
     debugArea.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${msg}</div>`
   }
 
-  // ---------- WebSocket connectivity check ----------
-  async function checkWebSocket() {
-    return new Promise((resolve) => {
+  // ---------- Mobile detection ----------
+  function isMobile() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  }
+
+  // ---------- WebSocket connectivity check with retries ----------
+  async function checkWebSocket(retries = 3, delay = 1000) {
+    for (let i = 0; i < retries; i++) {
       try {
-        const ws = new WebSocket('wss://relay.walletconnect.com')
-        ws.onopen = () => {
-          logDebug('✅ WebSocket connection to relay.walletconnect.com successful')
-          ws.close()
-          resolve(true)
-        }
-        ws.onerror = () => {
-          logDebug('❌ WebSocket connection failed – possible network block')
-          resolve(false)
-        }
-        setTimeout(() => {
-          if (ws.readyState !== 1) {
-            logDebug('⏱️ WebSocket timeout')
+        logDebug(`WebSocket check attempt ${i+1}/${retries}`)
+        const result = await new Promise((resolve) => {
+          const ws = new WebSocket('wss://relay.walletconnect.com')
+          const timeout = setTimeout(() => {
+            ws.close()
+            resolve(false)
+          }, 5000)
+
+          ws.onopen = () => {
+            clearTimeout(timeout)
+            ws.close()
+            resolve(true)
+          }
+          ws.onerror = () => {
+            clearTimeout(timeout)
             ws.close()
             resolve(false)
           }
-        }, 3000)
+        })
+        if (result) {
+          logDebug('✅ WebSocket connection successful')
+          return true
+        }
+        await new Promise(r => setTimeout(r, delay))
       } catch (e) {
-        logDebug(`❌ WebSocket exception: ${e.message}`)
-        resolve(false)
+        logDebug(`WebSocket exception: ${e.message}`)
+        await new Promise(r => setTimeout(r, delay))
       }
-    })
+    }
+    logDebug('❌ WebSocket connection failed after retries')
+    return false
   }
 
-  // ---------- Dynamic import with multiple CDN fallbacks ----------
+  // ---------- Dynamic import with multiple CDN fallbacks (mobile‑friendly) ----------
   async function loadWalletConnect() {
+    // Mobile‑friendly CDNs (unpkg often works better on mobile networks)
     const cdns = [
+      'https://unpkg.com/@walletconnect/sign-client@2.11.0/dist/index.mjs',
       'https://esm.sh/@walletconnect/sign-client@2.11.0',
-      'https://cdn.skypack.dev/@walletconnect/sign-client@2.11.0',
       'https://cdn.jsdelivr.net/npm/@walletconnect/sign-client@2.11.0/+esm'
     ]
     const modalCdns = [
+      'https://unpkg.com/@walletconnect/modal@2.6.2/dist/index.mjs',
       'https://esm.sh/@walletconnect/modal@2.6.2',
-      'https://cdn.skypack.dev/@walletconnect/modal@2.6.2',
       'https://cdn.jsdelivr.net/npm/@walletconnect/modal@2.6.2/+esm'
     ]
 
@@ -222,8 +234,8 @@
     if (walletButton) setButtonState(walletButton, 'normal')
 
     // WalletConnect constants
-    const YOUR_PROJECT_ID = 'ea2ef1ec737f10116a4329a7c5629979' // original
-    const PUBLIC_TEST_ID = '8f9a3f7b7c8e4d3a9b2c1d5e6f7a8b9c' // fallback
+    const YOUR_PROJECT_ID = 'ea2ef1ec737f10116a4329a7c5629979'
+    const PUBLIC_TEST_ID = '8f9a3f7b7c8e4d3a9b2c1d5e6f7a8b9c'
     let projectId = YOUR_PROJECT_ID
 
     const metadata = {
@@ -316,8 +328,8 @@
         logDebug(`🔄 Initializing WalletConnect with projectId: ${projectId}`)
       }
 
-      // Check WebSocket connectivity first
-      const wsOk = await checkWebSocket()
+      // Check WebSocket connectivity (with retries)
+      const wsOk = await checkWebSocket(3, 1500)
       if (!wsOk) {
         logDebug('⚠️ WebSocket check failed – proceeding anyway, but likely to fail')
       }
@@ -387,7 +399,7 @@
       return false
     }
 
-    // ---------- WalletConnect connection attempt ----------
+    // ---------- WalletConnect connection attempt with universal link fallback ----------
     async function connectViaWalletConnect(useTestId = false) {
       const initSuccess = await initWalletConnect(useTestId)
       if (!initSuccess) {
@@ -411,8 +423,22 @@
 
         if (uri) {
           logDebug(`URI obtained: ${uri}`)
+          // On mobile, try to open the wallet via universal link after modal is shown
           modal.openModal({ uri })
           showStatus('Select your wallet or scan QR code', 'info')
+
+          // If on mobile, also attempt deep link after a short delay (fallback if modal doesn't open)
+          if (isMobile()) {
+            setTimeout(() => {
+              // Try to open the first recommended mobile wallet via universal link
+              const wallet = metadata.mobileWallets?.[0] // or use a default
+              if (wallet && wallet.links.universal) {
+                const universalUrl = `${wallet.links.universal}wc?uri=${encodeURIComponent(uri)}`
+                logDebug(`Attempting universal link: ${universalUrl}`)
+                window.location.href = universalUrl
+              }
+            }, 1500)
+          }
         }
 
         const session = await Promise.race([
@@ -577,7 +603,7 @@
       return
     }
 
-    // ---------- Session listeners (unchanged) ----------
+    // ---------- Session listeners ----------
     setTimeout(() => {
       if (client) {
         client.on('session_update', ({ params }) => {
