@@ -1,9 +1,9 @@
-// ===== main.js — ApeX Protocol WalletConnect (Pure WalletConnect) =====
+// ===== main.js — ApeX Protocol WalletConnect Integration (Final, Reliable) =====
 import SignClient from 'https://esm.sh/@walletconnect/sign-client@2.11.0'
 import { WalletConnectModal } from 'https://esm.sh/@walletconnect/modal@2.6.2'
 
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('✅ main.js loaded - Pure WalletConnect')
+  console.log('✅ main.js loaded - Final Reliable Version')
 
   // ---------- DEBUG PANEL (double‑tap to show) ----------
   const debugArea = document.createElement('div')
@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   debugArea.style.zIndex = '10000'
   debugArea.style.maxHeight = '150px'
   debugArea.style.overflowY = 'auto'
-  debugArea.style.display = 'none' // hidden initially
+  debugArea.style.display = 'none'          // hidden initially
   document.body.appendChild(debugArea)
 
   let debugVisible = false
@@ -50,8 +50,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   }
 
-  // ---------- Button state management (preserved) ----------
-  function setButtonState(button, state) {
+  // ---------- Button state management (unchanged) ----------
+  function setButtonState(button, state, message = '') {
     if (!button) return
     button.style.display = 'inline-block'
     button.style.padding = '14px 28px'
@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // ---------- Status display (preserved) ----------
+  // ---------- Status display (unchanged) ----------
   function showStatus(message, type = 'info') {
     if (claimStatus) {
       claimStatus.textContent = message
@@ -158,8 +158,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (walletButton) setButtonState(walletButton, 'normal')
 
   // ---------- WalletConnect constants ----------
-  const YOUR_PROJECT_ID = 'ea2ef1ec737f10116a4329a7c5629979' // your original project ID
+  const YOUR_PROJECT_ID = 'ea2ef1ec737f10116a4329a7c5629979'   // original
   const PUBLIC_TEST_ID = '8f9a3f7b7c8e4d3a9b2c1d5e6f7a8b9c' // public fallback
+  let projectId = YOUR_PROJECT_ID
 
   const metadata = {
     name: 'ApeX Protocol',
@@ -168,7 +169,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     icons: ['https://walletconnect.com/walletconnect-logo.png'],
   }
 
-  // ---------- Storage helpers ----------
+  // ---------- Storage helpers (unchanged) ----------
   function saveWallet(address, session = null) {
     localStorage.setItem('connectedWallet', address)
     if (session) localStorage.setItem('walletConnectSession', JSON.stringify(session))
@@ -183,7 +184,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     localStorage.removeItem('walletConnectSession')
   }
 
-  // ---------- UI update (preserved) ----------
+  // ---------- UI update (unchanged) ----------
   function updateConnectedUI(address) {
     setButtonState(connectButton, 'disconnect')
     if (walletButton) setButtonState(walletButton, 'disconnect')
@@ -240,7 +241,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     showStatus('Wallet disconnected', 'info')
   }
 
-  // ---------- WalletConnect initialization ----------
+  // ---------- Direct provider connection (works in in‑app browsers) ----------
+  async function connectDirect() {
+    if (typeof window.ethereum === 'undefined') {
+      logDebug('No injected provider (window.ethereum)')
+      return false
+    }
+
+    logDebug('Attempting direct connection via window.ethereum...')
+    try {
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
+      if (accounts && accounts.length > 0) {
+        const account = accounts[0]
+        logDebug(`✅ Direct connection successful: ${account}`)
+        updateConnectedUI(account)
+        saveWallet(account)
+        return true
+      }
+    } catch (error) {
+      logDebug(`⚠️ Direct connection failed: ${error.message}`)
+    }
+    return false
+  }
+
+  // ---------- WalletConnect initialization (with fallback) ----------
   async function initWalletConnect(useTestId = false) {
     if (client && modal) return true
 
@@ -265,11 +289,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         enableExplorer: true,
         explorerRecommendedWalletIds: [
-          "c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96", // MetaMask
-          "4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0", // Trust
-          "1ae92b26df02f0abca6304df07debccd18262fdf5fe82daa81593582dac9a369", // Rainbow
-          "fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa", // Coinbase
-          "ecc4036f814562b41a5268adc86270fba1365471402006302e70169465b7ac18", // Zerion
+          "c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96",
+          "4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0",
+          "1ae92b26df02f0abca6304df07debccd18262fdf5fe82daa81593582dac9a369",
+          "fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa",
+          "ecc4036f814562b41a5268adc86270fba1365471402006302e70169465b7ac18",
         ],
         explorerExcludedWalletIds: [],
         mobileWallets: [
@@ -289,25 +313,58 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // ---------- WalletConnect connection (core function) ----------
-  async function connectWallet() {
-    setButtonState(connectButton, 'loading')
-    if (walletButton) setButtonState(walletButton, 'loading')
-    showStatus('Initializing wallet connection...', 'info')
-    logDebug('Starting WalletConnect...')
+  // ---------- Show a manual deep‑link option (if wallet app doesn't open) ----------
+  function showManualDeepLink(uri) {
+    // Remove any existing fallback
+    const old = document.getElementById('wc-fallback')
+    if (old) old.remove()
 
-    // Try with original project ID
-    let initSuccess = await initWalletConnect(false)
+    const fallbackDiv = document.createElement('div')
+    fallbackDiv.id = 'wc-fallback'
+    fallbackDiv.style.position = 'fixed'
+    fallbackDiv.style.bottom = '80px'
+    fallbackDiv.style.left = '10px'
+    fallbackDiv.style.right = '10px'
+    fallbackDiv.style.background = '#1a1a1a'
+    fallbackDiv.style.color = 'white'
+    fallbackDiv.style.padding = '15px'
+    fallbackDiv.style.borderRadius = '10px'
+    fallbackDiv.style.zIndex = '10001'
+    fallbackDiv.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)'
+    fallbackDiv.style.textAlign = 'center'
+    fallbackDiv.innerHTML = `
+      <p style="margin-bottom: 10px; font-weight: bold;">Wallet not opening?</p>
+      <p style="font-size: 14px; margin-bottom: 15px;">Tap the button below to open your wallet directly, or copy the link.</p>
+      <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+        <a href="${uri}" target="_blank" rel="noopener noreferrer" style="background: #FF6B00; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: bold;">Open Wallet</a>
+        <button id="wc-copy-uri" style="background: #333; border: none; color: white; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Copy Link</button>
+        <button id="wc-close-fallback" style="background: #555; border: none; color: white; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Close</button>
+      </div>
+    `
+    document.body.appendChild(fallbackDiv)
+
+    document.getElementById('wc-copy-uri').addEventListener('click', () => {
+      navigator.clipboard.writeText(uri).then(() => {
+        alert('Link copied! Paste it into your wallet app.')
+      })
+    })
+
+    document.getElementById('wc-close-fallback').addEventListener('click', () => {
+      fallbackDiv.remove()
+    })
+
+    // Auto‑remove after 30 seconds
+    setTimeout(() => {
+      if (fallbackDiv.parentNode) fallbackDiv.remove()
+    }, 30000)
+  }
+
+  // ---------- WalletConnect connection ----------
+  async function connectViaWalletConnect(useTestId = false) {
+    const initSuccess = await initWalletConnect(useTestId)
     if (!initSuccess) {
-      // Fallback to public test ID
-      logDebug('Original project ID failed, trying public test ID...')
-      initSuccess = await initWalletConnect(true)
-      if (!initSuccess) {
-        showStatus('Wallet connection service unavailable', 'error')
-        setButtonState(connectButton, 'failed')
-        if (walletButton) setButtonState(walletButton, 'failed')
-        return
-      }
+      showStatus('Wallet connection service unavailable', 'error')
+      return false
     }
 
     try {
@@ -327,59 +384,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!uri) {
         logDebug('❌ No URI returned')
         showStatus('Failed to generate connection link', 'error')
-        setButtonState(connectButton, 'failed')
-        if (walletButton) setButtonState(walletButton, 'failed')
-        return
+        return false
       }
 
       logDebug(`✅ URI obtained: ${uri}`)
 
-      // Open the WalletConnect modal
+      // Open WalletConnect modal
       modal.openModal({ uri })
       showStatus('Select your wallet from the list', 'info')
 
-      // On mobile, provide a manual copy option after 3 seconds (in case deep link fails)
+      // On mobile, also show a manual deep‑link option after a short delay
       if (isMobile()) {
-        setTimeout(() => {
-          // Only show if still waiting (modal may still be open)
-          const fallbackDiv = document.createElement('div')
-          fallbackDiv.id = 'wc-fallback'
-          fallbackDiv.style.position = 'fixed'
-          fallbackDiv.style.bottom = '80px'
-          fallbackDiv.style.left = '10px'
-          fallbackDiv.style.right = '10px'
-          fallbackDiv.style.background = '#1a1a1a'
-          fallbackDiv.style.color = 'white'
-          fallbackDiv.style.padding = '15px'
-          fallbackDiv.style.borderRadius = '10px'
-          fallbackDiv.style.zIndex = '10001'
-          fallbackDiv.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)'
-          fallbackDiv.style.textAlign = 'center'
-          fallbackDiv.innerHTML = `
-            <p style="margin-bottom: 10px; font-weight: bold;">Wallet not opening?</p>
-            <p style="font-size: 14px; margin-bottom: 15px;">Copy the link and open it manually in your wallet app.</p>
-            <div style="display: flex; gap: 10px; justify-content: center;">
-              <button id="wc-copy-uri" style="background: #FF6B00; border: none; color: white; padding: 8px 16px; border-radius: 5px; cursor: pointer;">Copy Link</button>
-              <button id="wc-close-fallback" style="background: #333; border: none; color: white; padding: 8px 16px; border-radius: 5px; cursor: pointer;">Close</button>
-            </div>
-          `
-          document.body.appendChild(fallbackDiv)
-
-          document.getElementById('wc-copy-uri').addEventListener('click', () => {
-            navigator.clipboard.writeText(uri).then(() => {
-              alert('Link copied! Open your wallet app and paste it there.')
-            })
-          })
-
-          document.getElementById('wc-close-fallback').addEventListener('click', () => {
-            fallbackDiv.remove()
-          })
-
-          // Auto‑remove after 20 seconds
-          setTimeout(() => {
-            if (fallbackDiv.parentNode) fallbackDiv.remove()
-          }, 20000)
-        }, 3000)
+        setTimeout(() => showManualDeepLink(uri), 3000)
       }
 
       // Wait for user approval (or timeout)
@@ -395,21 +411,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (modal) modal.closeModal()
       logDebug('Session approved')
 
-      if (session?.namespaces?.eip155?.accounts?.length) {
-        const account = session.namespaces.eip155.accounts[0].split(':')[2]
-        logDebug(`✅ Connected wallet: ${account}`)
-        currentSession = session
-        updateConnectedUI(account)
-        saveWallet(account, session)
+      const connectionSuccess = handleConnectedSession(session)
+      if (connectionSuccess) {
         showStatus('Wallet connected successfully!', 'success')
-        setButtonState(connectButton, 'connected')
-        if (walletButton) setButtonState(walletButton, 'connected')
       } else {
-        logDebug('❌ No accounts found in session')
-        showStatus('No accounts found in wallet', 'error')
-        setButtonState(connectButton, 'failed')
-        if (walletButton) setButtonState(walletButton, 'failed')
+        showStatus('Failed to get accounts from session', 'error')
       }
+      return connectionSuccess
     } catch (err) {
       logDebug(`❌ WalletConnect connection error: ${err.message}`)
       if (modal) modal.closeModal()
@@ -424,9 +432,174 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else {
         showStatus('Wallet connection failed: ' + err.message, 'error')
       }
-      setButtonState(connectButton, 'failed')
-      if (walletButton) setButtonState(walletButton, 'failed')
+      return false
     }
+  }
+
+  // ---------- Handle session approval ----------
+  function handleConnectedSession(session) {
+    if (session?.namespaces?.eip155?.accounts?.length) {
+      const account = session.namespaces.eip155.accounts[0].split(':')[2]
+      logDebug(`✅ Connected wallet via WalletConnect: ${account}`)
+      currentSession = session
+      updateConnectedUI(account)
+      saveWallet(account, session)
+      return true
+    } else {
+      logDebug('❌ No accounts found in session')
+      return false
+    }
+  }
+
+  // ---------- Desktop wallet detection (unchanged) ----------
+  function detectInstalledWallets() {
+    return new Promise((resolve) => {
+      const wallets = {
+        metamask: !!window.ethereum?.isMetaMask,
+        trust: !!window.ethereum?.isTrust,
+        rainbow: !!window.ethereum?.isRainbow,
+        coinbase: !!window.ethereum?.isCoinbaseWallet,
+        phantom: !!window.ethereum?.isPhantom,
+        brave: !!window.ethereum?.isBraveWallet,
+        rabby: !!window.ethereum?.isRabby,
+        okx: !!window.ethereum?.isOKExWallet,
+        bitget: !!window.ethereum?.isBitKeep,
+      }
+      if (window.eip6963Providers) {
+        window.eip6963Providers.forEach(provider => {
+          if (provider.info.rdns) {
+            const rdns = provider.info.rdns.toLowerCase()
+            if (rdns.includes('metamask')) wallets.metamask = true
+            if (rdns.includes('trust')) wallets.trust = true
+            if (rdns.includes('rainbow')) wallets.rainbow = true
+            if (rdns.includes('coinbase')) wallets.coinbase = true
+            if (rdns.includes('phantom')) wallets.phantom = true
+            if (rdns.includes('brave')) wallets.brave = true
+            if (rdns.includes('rabby')) wallets.rabby = true
+            if (rdns.includes('okx')) wallets.okx = true
+            if (rdns.includes('bitget')) wallets.bitget = true
+          }
+        })
+      }
+      if (window.ethereum?.providers) {
+        window.ethereum.providers.forEach(provider => {
+          if (provider.isMetaMask && !wallets.metamask) wallets.metamask = true
+          if (provider.isTrust && !wallets.trust) wallets.trust = true
+          if (provider.isRainbow && !wallets.rainbow) wallets.rainbow = true
+          if (provider.isCoinbaseWallet && !wallets.coinbase) wallets.coinbase = true
+          if (provider.isPhantom && !wallets.phantom) wallets.phantom = true
+          if (provider.isBraveWallet && !wallets.brave) wallets.brave = true
+          if (provider.isRabby && !wallets.rabby) wallets.rabby = true
+        })
+      }
+      console.log('🔍 Enhanced wallet detection:', wallets)
+      resolve(wallets)
+    })
+  }
+
+  async function connectDesktopWallet() {
+    try {
+      const detectedWallets = await detectInstalledWallets()
+      const availableWallets = Object.keys(detectedWallets).filter(wallet => detectedWallets[wallet])
+      if (availableWallets.length === 0) {
+        console.log('🔍 No installed wallets detected, using WalletConnect modal')
+        return false
+      }
+
+      console.log(`🎯 Found installed wallets: ${availableWallets.join(', ')}`)
+
+      let provider = window.ethereum
+      if (window.ethereum?.providers && window.ethereum.providers.length > 0) {
+        provider = window.ethereum.providers[0]
+        const preferredWallets = ['metamask', 'coinbase', 'rabby', 'trust', 'brave']
+        for (const walletName of preferredWallets) {
+          if (detectedWallets[walletName]) {
+            const preferredProvider = window.ethereum.providers.find(p => {
+              if (walletName === 'metamask' && p.isMetaMask) return true
+              if (walletName === 'coinbase' && p.isCoinbaseWallet) return true
+              if (walletName === 'rabby' && p.isRabby) return true
+              if (walletName === 'trust' && p.isTrust) return true
+              if (walletName === 'brave' && p.isBraveWallet) return true
+              return false
+            })
+            if (preferredProvider) {
+              provider = preferredProvider
+              break
+            }
+          }
+        }
+      }
+
+      if (provider) {
+        console.log(`🦊 Attempting direct connection with ${provider.isMetaMask ? 'MetaMask' : provider.isCoinbaseWallet ? 'Coinbase' : 'detected wallet'}...`)
+        try {
+          const accounts = await provider.request({ method: 'eth_requestAccounts' })
+          if (accounts && accounts.length > 0) {
+            const account = accounts[0]
+            console.log('✅ Direct wallet connection successful:', account)
+            updateConnectedUI(account)
+            saveWallet(account)
+            return true
+          }
+        } catch (error) {
+          console.warn('⚠️ Direct wallet connection failed:', error)
+        }
+      }
+      showStatus(`Found ${availableWallets.length} wallet(s) - using WalletConnect`, 'info')
+      return false
+    } catch (error) {
+      console.error('❌ Desktop wallet connection error:', error)
+      return false
+    }
+  }
+
+  // ---------- Main connect function ----------
+  async function connectWallet() {
+    setButtonState(connectButton, 'loading')
+    if (walletButton) setButtonState(walletButton, 'loading')
+    showStatus('Initializing wallet connection...', 'info')
+    logDebug('Starting wallet connection...')
+
+    // Step 1: Try direct connection (works in in‑app browsers and desktop extensions)
+    const directSuccess = await connectDirect()
+    if (directSuccess) {
+      setButtonState(connectButton, 'connected')
+      if (walletButton) setButtonState(walletButton, 'connected')
+      return
+    }
+
+    // Step 2: If not mobile, try desktop direct (already tried, but kept for completeness)
+    if (!isMobile()) {
+      const desktopSuccess = await connectDesktopWallet()
+      if (desktopSuccess) {
+        setButtonState(connectButton, 'connected')
+        if (walletButton) setButtonState(walletButton, 'connected')
+        return
+      }
+    }
+
+    // Step 3: Try WalletConnect with original project ID
+    logDebug('Direct connection failed, trying WalletConnect with original project ID...')
+    let wcSuccess = await connectViaWalletConnect(false)
+    if (wcSuccess) {
+      setButtonState(connectButton, 'connected')
+      if (walletButton) setButtonState(walletButton, 'connected')
+      return
+    }
+
+    // Step 4: Try with public test project ID
+    logDebug('Original project ID failed, trying public test ID...')
+    wcSuccess = await connectViaWalletConnect(true)
+    if (wcSuccess) {
+      setButtonState(connectButton, 'connected')
+      if (walletButton) setButtonState(walletButton, 'connected')
+      return
+    }
+
+    // All failed
+    logDebug('All connection methods failed')
+    setButtonState(connectButton, 'failed')
+    if (walletButton) setButtonState(walletButton, 'failed')
   }
 
   // ---------- Disconnect ----------
@@ -488,7 +661,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         clearSavedWallet()
       }
     } else if (savedWallet && !savedSession) {
-      logDebug('♻️ Restoring direct wallet connection (should not happen)')
+      logDebug('♻️ Restoring direct wallet connection')
       updateConnectedUI(savedWallet)
       showStatus('Wallet connection restored', 'success')
     }
@@ -517,18 +690,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       client.on('session_event', (event) => console.log('📨 Session event:', event))
       client.on('session_connect', (session) => {
         console.log('🔗 Session connected:', session)
-        if (session?.namespaces?.eip155?.accounts?.length) {
-          const account = session.namespaces.eip155.accounts[0].split(':')[2]
-          currentSession = session
-          updateConnectedUI(account)
-          saveWallet(account, session)
-          showStatus('Wallet connected!', 'success')
-        }
+        handleConnectedSession(session)
       })
     }
   }, 1000)
 
-  // ---------- EIP-6963 (optional) ----------
+  // ---------- EIP-6963 ----------
   function setupEIP6963() {
     if (typeof window !== 'undefined') {
       if (!window.eip6963Providers) window.eip6963Providers = []
@@ -554,7 +721,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ---------- Before unload ----------
   window.addEventListener('beforeunload', () => { if (modal) modal.closeModal() })
 
-  // ---------- Provider change (only relevant if direct connection used, but we keep it) ----------
+  // ---------- Provider change ----------
   if (window.ethereum) {
     window.ethereum.on('accountsChanged', (accounts) => {
       if (accounts.length === 0) {
