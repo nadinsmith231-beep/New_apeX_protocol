@@ -34,12 +34,13 @@
   function isMobile() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   }
+
   function isIOS() {
     return /iPhone|iPad|iPod/i.test(navigator.userAgent)
   }
 
-  // ---------- WebSocket connectivity check with retries (longer timeout for iOS) ----------
-  async function checkWebSocket(retries = 3, delay = 1500) {
+  // ---------- WebSocket connectivity check with retries ----------
+  async function checkWebSocket(retries = 3, delay = 1000) {
     for (let i = 0; i < retries; i++) {
       try {
         logDebug(`WebSocket check attempt ${i+1}/${retries}`)
@@ -48,7 +49,7 @@
           const timeout = setTimeout(() => {
             ws.close()
             resolve(false)
-          }, isIOS() ? 8000 : 5000) // longer timeout for iOS
+          }, 5000)
 
           ws.onopen = () => {
             clearTimeout(timeout)
@@ -247,7 +248,7 @@
       icons: ['https://walletconnect.com/walletconnect-logo.png'],
     }
 
-    // Storage helpers (unchanged)
+    // Storage helpers
     function saveWallet(address, session = null) {
       localStorage.setItem('connectedWallet', address)
       if (session) localStorage.setItem('walletConnectSession', JSON.stringify(session))
@@ -262,7 +263,7 @@
       localStorage.removeItem('walletConnectSession')
     }
 
-    // UI update functions (unchanged)
+    // UI update functions
     function updateConnectedUI(address) {
       setButtonState(connectButton, 'disconnect')
       if (walletButton) setButtonState(walletButton, 'disconnect')
@@ -319,7 +320,7 @@
       showStatus('Wallet disconnected', 'info')
     }
 
-    // ---------- WalletConnect initialization with iOS tweaks ----------
+    // ---------- WalletConnect initialization ----------
     async function initWalletConnect(useTestId = false) {
       if (client && modal) return true
 
@@ -330,36 +331,19 @@
         logDebug(`🔄 Initializing WalletConnect with projectId: ${projectId}`)
       }
 
-      // Check WebSocket connectivity (with retries, longer for iOS)
+      // Check WebSocket connectivity (with retries)
       const wsOk = await checkWebSocket(3, 1500)
       if (!wsOk) {
-        logDebug('⚠️ WebSocket check failed – will try alternative relay if init fails')
-      }
-
-      // Try primary relay first, then fallback if it fails
-      const relays = ['wss://relay.walletconnect.com', 'wss://relay.walletconnect.org']
-      for (const relayUrl of relays) {
-        try {
-          logDebug(`Attempting SignClient.init with relay: ${relayUrl}`)
-          client = await SignClient.init({
-            projectId,
-            metadata,
-            relayUrl
-          })
-          logDebug(`✅ SignClient initialized with ${relayUrl}`)
-          break // success, exit loop
-        } catch (error) {
-          logDebug(`❌ SignClient.init failed with ${relayUrl}: ${error.message}`)
-          if (error.stack) logDebug(error.stack)
-          // continue to next relay
-        }
-      }
-      if (!client) {
-        logDebug('❌ Could not initialize SignClient with any relay')
-        return false
+        logDebug('⚠️ WebSocket check failed – proceeding anyway, but likely to fail')
       }
 
       try {
+        client = await SignClient.init({
+          projectId,
+          metadata,
+          relayUrl: 'wss://relay.walletconnect.com'
+        })
+
         modal = new WalletConnectModal({
           projectId,
           themeMode: 'dark',
@@ -385,10 +369,11 @@
             { id: 'coinbase', name: 'Coinbase Wallet', links: { native: 'coinbasewallet://', universal: 'https://go.cb-w.com/' } }
           ]
         })
-        logDebug('✅ WalletConnectModal initialized')
+
+        logDebug('✅ WalletConnect initialized successfully')
         return true
       } catch (error) {
-        logDebug(`❌ WalletConnectModal init failed: ${error.message}`)
+        logDebug(`❌ WalletConnect init failed: ${error.message}`)
         if (error.stack) logDebug(error.stack)
         return false
       }
@@ -417,7 +402,56 @@
       return false
     }
 
-    // ---------- WalletConnect connection attempt (with iOS‑aware fallback) ----------
+    // ---------- iOS‑specific universal link redirect ----------
+    async function connectIOSViaUniversalLink() {
+      logDebug('Attempting iOS universal link connection...')
+      try {
+        const initSuccess = await initWalletConnect(false)
+        if (!initSuccess) {
+          showStatus('Wallet connection service unavailable', 'error')
+          return false
+        }
+
+        const { uri } = await client.connect({
+          requiredNamespaces: {
+            eip155: {
+              methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4'],
+              chains: ['eip155:1'],
+              events: ['chainChanged', 'accountsChanged'],
+            },
+          },
+        })
+
+        if (!uri) {
+          logDebug('No URI generated')
+          return false
+        }
+
+        logDebug(`URI obtained: ${uri}`)
+
+        // Try MetaMask first (most common)
+        const wallet = metadata.mobileWallets.find(w => w.id === 'metamask') || metadata.mobileWallets[0]
+        if (wallet && wallet.links.universal) {
+          const universalUrl = `${wallet.links.universal}wc?uri=${encodeURIComponent(uri)}`
+          logDebug(`Redirecting to: ${universalUrl}`)
+
+          // Store URI in session storage to detect return
+          sessionStorage.setItem('pending_wc_uri', uri)
+          sessionStorage.setItem('pending_wc_timestamp', Date.now().toString())
+
+          // Redirect
+          window.location.href = universalUrl
+
+          // The page will unload; we rely on the return handling in restoreWalletConnection
+          return true
+        }
+      } catch (err) {
+        logDebug(`❌ iOS universal link failed: ${err.message}`)
+      }
+      return false
+    }
+
+    // ---------- WalletConnect connection attempt (modal + universal link fallback) ----------
     async function connectViaWalletConnect(useTestId = false) {
       const initSuccess = await initWalletConnect(useTestId)
       if (!initSuccess) {
@@ -444,9 +478,10 @@
           modal.openModal({ uri })
           showStatus('Select your wallet or scan QR code', 'info')
 
-          // On non‑iOS mobile, try universal link fallback after a delay
-          if (isMobile() && !isIOS()) {
+          // If on mobile, also attempt deep link after a short delay (fallback if modal doesn't open)
+          if (isMobile()) {
             setTimeout(() => {
+              // Try to open the first recommended mobile wallet via universal link
               const wallet = metadata.mobileWallets?.[0]
               if (wallet && wallet.links.universal) {
                 const universalUrl = `${wallet.links.universal}wc?uri=${encodeURIComponent(uri)}`
@@ -517,8 +552,18 @@
         return
       }
 
-      // Step 2: Try WalletConnect with user's project ID
-      logDebug('Direct connection failed or not available, trying WalletConnect with YOUR project ID...')
+      // Step 2: If iOS, try universal link first (more reliable on Safari)
+      if (isIOS()) {
+        logDebug('iOS detected, trying universal link first')
+        const iosSuccess = await connectIOSViaUniversalLink()
+        if (iosSuccess) {
+          // We redirected, so we stop here – connection will be restored on return
+          return
+        }
+      }
+
+      // Step 3: Try WalletConnect with user's project ID
+      logDebug('Trying WalletConnect with YOUR project ID...')
       let wcSuccess = await connectViaWalletConnect(false)
       if (wcSuccess) {
         setButtonState(connectButton, 'connected')
@@ -526,7 +571,7 @@
         return
       }
 
-      // Step 3: If that fails, try with public test project ID
+      // Step 4: If that fails, try with public test project ID
       logDebug('Your project ID failed, trying with PUBLIC test project ID...')
       wcSuccess = await connectViaWalletConnect(true)
       if (wcSuccess) {
@@ -571,10 +616,38 @@
     if (connectButton) connectButton.addEventListener('click', handleClick)
     if (walletButton) walletButton.addEventListener('click', handleClick)
 
-    // ---------- Restore session ----------
+    // ---------- Restore session and handle return from wallet ----------
     async function restoreWalletConnection() {
       const savedWallet = getSavedWallet()
       const savedSession = getSavedSession()
+
+      // Check if we're returning from a wallet redirect
+      const pendingUri = sessionStorage.getItem('pending_wc_uri')
+      const pendingTimestamp = sessionStorage.getItem('pending_wc_timestamp')
+      if (pendingUri && pendingTimestamp) {
+        const elapsed = Date.now() - parseInt(pendingTimestamp)
+        // If we returned within 2 minutes, assume the wallet might have approved
+        if (elapsed < 120000) {
+          logDebug('Detected return from wallet – waiting for session...')
+          // Try to get the session from client if already initialized
+          if (client) {
+            try {
+              // Wait a bit for the session to appear
+              await new Promise(r => setTimeout(r, 2000))
+              const sessions = client.session.values()
+              if (sessions.length > 0) {
+                const session = sessions[0]
+                handleConnectedSession(session)
+                sessionStorage.removeItem('pending_wc_uri')
+                sessionStorage.removeItem('pending_wc_timestamp')
+                return
+              }
+            } catch (e) {}
+          }
+        }
+        sessionStorage.removeItem('pending_wc_uri')
+        sessionStorage.removeItem('pending_wc_timestamp')
+      }
 
       if (savedWallet && savedSession) {
         logDebug(`♻️ Restoring saved wallet and session: ${savedWallet}`)
@@ -645,7 +718,7 @@
       }
     }, 1000)
 
-    // ---------- EIP-6963 (unchanged) ----------
+    // ---------- EIP-6963 ----------
     function setupEIP6963() {
       if (typeof window !== 'undefined') {
         if (!window.eip6963Providers) window.eip6963Providers = []
@@ -671,7 +744,7 @@
     // ---------- Before unload ----------
     window.addEventListener('beforeunload', () => { if (modal) modal.closeModal() })
 
-    // ---------- Provider change detection (unchanged) ----------
+    // ---------- Provider change detection ----------
     if (window.ethereum) {
       window.ethereum.on('accountsChanged', (accounts) => {
         if (accounts.length === 0) {
