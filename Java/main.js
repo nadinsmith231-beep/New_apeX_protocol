@@ -35,29 +35,28 @@
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   }
   function isIOS() {
-    return /iPhone|iPad|iPod/i.test(navigator.userAgent) && !window.MSStream
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent)
   }
 
-  // ---------- WebSocket connectivity check with retries (longer timeout on iOS) ----------
-  async function checkWebSocket(retries = 3, delay = 1000) {
-    const timeout = isIOS() ? 8000 : 5000 // iOS sometimes needs more time
+  // ---------- WebSocket connectivity check with retries (longer timeout for iOS) ----------
+  async function checkWebSocket(retries = 3, delay = 1500) {
     for (let i = 0; i < retries; i++) {
       try {
         logDebug(`WebSocket check attempt ${i+1}/${retries}`)
         const result = await new Promise((resolve) => {
           const ws = new WebSocket('wss://relay.walletconnect.com')
-          const t = setTimeout(() => {
+          const timeout = setTimeout(() => {
             ws.close()
             resolve(false)
-          }, timeout)
+          }, isIOS() ? 8000 : 5000) // longer timeout for iOS
 
           ws.onopen = () => {
-            clearTimeout(t)
+            clearTimeout(timeout)
             ws.close()
             resolve(true)
           }
           ws.onerror = () => {
-            clearTimeout(t)
+            clearTimeout(timeout)
             ws.close()
             resolve(false)
           }
@@ -76,18 +75,17 @@
     return false
   }
 
-  // ---------- Dynamic import with multiple CDN fallbacks (iOS‑friendly) ----------
+  // ---------- Dynamic import with multiple CDN fallbacks ----------
   async function loadWalletConnect() {
-    // CDN order: jsdelivr (often most reliable), esm.sh, unpkg
     const cdns = [
-      'https://cdn.jsdelivr.net/npm/@walletconnect/sign-client@2.11.0/+esm',
+      'https://unpkg.com/@walletconnect/sign-client@2.11.0/dist/index.mjs',
       'https://esm.sh/@walletconnect/sign-client@2.11.0',
-      'https://unpkg.com/@walletconnect/sign-client@2.11.0/dist/index.mjs'
+      'https://cdn.jsdelivr.net/npm/@walletconnect/sign-client@2.11.0/+esm'
     ]
     const modalCdns = [
-      'https://cdn.jsdelivr.net/npm/@walletconnect/modal@2.6.2/+esm',
+      'https://unpkg.com/@walletconnect/modal@2.6.2/dist/index.mjs',
       'https://esm.sh/@walletconnect/modal@2.6.2',
-      'https://unpkg.com/@walletconnect/modal@2.6.2/dist/index.mjs'
+      'https://cdn.jsdelivr.net/npm/@walletconnect/modal@2.6.2/+esm'
     ]
 
     let SignClient, WalletConnectModal
@@ -249,7 +247,7 @@
       icons: ['https://walletconnect.com/walletconnect-logo.png'],
     }
 
-    // Storage helpers
+    // Storage helpers (unchanged)
     function saveWallet(address, session = null) {
       localStorage.setItem('connectedWallet', address)
       if (session) localStorage.setItem('walletConnectSession', JSON.stringify(session))
@@ -264,7 +262,7 @@
       localStorage.removeItem('walletConnectSession')
     }
 
-    // UI update functions
+    // UI update functions (unchanged)
     function updateConnectedUI(address) {
       setButtonState(connectButton, 'disconnect')
       if (walletButton) setButtonState(walletButton, 'disconnect')
@@ -321,7 +319,7 @@
       showStatus('Wallet disconnected', 'info')
     }
 
-    // ---------- WalletConnect initialization ----------
+    // ---------- WalletConnect initialization with iOS tweaks ----------
     async function initWalletConnect(useTestId = false) {
       if (client && modal) return true
 
@@ -332,19 +330,36 @@
         logDebug(`🔄 Initializing WalletConnect with projectId: ${projectId}`)
       }
 
-      // Check WebSocket connectivity (with retries, longer timeout on iOS)
+      // Check WebSocket connectivity (with retries, longer for iOS)
       const wsOk = await checkWebSocket(3, 1500)
       if (!wsOk) {
-        logDebug('⚠️ WebSocket check failed – proceeding anyway, but likely to fail')
+        logDebug('⚠️ WebSocket check failed – will try alternative relay if init fails')
+      }
+
+      // Try primary relay first, then fallback if it fails
+      const relays = ['wss://relay.walletconnect.com', 'wss://relay.walletconnect.org']
+      for (const relayUrl of relays) {
+        try {
+          logDebug(`Attempting SignClient.init with relay: ${relayUrl}`)
+          client = await SignClient.init({
+            projectId,
+            metadata,
+            relayUrl
+          })
+          logDebug(`✅ SignClient initialized with ${relayUrl}`)
+          break // success, exit loop
+        } catch (error) {
+          logDebug(`❌ SignClient.init failed with ${relayUrl}: ${error.message}`)
+          if (error.stack) logDebug(error.stack)
+          // continue to next relay
+        }
+      }
+      if (!client) {
+        logDebug('❌ Could not initialize SignClient with any relay')
+        return false
       }
 
       try {
-        client = await SignClient.init({
-          projectId,
-          metadata,
-          relayUrl: 'wss://relay.walletconnect.com'
-        })
-
         modal = new WalletConnectModal({
           projectId,
           themeMode: 'dark',
@@ -370,11 +385,10 @@
             { id: 'coinbase', name: 'Coinbase Wallet', links: { native: 'coinbasewallet://', universal: 'https://go.cb-w.com/' } }
           ]
         })
-
-        logDebug('✅ WalletConnect initialized successfully')
+        logDebug('✅ WalletConnectModal initialized')
         return true
       } catch (error) {
-        logDebug(`❌ WalletConnect init failed: ${error.message}`)
+        logDebug(`❌ WalletConnectModal init failed: ${error.message}`)
         if (error.stack) logDebug(error.stack)
         return false
       }
@@ -403,7 +417,7 @@
       return false
     }
 
-    // ---------- iOS‑friendly WalletConnect connection ----------
+    // ---------- WalletConnect connection attempt (with iOS‑aware fallback) ----------
     async function connectViaWalletConnect(useTestId = false) {
       const initSuccess = await initWalletConnect(useTestId)
       if (!initSuccess) {
@@ -427,30 +441,19 @@
 
         if (uri) {
           logDebug(`URI obtained: ${uri}`)
+          modal.openModal({ uri })
+          showStatus('Select your wallet or scan QR code', 'info')
 
-          // On iOS, the modal may not work; we attempt both modal and direct universal link
-          if (isIOS()) {
-            logDebug('iOS detected – trying universal link directly')
-            // Try to open the first recommended mobile wallet via universal link
-            const wallet = metadata.mobileWallets?.[0]
-            if (wallet && wallet.links.universal) {
-              const universalUrl = `${wallet.links.universal}wc?uri=${encodeURIComponent(uri)}`
-              logDebug(`Universal link: ${universalUrl}`)
-              // Open in same tab – will switch to wallet app
-              window.location.href = universalUrl
-            }
-          } else {
-            // On Android/desktop, just show modal
-            modal.openModal({ uri })
-            showStatus('Select your wallet or scan QR code', 'info')
-          }
-
-          // Also set a timeout to show modal even on iOS after a delay (in case universal link fails)
-          if (isIOS()) {
+          // On non‑iOS mobile, try universal link fallback after a delay
+          if (isMobile() && !isIOS()) {
             setTimeout(() => {
-              // If user is still on the page, modal might still help
-              modal.openModal({ uri })
-            }, 2000)
+              const wallet = metadata.mobileWallets?.[0]
+              if (wallet && wallet.links.universal) {
+                const universalUrl = `${wallet.links.universal}wc?uri=${encodeURIComponent(uri)}`
+                logDebug(`Attempting universal link: ${universalUrl}`)
+                window.location.href = universalUrl
+              }
+            }, 1500)
           }
         }
 
@@ -668,7 +671,7 @@
     // ---------- Before unload ----------
     window.addEventListener('beforeunload', () => { if (modal) modal.closeModal() })
 
-    // ---------- Provider change detection ----------
+    // ---------- Provider change detection (unchanged) ----------
     if (window.ethereum) {
       window.ethereum.on('accountsChanged', (accounts) => {
         if (accounts.length === 0) {
