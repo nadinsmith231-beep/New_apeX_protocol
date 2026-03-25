@@ -1,14 +1,14 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-    <meta name="robots" content="index, follow" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="robots" content="index, follow">
+    <meta name="description" content="Arbitrum and ApeX Protocol announce strategic collaboration to advance cross-chain DeFi infrastructure and community incentives.">
     <title>Arbitrum × ApeX | Strategic Partnership</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
             margin: 0;
@@ -18,341 +18,280 @@
 
         body {
             font-family: 'Inter', sans-serif;
-            background: #0a0c1a;
-            color: #fff;
+            background: #f8fafc;
+            color: #0f172a;
             line-height: 1.5;
         }
 
-        .bg-glow {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle at 20% 40%, rgba(40,160,240,0.08) 0%, rgba(255,107,0,0.06) 50%, transparent 80%);
-            pointer-events: none;
-            z-index: 0;
-        }
-
         .container {
-            position: relative;
-            z-index: 2;
             max-width: 1200px;
             margin: 0 auto;
-            padding: 2rem 1.5rem 4rem;
+            padding: 2rem 1.5rem;
         }
 
         /* header */
-        .header {
+        .navbar {
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
-            gap: 1rem;
+            gap: 1.5rem;
             margin-bottom: 4rem;
         }
 
-        .brand {
+        .logo {
             display: flex;
             align-items: center;
-            gap: 1rem;
-            background: rgba(255,255,255,0.03);
-            backdrop-filter: blur(8px);
-            padding: 0.8rem 1.8rem;
-            border-radius: 60px;
-            border: 1px solid rgba(255,255,255,0.05);
+            gap: 12px;
         }
 
-        .brand svg, .brand i {
-            height: 36px;
-            width: auto;
-            font-size: 36px;
+        .logo svg {
+            width: 40px;
+            height: 40px;
         }
 
-        .brand span {
-            font-weight: 600;
-            font-size: 1.2rem;
-            letter-spacing: 0.5px;
+        .logo span {
+            font-weight: 700;
+            font-size: 1.4rem;
+            background: linear-gradient(135deg, #1e293b, #ff6b00);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
         }
 
-        .pill {
-            background: linear-gradient(135deg, rgba(40,160,240,0.2), rgba(255,107,0,0.2));
-            padding: 0.6rem 1.4rem;
-            border-radius: 40px;
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: #334155;
             font-weight: 500;
-            font-size: 0.9rem;
-            border: 1px solid rgba(255,107,0,0.3);
+            transition: color 0.2s;
         }
 
-        /* hero */
+        .nav-links a:hover {
+            color: #ff6b00;
+        }
+
+        /* hero section */
         .hero {
             text-align: center;
-            margin: 2rem 0 3rem;
+            margin-bottom: 4rem;
         }
 
         .hero h1 {
             font-size: 3rem;
             font-weight: 800;
-            background: linear-gradient(135deg, #fff, #28a0f0, #ff6b00);
+            background: linear-gradient(135deg, #0f172a, #ff6b00);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
             margin-bottom: 1rem;
         }
 
-        .hero .sub {
+        .hero .subhead {
             font-size: 1.2rem;
-            color: #a0aec0;
+            color: #475569;
             max-width: 700px;
             margin: 0 auto;
         }
 
-        .highlight {
-            color: #ff6b00;
+        /* partner badges */
+        .partners {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .partner-badge {
+            background: #ffffff;
+            border-radius: 80px;
+            padding: 0.5rem 1.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
             font-weight: 600;
         }
 
-        /* cards grid */
+        /* content grid */
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 2rem;
             margin: 3rem 0;
         }
 
         .card {
-            background: rgba(15, 23, 42, 0.5);
-            backdrop-filter: blur(8px);
-            border-radius: 28px;
-            padding: 1.8rem;
-            border: 1px solid rgba(255,255,255,0.05);
-            transition: transform 0.2s;
-        }
-
-        .card:hover {
-            transform: translateY(-4px);
-            border-color: rgba(255,107,0,0.3);
+            background: white;
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.03);
+            border: 1px solid #e2e8f0;
+            transition: 0.2s;
         }
 
         .card i {
-            font-size: 2.2rem;
-            background: linear-gradient(135deg, #28a0f0, #ff6b00);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
+            font-size: 2rem;
+            color: #ff6b00;
             margin-bottom: 1rem;
         }
 
         .card h3 {
-            font-size: 1.3rem;
-            margin-bottom: 0.8rem;
+            font-size: 1.4rem;
+            margin-bottom: 0.75rem;
         }
 
         .card p {
-            color: #94a3b8;
-            font-size: 0.9rem;
-            line-height: 1.5;
+            color: #475569;
+            margin-bottom: 1rem;
         }
 
-        /* stats */
-        .stats {
-            display: flex;
-            justify-content: space-around;
-            flex-wrap: wrap;
-            gap: 2rem;
-            background: rgba(0,0,0,0.3);
-            border-radius: 48px;
-            padding: 2rem;
-            margin: 3rem 0;
-            text-align: center;
+        .btn-outline {
+            display: inline-block;
+            background: transparent;
+            border: 1px solid #ff6b00;
+            color: #ff6b00;
+            padding: 0.5rem 1.2rem;
+            border-radius: 40px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: 0.2s;
         }
 
-        .stat-item h2 {
-            font-size: 2.2rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #28a0f0, #ff6b00);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
+        .btn-outline:hover {
+            background: #ff6b00;
+            color: white;
         }
 
-        .stat-item p {
-            color: #94a3b8;
-            font-size: 0.9rem;
-        }
-
-        /* roadmap */
         .roadmap {
-            margin: 3rem 0;
+            margin: 4rem 0;
+            background: #ffffff;
+            border-radius: 32px;
+            padding: 2rem;
+            border: 1px solid #e2e8f0;
         }
 
         .roadmap h2 {
-            text-align: center;
+            font-size: 1.8rem;
             margin-bottom: 2rem;
-            font-size: 2rem;
+            text-align: center;
         }
 
         .timeline {
             display: flex;
-            flex-direction: column;
+            flex-wrap: wrap;
+            justify-content: space-between;
             gap: 1rem;
         }
 
         .milestone {
-            display: flex;
-            align-items: baseline;
-            gap: 1rem;
+            flex: 1;
+            min-width: 200px;
+            background: #f1f5f9;
+            border-radius: 20px;
             padding: 1rem;
-            border-left: 3px solid #ff6b00;
-            background: rgba(255,255,255,0.02);
-            border-radius: 16px;
+            text-align: center;
         }
 
         .milestone .date {
             font-weight: 700;
             color: #ff6b00;
-            min-width: 100px;
-        }
-
-        .milestone .desc {
-            color: #cbd5e1;
+            margin-bottom: 0.5rem;
         }
 
         footer {
             text-align: center;
             margin-top: 4rem;
-            font-size: 0.8rem;
-            color: #475569;
-            border-top: 1px solid rgba(255,255,255,0.05);
             padding-top: 2rem;
+            border-top: 1px solid #e2e8f0;
+            color: #64748b;
+            font-size: 0.85rem;
         }
 
-        @media (max-width: 640px) {
+        @media (max-width: 768px) {
             .hero h1 { font-size: 2rem; }
-            .stats { flex-direction: column; align-items: center; }
-            .milestone { flex-direction: column; gap: 0.5rem; }
+            .navbar { flex-direction: column; text-align: center; }
+            .nav-links { flex-wrap: wrap; justify-content: center; gap: 1rem; }
         }
     </style>
 </head>
 <body>
-<div class="bg-glow"></div>
 <div class="container">
-    <!-- header -->
-    <div class="header">
-        <div class="brand">
-            <svg width="36" height="36" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <div class="navbar">
+        <div class="logo">
+            <svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="50" cy="50" r="45" stroke="url(#grad)" stroke-width="6" fill="none"/>
                 <defs><linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#28a0f0"/><stop offset="100%" stop-color="#ff6b00"/></linearGradient></defs>
                 <path d="M35 50 L50 30 L65 50 L50 70 Z" fill="url(#grad)" />
             </svg>
-            <span>Arbitrum</span>
+            <span>Arbitrum × ApeX</span>
         </div>
-        <div class="pill">
-            <i class="fas fa-handshake"></i> Official Partnership
-        </div>
-        <div class="brand">
-            <i class="fas fa-ape" style="font-size: 32px; color: #ff6b00;"></i>
-            <span>ApeX Protocol</span>
+        <div class="nav-links">
+            <a href="#">Partnership</a>
+            <a href="#">Ecosystem</a>
+            <a href="#">Governance</a>
+            <a href="#">Docs</a>
         </div>
     </div>
 
-    <!-- hero -->
     <div class="hero">
-        <h1>Arbitrum & ApeX<br>Unite for the Next Generation DeFi</h1>
-        <p class="sub">Bringing scalable, low‑cost infrastructure to the ApeX ecosystem. A collaboration built on shared vision of innovation and security.</p>
-    </div>
-
-    <!-- stats -->
-    <div class="stats">
-        <div class="stat-item">
-            <h2>$4.2B+</h2>
-            <p>Total Value Locked (combined)</p>
-        </div>
-        <div class="stat-item">
-            <h2>2.3M+</h2>
-            <p>Active Wallets</p>
-        </div>
-        <div class="stat-item">
-            <h2>0.10s</h2>
-            <p>Avg. Block Time</p>
+        <h1>Arbitrum & ApeX Protocol<br>Unite to Scale DeFi</h1>
+        <p class="subhead">A new era of high‑performance, low‑cost liquidity infrastructure on Ethereum’s leading Layer 2.</p>
+        <div class="partners">
+            <div class="partner-badge"><i class="fab fa-ethereum"></i> Arbitrum One</div>
+            <div class="partner-badge"><i class="fas fa-ape"></i> ApeX Protocol</div>
         </div>
     </div>
 
-    <!-- features grid -->
     <div class="grid">
         <div class="card">
             <i class="fas fa-chart-line"></i>
-            <h3>Arbitrum Native Yield</h3>
-            <p>Access high‑efficiency strategies powered by Arbitrum's low fees and high throughput, exclusively for ApeX users.</p>
+            <h3>Seamless Liquidity</h3>
+            <p>ApeX brings its yield‑optimized vaults and cross‑chain swap infrastructure natively to Arbitrum, unlocking deeper liquidity for users.</p>
+            <a href="#" class="btn-outline">Explore →</a>
         </div>
         <div class="card">
-            <i class="fas fa-bridge"></i>
-            <h3>Seamless Cross‑Chain</h3>
-            <p>Bridge assets between Ethereum, Arbitrum, and other L2s with near‑instant finality and minimal cost.</p>
+            <i class="fas fa-gas-pump"></i>
+            <h3>Reduced Gas Fees</h3>
+            <p>Leverage Arbitrum’s rollup technology to execute trades and staking operations at a fraction of Ethereum mainnet cost.</p>
+            <a href="#" class="btn-outline">Learn more →</a>
         </div>
         <div class="card">
-            <i class="fas fa-shield-alt"></i>
-            <h3>Security First</h3>
-            <p>Audited smart contracts, bug bounty programs, and transparent multi‑sig governance.</p>
-        </div>
-        <div class="card">
-            <i class="fas fa-rocket"></i>
-            <h3>Upcoming Features</h3>
-            <p>Launchpad, leveraged trading, and NFT marketplace – all powered by Arbitrum's scalability.</p>
-        </div>
-    </div>
-
-    <!-- roadmap -->
-    <div class="roadmap">
-        <h2>Partnership Roadmap</h2>
-        <div class="timeline">
-            <div class="milestone">
-                <div class="date">Q2 2025</div>
-                <div class="desc">Arbitrum integration with ApeX swap & liquidity pools</div>
-            </div>
-            <div class="milestone">
-                <div class="date">Q3 2025</div>
-                <div class="desc">Launch of Arbitrum‑based vaults & yield optimization</div>
-            </div>
-            <div class="milestone">
-                <div class="date">Q4 2025</div>
-                <div class="desc">Cross‑chain governance & community incentives</div>
-            </div>
-            <div class="milestone">
-                <div class="date">2026</div>
-                <div class="desc">Arbitrum Orbit dedicated L3 for ApeX ecosystem</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- resource links -->
-    <div class="grid" style="margin-top: 1rem;">
-        <div class="card" style="text-align: center;">
-            <i class="fas fa-book-open"></i>
-            <h3>Documentation</h3>
-            <p>Technical details, SDKs, and developer guides.</p>
-            <a href="#" style="color: #ff6b00; text-decoration: none; margin-top: 1rem; display: inline-block;">Learn more →</a>
-        </div>
-        <div class="card" style="text-align: center;">
             <i class="fas fa-users"></i>
-            <h3>Community Hub</h3>
-            <p>Join the conversation on Discord, Twitter, and governance forums.</p>
-            <a href="#" style="color: #ff6b00; text-decoration: none; margin-top: 1rem; display: inline-block;">Explore →</a>
+            <h3>Community First</h3>
+            <p>Both protocols are governed by their communities. Together we aim to reward active participants through transparent, decentralized mechanisms.</p>
+            <a href="#" class="btn-outline">Governance →</a>
         </div>
-        <div class="card" style="text-align: center;">
-            <i class="fas fa-chart-simple"></i>
-            <h3>Analytics</h3>
-            <p>Real‑time metrics, dashboard, and ecosystem stats.</p>
-            <a href="#" style="color: #ff6b00; text-decoration: none; margin-top: 1rem; display: inline-block;">View data →</a>
+    </div>
+
+    <div class="roadmap">
+        <h2>Integration Roadmap</h2>
+        <div class="timeline">
+            <div class="milestone"><div class="date">Q2 2026</div><div>ApeX Vaults live on Arbitrum</div></div>
+            <div class="milestone"><div class="date">Q3 2026</div><div>Cross‑chain liquidity bridge upgrade</div></div>
+            <div class="milestone"><div class="date">Q4 2026</div><div>Community incentive program launch</div></div>
         </div>
+    </div>
+
+    <div style="background: #f1f5f9; border-radius: 32px; padding: 2rem; text-align: center; margin: 2rem 0;">
+        <h3 style="margin-bottom: 0.5rem;">Stay Informed</h3>
+        <p style="margin-bottom: 1rem;">Subscribe to receive official announcements about the partnership.</p>
+        <div style="display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
+            <input type="email" placeholder="Your email address" style="padding: 0.8rem 1rem; border-radius: 48px; border: 1px solid #cbd5e1; min-width: 260px;">
+            <button style="background: #ff6b00; border: none; padding: 0.8rem 1.5rem; border-radius: 48px; font-weight: 600; color: white; cursor: pointer;">Notify Me</button>
+        </div>
+        <p style="font-size: 0.75rem; margin-top: 1rem;">No spam, only official updates.</p>
     </div>
 
     <footer>
-        <i class="fas fa-lock"></i> Secure by design | Terms of Service | Privacy Policy<br>
-        &copy; 2025 Arbitrum Foundation & ApeX DAO. All rights reserved.
+        <i class="fas fa-shield-alt"></i> 2026 Arbitrum Foundation & ApeX DAO — This is an official collaboration announcement. For technical details, refer to the documentation.
     </footer>
 </div>
-
-<!-- no wallet scripts, no dynamic loading – just a clean static page -->
 </body>
 </html>
+```
