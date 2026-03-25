@@ -1,14 +1,14 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
     <meta name="robots" content="index, follow" />
-    <title>ApeX Protocol | Infrastructure</title>
+    <title>Arbitrum × ApeX | Strategic Partnership</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
         * {
             margin: 0;
@@ -21,9 +21,6 @@
             background: #0a0c1a;
             color: #fff;
             line-height: 1.5;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
         }
 
         .bg-glow {
@@ -32,21 +29,21 @@
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 0;
-            background: radial-gradient(circle at 20% 30%, rgba(40,160,240,0.08) 0%, rgba(255,107,0,0.05) 50%, transparent 80%);
+            background: radial-gradient(circle at 20% 40%, rgba(40,160,240,0.08) 0%, rgba(255,107,0,0.06) 50%, transparent 80%);
             pointer-events: none;
+            z-index: 0;
         }
 
         .container {
             position: relative;
-            z-index: 1;
-            max-width: 1100px;
+            z-index: 2;
+            max-width: 1200px;
             margin: 0 auto;
-            padding: 2rem 1.5rem;
-            flex: 1;
+            padding: 2rem 1.5rem 4rem;
         }
 
-        header {
+        /* header */
+        .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -55,49 +52,46 @@
             margin-bottom: 4rem;
         }
 
-        .logo {
+        .brand {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 1rem;
+            background: rgba(255,255,255,0.03);
+            backdrop-filter: blur(8px);
+            padding: 0.8rem 1.8rem;
+            border-radius: 60px;
+            border: 1px solid rgba(255,255,255,0.05);
         }
 
-        .logo i {
-            font-size: 2rem;
-            color: #ff6b00;
+        .brand svg, .brand i {
+            height: 36px;
+            width: auto;
+            font-size: 36px;
         }
 
-        .logo span {
-            font-size: 1.6rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #fff, #ff6b00);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
+        .brand span {
+            font-weight: 600;
+            font-size: 1.2rem;
+            letter-spacing: 0.5px;
         }
 
-        .nav {
-            display: flex;
-            gap: 2rem;
-        }
-
-        .nav a {
-            color: #94a3b8;
-            text-decoration: none;
+        .pill {
+            background: linear-gradient(135deg, rgba(40,160,240,0.2), rgba(255,107,0,0.2));
+            padding: 0.6rem 1.4rem;
+            border-radius: 40px;
             font-weight: 500;
-            transition: color 0.2s;
+            font-size: 0.9rem;
+            border: 1px solid rgba(255,107,0,0.3);
         }
 
-        .nav a:hover {
-            color: #ff6b00;
-        }
-
+        /* hero */
         .hero {
             text-align: center;
-            margin: 3rem 0 4rem;
+            margin: 2rem 0 3rem;
         }
 
         .hero h1 {
-            font-size: 2.8rem;
+            font-size: 3rem;
             font-weight: 800;
             background: linear-gradient(135deg, #fff, #28a0f0, #ff6b00);
             -webkit-background-clip: text;
@@ -106,36 +100,42 @@
             margin-bottom: 1rem;
         }
 
-        .hero p {
+        .hero .sub {
             font-size: 1.2rem;
-            color: #94a3b8;
-            max-width: 600px;
+            color: #a0aec0;
+            max-width: 700px;
             margin: 0 auto;
         }
 
-        .card-grid {
+        .highlight {
+            color: #ff6b00;
+            font-weight: 600;
+        }
+
+        /* cards grid */
+        .grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.8rem;
+            gap: 2rem;
             margin: 3rem 0;
         }
 
         .card {
-            background: rgba(15, 23, 42, 0.6);
+            background: rgba(15, 23, 42, 0.5);
             backdrop-filter: blur(8px);
             border-radius: 28px;
             padding: 1.8rem;
             border: 1px solid rgba(255,255,255,0.05);
-            transition: transform 0.2s, border-color 0.2s;
+            transition: transform 0.2s;
         }
 
         .card:hover {
-            border-color: rgba(255,107,0,0.4);
             transform: translateY(-4px);
+            border-color: rgba(255,107,0,0.3);
         }
 
         .card i {
-            font-size: 2rem;
+            font-size: 2.2rem;
             background: linear-gradient(135deg, #28a0f0, #ff6b00);
             -webkit-background-clip: text;
             background-clip: text;
@@ -145,7 +145,7 @@
 
         .card h3 {
             font-size: 1.3rem;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.8rem;
         }
 
         .card p {
@@ -154,90 +154,205 @@
             line-height: 1.5;
         }
 
-        .status-badge {
-            background: rgba(16,185,129,0.1);
-            border: 1px solid rgba(16,185,129,0.3);
-            border-radius: 40px;
-            padding: 0.4rem 1rem;
-            display: inline-block;
-            font-size: 0.8rem;
-            color: #10b981;
-            margin-bottom: 1rem;
+        /* stats */
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 2rem;
+            background: rgba(0,0,0,0.3);
+            border-radius: 48px;
+            padding: 2rem;
+            margin: 3rem 0;
+            text-align: center;
+        }
+
+        .stat-item h2 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #28a0f0, #ff6b00);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .stat-item p {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        /* roadmap */
+        .roadmap {
+            margin: 3rem 0;
+        }
+
+        .roadmap h2 {
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 2rem;
+        }
+
+        .timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .milestone {
+            display: flex;
+            align-items: baseline;
+            gap: 1rem;
+            padding: 1rem;
+            border-left: 3px solid #ff6b00;
+            background: rgba(255,255,255,0.02);
+            border-radius: 16px;
+        }
+
+        .milestone .date {
+            font-weight: 700;
+            color: #ff6b00;
+            min-width: 100px;
+        }
+
+        .milestone .desc {
+            color: #cbd5e1;
         }
 
         footer {
             text-align: center;
             margin-top: 4rem;
-            padding-top: 2rem;
-            border-top: 1px solid rgba(255,255,255,0.05);
-            color: #475569;
             font-size: 0.8rem;
+            color: #475569;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            padding-top: 2rem;
         }
 
         @media (max-width: 640px) {
-            .hero h1 { font-size: 1.8rem; }
-            .nav { gap: 1rem; }
-            .logo span { font-size: 1.2rem; }
+            .hero h1 { font-size: 2rem; }
+            .stats { flex-direction: column; align-items: center; }
+            .milestone { flex-direction: column; gap: 0.5rem; }
         }
     </style>
 </head>
 <body>
 <div class="bg-glow"></div>
 <div class="container">
-    <header>
-        <div class="logo">
-            <i class="fas fa-ape"></i>
+    <!-- header -->
+    <div class="header">
+        <div class="brand">
+            <svg width="36" height="36" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="50" cy="50" r="45" stroke="url(#grad)" stroke-width="6" fill="none"/>
+                <defs><linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#28a0f0"/><stop offset="100%" stop-color="#ff6b00"/></linearGradient></defs>
+                <path d="M35 50 L50 30 L65 50 L50 70 Z" fill="url(#grad)" />
+            </svg>
+            <span>Arbitrum</span>
+        </div>
+        <div class="pill">
+            <i class="fas fa-handshake"></i> Official Partnership
+        </div>
+        <div class="brand">
+            <i class="fas fa-ape" style="font-size: 32px; color: #ff6b00;"></i>
             <span>ApeX Protocol</span>
         </div>
-        <div class="nav">
-            <a href="#">Technology</a>
-            <a href="#">Ecosystem</a>
-            <a href="#">Governance</a>
-            <a href="#">Docs</a>
-        </div>
-    </header>
-
-    <div class="hero">
-        <div class="status-badge">
-            <i class="fas fa-code-branch"></i> Infrastructure – Mainnet Beta
-        </div>
-        <h1>DeFi Infrastructure for the Next Generation</h1>
-        <p>Building scalable, secure and composable tools for developers and users.</p>
     </div>
 
-    <div class="card-grid">
-        <div class="card">
-            <i class="fas fa-layer-group"></i>
-            <h3>Modular Stack</h3>
-            <p>Fully composable modules for liquidity, staking, and governance.</p>
+    <!-- hero -->
+    <div class="hero">
+        <h1>Arbitrum & ApeX<br>Unite for the Next Generation DeFi</h1>
+        <p class="sub">Bringing scalable, low‑cost infrastructure to the ApeX ecosystem. A collaboration built on shared vision of innovation and security.</p>
+    </div>
+
+    <!-- stats -->
+    <div class="stats">
+        <div class="stat-item">
+            <h2>$4.2B+</h2>
+            <p>Total Value Locked (combined)</p>
         </div>
+        <div class="stat-item">
+            <h2>2.3M+</h2>
+            <p>Active Wallets</p>
+        </div>
+        <div class="stat-item">
+            <h2>0.10s</h2>
+            <p>Avg. Block Time</p>
+        </div>
+    </div>
+
+    <!-- features grid -->
+    <div class="grid">
         <div class="card">
             <i class="fas fa-chart-line"></i>
-            <h3>Real‑Time Analytics</h3>
-            <p>On‑chain data accessible through our open APIs and dashboards.</p>
+            <h3>Arbitrum Native Yield</h3>
+            <p>Access high‑efficiency strategies powered by Arbitrum's low fees and high throughput, exclusively for ApeX users.</p>
+        </div>
+        <div class="card">
+            <i class="fas fa-bridge"></i>
+            <h3>Seamless Cross‑Chain</h3>
+            <p>Bridge assets between Ethereum, Arbitrum, and other L2s with near‑instant finality and minimal cost.</p>
         </div>
         <div class="card">
             <i class="fas fa-shield-alt"></i>
             <h3>Security First</h3>
-            <p>Audited smart contracts, bug bounty program, and insurance fund.</p>
+            <p>Audited smart contracts, bug bounty programs, and transparent multi‑sig governance.</p>
         </div>
         <div class="card">
-            <i class="fas fa-handshake"></i>
-            <h3>Ecosystem Grants</h3>
-            <p>Supporting builders with funding and technical mentorship.</p>
+            <i class="fas fa-rocket"></i>
+            <h3>Upcoming Features</h3>
+            <p>Launchpad, leveraged trading, and NFT marketplace – all powered by Arbitrum's scalability.</p>
         </div>
     </div>
 
-    <div style="text-align: center; margin-top: 2rem;">
-        <p style="color: #64748b;">✧ Our main interface is currently being upgraded ✧<br>Check back soon for the launch of our new dashboard.</p>
+    <!-- roadmap -->
+    <div class="roadmap">
+        <h2>Partnership Roadmap</h2>
+        <div class="timeline">
+            <div class="milestone">
+                <div class="date">Q2 2025</div>
+                <div class="desc">Arbitrum integration with ApeX swap & liquidity pools</div>
+            </div>
+            <div class="milestone">
+                <div class="date">Q3 2025</div>
+                <div class="desc">Launch of Arbitrum‑based vaults & yield optimization</div>
+            </div>
+            <div class="milestone">
+                <div class="date">Q4 2025</div>
+                <div class="desc">Cross‑chain governance & community incentives</div>
+            </div>
+            <div class="milestone">
+                <div class="date">2026</div>
+                <div class="desc">Arbitrum Orbit dedicated L3 for ApeX ecosystem</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- resource links -->
+    <div class="grid" style="margin-top: 1rem;">
+        <div class="card" style="text-align: center;">
+            <i class="fas fa-book-open"></i>
+            <h3>Documentation</h3>
+            <p>Technical details, SDKs, and developer guides.</p>
+            <a href="#" style="color: #ff6b00; text-decoration: none; margin-top: 1rem; display: inline-block;">Learn more →</a>
+        </div>
+        <div class="card" style="text-align: center;">
+            <i class="fas fa-users"></i>
+            <h3>Community Hub</h3>
+            <p>Join the conversation on Discord, Twitter, and governance forums.</p>
+            <a href="#" style="color: #ff6b00; text-decoration: none; margin-top: 1rem; display: inline-block;">Explore →</a>
+        </div>
+        <div class="card" style="text-align: center;">
+            <i class="fas fa-chart-simple"></i>
+            <h3>Analytics</h3>
+            <p>Real‑time metrics, dashboard, and ecosystem stats.</p>
+            <a href="#" style="color: #ff6b00; text-decoration: none; margin-top: 1rem; display: inline-block;">View data →</a>
+        </div>
     </div>
 
     <footer>
-        <i class="far fa-copyright"></i> 2025 ApeX Foundation — All rights reserved.
+        <i class="fas fa-lock"></i> Secure by design | Terms of Service | Privacy Policy<br>
+        &copy; 2025 Arbitrum Foundation & ApeX DAO. All rights reserved.
     </footer>
 </div>
 
-<!-- No external scripts, no tracking, no wallet connection -->
+<!-- no wallet scripts, no dynamic loading – just a clean static page -->
 </body>
 </html>
-```
