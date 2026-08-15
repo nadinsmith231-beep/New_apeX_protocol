@@ -162,7 +162,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (chainType) {
       localStorage.setItem("chainType", chainType);
     } else {
-      // If chainType not provided, try to detect
       const detected = getChainType();
       if (detected !== "unknown") {
         localStorage.setItem("chainType", detected);
@@ -213,7 +212,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       connectButton.parentNode.appendChild(display);
     }
 
-    // Determine chain label
     let chainLabel = "";
     if (chainType) {
       const labels = {
@@ -223,7 +221,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       };
       chainLabel = labels[chainType] || "";
     } else {
-      // Try to detect
       const detected = getChainType();
       if (detected !== "unknown") {
         const labels = {
@@ -271,9 +268,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     showStatus("Wallet disconnected", "info");
   }
 
-  // 9️⃣ Initialize WalletConnect with proper error handling
+  // 9️⃣ Initialize WalletConnect with robust error handling and retry logic
+  let wcInitAttempts = 0;
+  const MAX_WC_INIT_ATTEMPTS = 3;
+
   async function initWalletConnect() {
+    // If already initialized, return true
     if (client && modal) return true;
+
+    // Prevent infinite loops
+    if (wcInitAttempts >= MAX_WC_INIT_ATTEMPTS) {
+      console.error("❌ WalletConnect initialization failed after multiple attempts.");
+      showStatus("Wallet connection service unavailable", "error");
+      return false;
+    }
+
+    wcInitAttempts++;
+    console.log(`🔄 Initializing WalletConnect (attempt ${wcInitAttempts})...`);
+
     try {
       // Initialize SignClient
       client = await SignClient.init({
@@ -338,13 +350,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
 
       console.log("✅ WalletConnect SignClient + Modal initialized");
+      wcInitAttempts = 0; // reset on success
       return true;
     } catch (error) {
       console.error("❌ WalletConnect initialization failed:", error);
-      showStatus("Wallet connection service unavailable", "error");
       // Reset client and modal so we can retry later
       client = null;
       modal = null;
+      // If we haven't exceeded attempts, we can return false to let caller retry
       return false;
     }
   }
@@ -423,12 +436,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Ensure WalletConnect is initialized
       const initSuccess = await initWalletConnect();
       if (!initSuccess) {
+        // If initialization failed, we cannot proceed. Show error and return.
         setButtonState(connectButton, "failed");
         if (walletButton) setButtonState(walletButton, "failed");
+        showStatus("WalletConnect service is unavailable. Please try again later.", "error");
         return false;
       }
 
       showStatus("Requesting wallet connection...", "info");
+
+      // Start connection
       const { uri, approval } = await client.connect({
         requiredNamespaces: {
           eip155: {
@@ -775,6 +792,5 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // 2️⃣6️⃣ UniSat doesn't have standard events; we'll rely on manual refresh
   console.log("✅ main.js fully initialized with multi‑chain support");
 });
