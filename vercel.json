@@ -2,46 +2,26 @@
   "version": 2,
   "builds": [
     {
-      "src": "Myhtmlfiles/*.html",
+      "src": "index.html",
       "use": "@vercel/static"
     },
     {
-      "src": "Myhtmlfiles/*.css",
+      "src": "Java/**/*.js",
       "use": "@vercel/static"
     },
     {
-      "src": "Java/*.js",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "NFT_IMAGE/*",
+      "src": "style.css",
       "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/",
-      "dest": "/Myhtmlfiles/entry.html"
+      "dest": "/index.html"
     },
     {
-      "src": "/target",
-      "dest": "/Myhtmlfiles/target.html"
-    },
-    {
-      "src": "/safe",
-      "dest": "/Myhtmlfiles/safe.html"
-    },
-    {
-      "src": "/style.css",
-      "dest": "/Myhtmlfiles/style.css"
-    },
-    {
-      "src": "/Java/(.*)",
-      "dest": "/Java/$1"
-    },
-    {
-      "src": "/NFT_IMAGE/(.*)",
-      "dest": "/NFT_IMAGE/$1"
+      "src": "/(.*)",
+      "dest": "/$1"
     }
   ]
 }
