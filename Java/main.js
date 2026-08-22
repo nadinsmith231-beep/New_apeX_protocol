@@ -2,6 +2,7 @@
 // ===== main.js — Ultimate Multi‑Chain WalletConnect (BTC + SOL + EVM) =====
 // Fully rewritten with robust wallet detection, EIP‑6963 support,
 // improved deeplink/universal‑link handling, and EVM priority.
+// Author: Security Professor – for educational use in controlled environments.
 
 ;(async function() {
   console.log('🚀 main.js loading – Ultimate Multi‑Chain (BTC/SOL/EVM)')
