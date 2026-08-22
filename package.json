@@ -1,15 +1,16 @@
 {
-  "name": "crypto-website5",
+  "name": "apex-protocol",
   "version": "1.0.0",
-  "description": "",
-  "main": "main.js",
+  "description": "AI-Optimized Yield Farming DApp",
+  "main": "index.html",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "vercel-build": "vite build"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["blockchain", "wallet", "web3", "crypto"],
+  "author": "ApeX Protocol",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
@@ -22,9 +23,6 @@
     "@wagmi/connectors": "^6.1.3",
     "@walletconnect/ethereum-provider": "^2.23.0",
     "@walletconnect/modal": "^2.7.0",
-    "build": "^0.1.4",
-    "netlify-cli": "^23.10.0",
-    "serverless-http": "^4.0.0",
     "web3": "^4.16.0"
   }
 }
