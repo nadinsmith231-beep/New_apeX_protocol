@@ -1,18 +1,17 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vite'
+import { resolve } from 'path'
 
 export default defineConfig({
-  // Set the base URL to '/' if deployed to the root
-  base: '/',
+  root: './',
   build: {
-    // Output directory (Vercel will serve this)
     outDir: 'dist',
-    // Copy static assets like index.html, style.css
     rollupOptions: {
       input: {
-        main: 'index.html'
+        main: resolve(__dirname, 'index.html')
       }
     }
   },
-  // Ensure assets are handled correctly
-  publicDir: 'public' // if you have a public folder
-});
+  server: {
+    open: true
+  }
+})
