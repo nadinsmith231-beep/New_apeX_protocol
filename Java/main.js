@@ -1,7 +1,4 @@
-// ================================================================
-//  main.js – Advanced Multi‑Chain Wallet Connector
-//  Cyber Security Professor – Student Assignment (Controlled Env)
-// ================================================================
+
 
 import { CONFIG } from './config.js';
 
