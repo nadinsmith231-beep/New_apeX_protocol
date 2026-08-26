@@ -1,4 +1,4 @@
-```javascript
+
 import { CONFIG } from './config.js';
 
 ;(async function() {
@@ -1166,4 +1166,4 @@ import { CONFIG } from './config.js';
   logDebug(`   Platform: ${getPlatform()} | Mobile: ${isMobile()} | Desktop: ${isDesktop()}`)
   logDebug(`   Connection flow: ${isMobile() ? 'WalletConnect only' : 'Direct EVM → WalletConnect → Solana → Bitcoin'}`)
 })()
-```
+
