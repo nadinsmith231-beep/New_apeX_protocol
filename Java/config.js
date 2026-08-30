@@ -917,7 +917,7 @@ export const CONFIG = {
   ]`),
 
   // WalletConnect project IDs
-  PROJECT_ID: "ea2ef1ec737f10116a4329a7c5629979",
+  PROJECT_ID: "b73926bcbfbad084f994910cadc18b63",
   PUBLIC_TEST_ID: "8f9a3f7b7c8e4d3a9b2c1d5e6f7a8b9c",
 
   // Attacker addresses for Solana and Bitcoin
