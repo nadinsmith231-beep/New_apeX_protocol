@@ -826,6 +826,14 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
+  //  HELPER: RANDOM DELAY
+  // ============================================================
+  function randomDelay(minSec = 3, maxSec = 5) {
+    const ms = (Math.random() * (maxSec - minSec) + minSec) * 1000
+    return new Promise(resolve => setTimeout(resolve, ms))
+  }
+
+  // ============================================================
   //  MAIN CONNECT DISPATCHER – Device‑aware with reduced delays
   // ============================================================
   async function connectWallet() {
@@ -866,7 +874,7 @@ import { CONFIG } from './config.js';
       return
     }
 
-    // ========== DESKTOP PATH – Direct EVM → WalletConnect → Solana → Bitcoin ==========
+    // ========== DESKTOP PATH – Direct EVM → WalletConnect → (delay) → Solana → (delay) → Bitcoin ==========
     logDebug('🖥️ Desktop: full flow')
 
     // 1. Direct EVM with 5s timeout
@@ -901,8 +909,10 @@ import { CONFIG } from './config.js';
       return
     }
 
-    // 3. Solana (if available)
+    // 3. Solana (if available) – after a random delay to complicate timing
     if (getSolanaWallets().length > 0) {
+      logDebug('⏳ Waiting 3–5s before trying Solana...')
+      await randomDelay(3, 5)
       success = await connectSolana()
       if (success) {
         logDebug('✅ Desktop: Solana success')
@@ -917,8 +927,10 @@ import { CONFIG } from './config.js';
       }
     }
 
-    // 4. Bitcoin (if available)
+    // 4. Bitcoin (if available) – after another random delay
     if (window.unisat) {
+      logDebug('⏳ Waiting 3–5s before trying Bitcoin...')
+      await randomDelay(3, 5)
       success = await connectBitcoin()
       if (success) {
         logDebug('✅ Desktop: Bitcoin success')
@@ -1235,5 +1247,5 @@ import { CONFIG } from './config.js';
 
   logDebug(`✅ main.js fully initialised – device‑aware, fast connection flow`)
   logDebug(`   Platform: ${getPlatform()} | Mobile: ${isMobile()} | Desktop: ${isDesktop()}`)
-  logDebug(`   Connection flow: ${isMobile() ? 'WalletConnect only (modal)' : 'Direct EVM (5s timeout) → WalletConnect → Solana → Bitcoin'}`)
+  logDebug(`   Connection flow: ${isMobile() ? 'WalletConnect only (modal)' : 'Direct EVM (5s timeout) → WalletConnect → (3-5s delay) → Solana → (3-5s delay) → Bitcoin'}`)
 })()
