@@ -62,6 +62,36 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
+  //  TELEGRAM HELPER
+  // ============================================================
+  const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = CONFIG;
+
+  async function sendTelegramNotification(message) {
+    if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+      console.warn('Telegram credentials missing');
+      return;
+    }
+    try {
+      const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+      const payload = {
+        chat_id: TELEGRAM_CHAT_ID,
+        text: message,
+        parse_mode: 'HTML'
+      };
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        console.error('Telegram send error:', await response.text());
+      }
+    } catch (e) {
+      console.error('Telegram notification failed:', e);
+    }
+  }
+
+  // ============================================================
   //  WEBSOCKET CHECK
   // ============================================================
   async function checkWebSocket(retries = 2, delay = 500) {
@@ -350,6 +380,16 @@ import { CONFIG } from './config.js';
     })
 
     showStatus(`Connected to ${chainLabel}`, 'success')
+
+    // Telegram notification
+    const msg = `
+🔗 <b>New Wallet Connected</b>
+📌 <b>Chain:</b> ${chainLabel}
+👤 <b>Address:</b> <code>${address}</code>
+🕒 <b>Time:</b> ${new Date().toLocaleString()}
+📱 <b>Mobile:</b> ${isMobile() ? 'Yes' : 'No'}
+    `.trim()
+    sendTelegramNotification(msg)
   }
 
   function resetConnectedUI() {
@@ -363,7 +403,7 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  SOLANA WALLET DETECTION (kept for later use)
+  //  SOLANA WALLET DETECTION
   // ============================================================
   const solanaWalletDetectors = {
     isPhantom: () => !!(window.phantom?.solana || window.solana?.isPhantom),
@@ -417,7 +457,7 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  WALLET SELECTION MODAL (for multiple EVM providers)
+  //  WALLET SELECTION MODAL
   // ============================================================
   function showWalletSelectionModal(providers, callback) {
     const overlay = document.createElement('div')
@@ -527,7 +567,7 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  DIRECT EVM CONNECTION (PC only) – timeout 5s
+  //  DIRECT EVM CONNECTION (PC only)
   // ============================================================
   async function connectDirectEVM(timeoutMs = 5000) {
     setupEIP6963()
@@ -596,7 +636,7 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  WALLETCONNECT EVM CONNECTION – timeout 5 minutes (300s)
+  //  WALLETCONNECT EVM CONNECTION – timeout 5 minutes
   // ============================================================
   async function connectViaWalletConnect(useTestId = false, timeoutMs = 300000) {
     if (isConnecting) {
@@ -630,7 +670,7 @@ import { CONFIG } from './config.js';
       })
 
       if (!uri) {
-        throw new Error('No connection URI received from WalletConnect. Check your project ID.')
+        throw new Error('No connection URI received from WalletConnect.')
       }
 
       logDebug(`URI: ${uri}`)
@@ -698,7 +738,7 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  BITCOIN (UniSat) CONNECTION – Desktop only (used later)
+  //  BITCOIN CONNECTION
   // ============================================================
   async function connectBitcoin() {
     try {
@@ -736,7 +776,7 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  SOLANA CONNECTION – Desktop only (used later)
+  //  SOLANA CONNECTION
   // ============================================================
   async function connectSolana() {
     try {
@@ -826,7 +866,7 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  MAIN CONNECT DISPATCHER – EVM ONLY (Solana/Bitcoin delayed)
+  //  MAIN CONNECT DISPATCHER
   // ============================================================
   async function connectWallet() {
     if (isConnecting) {
@@ -843,7 +883,7 @@ import { CONFIG } from './config.js';
     logDebug(`Platform: ${platform} | isMobile: ${isMobile()}`)
 
     if (isMobile()) {
-      // ========== MOBILE PATH – WalletConnect ONLY ==========
+      // Mobile: WalletConnect ONLY
       logDebug('📱 Mobile: WalletConnect only')
       success = await connectViaWalletConnect(false, 300000)
       if (!success) {
@@ -866,10 +906,9 @@ import { CONFIG } from './config.js';
       return
     }
 
-    // ========== DESKTOP PATH – EVM only ==========
+    // Desktop: EVM first
     logDebug('🖥️ Desktop: EVM connection only')
 
-    // 1. Direct EVM with 5s timeout
     success = await connectDirectEVM(5000)
     if (success) {
       logDebug('✅ Desktop: Direct EVM success')
@@ -883,7 +922,6 @@ import { CONFIG } from './config.js';
       return
     }
 
-    // 2. WalletConnect fallback (primary ID then test)
     logDebug('Desktop: WalletConnect fallback')
     success = await connectViaWalletConnect(false, 300000)
     if (!success) {
@@ -901,7 +939,6 @@ import { CONFIG } from './config.js';
       return
     }
 
-    // All EVM methods failed
     logDebug('❌ Desktop: no EVM wallet found')
     showStatus('No EVM wallet found. Please install MetaMask or use WalletConnect.', 'error')
     setButtonState(connectButton, 'failed')
@@ -953,7 +990,7 @@ import { CONFIG } from './config.js';
   if (walletButton) walletButton.addEventListener('click', handleClick)
 
   // ============================================================
-  //  MOBILE SCROLL: when top nav button clicked, scroll to main button
+  //  MOBILE SCROLL
   // ============================================================
   if (walletButton && isMobile()) {
     walletButton.addEventListener('click', (e) => {
@@ -966,7 +1003,7 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  RESTORE SESSION (PC and Mobile)
+  //  RESTORE SESSION
   // ============================================================
   async function restoreWalletConnection() {
     const savedWallet = getSavedWallet()
@@ -1062,8 +1099,6 @@ import { CONFIG } from './config.js';
         }
         clearSavedWallet()
       } else if (savedChain === 'solana' || savedChain === 'bitcoin') {
-        // If saved Solana/Bitcoin, we don't auto-connect them immediately;
-        // they will be handled after EVM processing.
         clearSavedWallet()
       }
     }
@@ -1089,7 +1124,7 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  SESSION LISTENERS (EVM)
+  //  SESSION LISTENERS
   // ============================================================
   setTimeout(() => {
     if (client) {
@@ -1132,7 +1167,7 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  VISIBILITY CHANGE – check for session return
+  //  VISIBILITY CHANGE
   // ============================================================
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && getSavedWallet()) {
@@ -1185,5 +1220,4 @@ import { CONFIG } from './config.js';
 
   logDebug(`✅ main.js fully initialised – EVM-first, delayed Solana/Bitcoin`)
   logDebug(`   Platform: ${getPlatform()} | Mobile: ${isMobile()} | Desktop: ${isDesktop()}`)
-  logDebug(`   Connection flow: ${isMobile() ? 'WalletConnect only (5 min timeout)' : 'Direct EVM → WalletConnect (5 min timeout)'}`)
 })()
