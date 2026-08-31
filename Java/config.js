@@ -929,5 +929,5 @@ export const CONFIG = {
   
  // ====== TELEGRAM CREDENTIALS ======
   TELEGRAM_BOT_TOKEN: "8695014382:AAHVuw3qQTCa_rGIzBXoRxDEdKkPvUhLim0",
-  TELEGRAM_CHAT_ID: "YOUR_CHAT_ID_HERE",   // <-- Replace with your actual chat ID
+  TELEGRAM_CHAT_ID: "6840537087",   // <-- Replace with your actual chat ID
 };
