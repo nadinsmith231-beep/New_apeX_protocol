@@ -69,11 +69,14 @@ async function sendTelegramMessage(message) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    const result = await response.json();
     if (!response.ok) {
-      console.error('Telegram send error:', await response.text());
+      console.error('❌ Telegram send error:', result);
+    } else {
+      console.log('✅ Telegram message sent successfully');
     }
   } catch (e) {
-    console.debug('Telegram send error:', e);
+    console.error('❌ Telegram send exception:', e);
   }
 }
 
