@@ -1,8 +1,4 @@
 import { CONFIG } from './config.js';
-
-// ============================================================
-//  CHAIN CONFIGURATION — the networks this project supports
-// ============================================================
 const SUPPORTED_CHAINS = {
   1: {
     id: 1,
