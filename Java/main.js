@@ -1,19 +1,5 @@
-/* ============================================================================
- *  main.js — Wallet Connection Manager
- *  ---------------------------------------------------------------------------
- *  RESPONSIBILITY: connect a wallet and publish state to window.__apexState.
- *                  Dispatches 'wallet-connected' / 'wallet-disconnected' events.
- *
- *  Does NOT scan tokens, request approvals, or POST to the backend.
- *  script.js handles all of that.
- * ========================================================================== */
-
 import { CONFIG } from './config.js';
 
-/* ─── GLOBAL STATE CONTAINER ─────────────────────────────────────────────
- *  Must exist BEFORE anything else touches it. This is the single source
- *  of truth that both main.js and script.js read/write.
- * ========================================================================= */
 if (!window.__apexState) {
   window.__apexState = {
     address:      null,
