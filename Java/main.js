@@ -1,9 +1,3 @@
-// ============================================================================
-//  Apex Protocol — Wallet Connector
-//  Publishes window.__apexConnected for script.js to consume.
-//  Handles injected EVM (EIP-6963) + WalletConnect v2.
-// ============================================================================
-
 import { CONFIG } from './config.js';
 
 ;(async function () {
