@@ -3,10 +3,6 @@ import { CONFIG } from './config.js';
 ;(async function () {
   'use strict';
 
-  // ==========================================================================
-  //  DEBUG PANEL
-  //  Double-click anywhere on the page to toggle a bottom-docked log panel.
-  // ==========================================================================
   const debugArea = document.createElement('div');
   debugArea.id = 'wc-debug';
   debugArea.style.cssText = `
