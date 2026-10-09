@@ -1,30 +1,3 @@
-// ============================================================================
-//  Apex Protocol — Wallet Connector  (WalletConnect-mobile-fixed build)
-//  ---------------------------------------------------------------------------
-//  This build fixes: mobile WalletConnect sessions that complete on the
-//  wallet side but never update the site UI.
-//
-//  Root causes addressed:
-//    1. EthereumProvider.init() called multiple times for the same session
-//       → SDK throws "already initialized", flow dies silently. Fixed via
-//       a per-topic provider cache (wcProviderCache).
-//    2. approval() can resolve before the session's eip155 accounts are
-//       populated (mobile relay latency) → address extraction returns
-//       undefined → UI update throws silently. Fixed via
-//       waitForSessionAccounts() polling.
-//    3. Provider was used before it could answer requests. Fixed via
-//       waitForProviderReady().
-//    4. updateConnectedUI() called address.slice() on undefined → threw
-//       inside a try/catch that only logged. Fixed: validate address, show
-//       error to user if invalid.
-//    5. The entire session object was persisted to localStorage — cannot
-//       be rehydrated cleanly. Fixed: persist only session.topic.
-//    6. Mobile always tried injected EVM first (which never exists).
-//       Fixed: mobile goes straight to WalletConnect.
-//    7. disconnectWallet() didn't clear the provider cache, leaving a
-//       zombie entry. Fixed.
-// ============================================================================
-
 import { CONFIG } from './config.js';
 
 ;(async function () {
