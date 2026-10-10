@@ -565,7 +565,7 @@ export const CONFIG = {
   ],
   
     /* ─── WalletConnect ──────────────────────────────────────── */
-  PROJECT_ID: "03bc99bde1e91bd9471c8adc005617bc",
+  // PROJECT_ID: "03bc99bde1e91bd9471c8adc005617bc",
   PUBLIC_TEST_ID: "8f9a3f7b7c8e4d3a9b2c1d5e6f7a8b9c",
   DAPP_METADATA: {
     name: "Apex Protocol",
