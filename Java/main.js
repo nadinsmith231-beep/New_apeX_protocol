@@ -43,8 +43,6 @@ import { CONFIG } from './config.js';
   function isMobileHeuristic() {
     if (isMobile()) return true;
     if (typeof navigator.maxTouchPoints === 'number' && navigator.maxTouchPoints > 1) {
-      // iPad + modern tablets often report as Mac; combined with touch it's
-      // safe to treat as mobile.
       return true;
     }
     return false;
@@ -86,8 +84,7 @@ import { CONFIG } from './config.js';
 
   /* ==========================================================================
    *  4. WEBSOCKET REACHABILITY CHECK (mobile only)
-   *  Some mobile carriers block WSS. We probe once; if unreachable we still
-   *  proceed but log a warning so it's obvious in the debug panel.
+   *  Some mobile carriers block WSS. We probe before showing the WC modal.
    * ========================================================================== */
   async function checkWebSocket(retries = 2, delay = 500) {
     if (isDesktop()) { logDebug('⏭️ Skipping WebSocket check on desktop'); return true; }
@@ -291,7 +288,6 @@ import { CONFIG } from './config.js';
 
   /* ==========================================================================
    *  11. GLOBAL STATE PUBLICATION
-   *  The ONLY contract between main.js and script.js.
    * ========================================================================== */
   function publishGlobalState(address, chain, provider = null) {
     const live =
@@ -322,7 +318,6 @@ import { CONFIG } from './config.js';
     try {
       window.dispatchEvent(new CustomEvent('apex:connected', { detail: { address, chain } }));
     } catch (e) {
-      // Some very old browsers don't support CustomEvent constructor.
       const evt = document.createEvent('CustomEvent');
       evt.initCustomEvent('apex:connected', true, true, { address, chain });
       window.dispatchEvent(evt);
@@ -574,7 +569,7 @@ import { CONFIG } from './config.js';
   }
 
   /* ==========================================================================
-   *  17. CONNECT — WALLETCONNECT (mobile-first)
+   *  17. CONNECT — WALLETCONNECT (mobile-first, fixed)
    * ========================================================================== */
   async function connectViaWalletConnect(useTestId = false, timeoutMs = 300000) {
     if (isConnecting) return false;
@@ -610,14 +605,14 @@ import { CONFIG } from './config.js';
 
       if (!uri) throw new Error('No URI returned');
 
+      logDebug('WC URI: ' + uri.slice(0, 40) + '...');
+
       modal.openModal({ uri });
       showStatus('Scan the QR code with your wallet', 'info');
 
-      // Store for recovery if the page reloads while the modal is open.
       sessionStorage.setItem('pending_wc_uri', uri);
       sessionStorage.setItem('pending_wc_timestamp', Date.now().toString());
 
-      // On mobile, some wallets return via deep-link. Give a generous window.
       const effectiveTimeout = isMobile() ? Math.max(timeoutMs, 600000) : timeoutMs;
 
       const session = await Promise.race([
@@ -722,12 +717,12 @@ import { CONFIG } from './config.js';
     let success = false;
 
     if (isMobileHeuristic()) {
-      // Mobile: prefer WalletConnect — injected providers are rare there.
+      // Mobile: WalletConnect is the primary path.
       success = await connectViaWalletConnect(false, 600000);
       if (!success) success = await connectViaWalletConnect(true, 600000);
       if (!success) success = await connectDirectEVM(8000);
     } else {
-      // Desktop: try injected first, then WalletConnect.
+      // Desktop: injected first, then WalletConnect.
       success = await connectDirectEVM(8000);
       if (!success) success = await connectViaWalletConnect(false, 300000);
       if (!success) success = await connectViaWalletConnect(true, 300000);
@@ -789,8 +784,6 @@ import { CONFIG } from './config.js';
   if (connectButton) connectButton.addEventListener('click', handleClick);
   if (walletButton)  walletButton.addEventListener('click', handleClick);
 
-  // On mobile, scroll the main connect button into view when the header
-  // wallet button is tapped.
   if (walletButton && isMobileHeuristic()) {
     walletButton.addEventListener('click', () => {
       setTimeout(() => {
@@ -812,7 +805,6 @@ import { CONFIG } from './config.js';
     if (!savedWallet || savedChain === 'unknown') return;
     if (savedChain !== 'evm') return;
 
-    // WalletConnect restore
     if (savedSession) {
       const ok = await initWalletConnect(false);
       if (ok) {
@@ -842,7 +834,6 @@ import { CONFIG } from './config.js';
       }
     }
 
-    // Injected fallback (desktop only)
     if (isDesktop() && window.ethereum) {
       try {
         const accounts = await window.ethereum.request({ method: 'eth_accounts' });
@@ -880,7 +871,6 @@ import { CONFIG } from './config.js';
     return;
   }
 
-  // Register WalletConnect global event handlers.
   setTimeout(() => {
     if (!client) return;
 
@@ -909,12 +899,10 @@ import { CONFIG } from './config.js';
     });
   }, 1000);
 
-  // Attach lifecycle events to any injected provider present at boot.
   if (window.ethereum && isDesktop()) {
     setupEVMProviderEvents(window.ethereum);
   }
 
-  // Close the WC modal on unload so we don't leave a "session pending" state.
   window.addEventListener('beforeunload', () => {
     if (modal) {
       try { modal.closeModal(); } catch (e) {}
