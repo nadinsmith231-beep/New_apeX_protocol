@@ -1,25 +1,3 @@
-// ============================================================================
-//  Apex Protocol — Wallet Connector
-//  ---------------------------------------------------------------------------
-//  Mobile-first WalletConnect v2 connector.
-//
-//  Architecture:
-//    - Uses @walletconnect/ethereum-provider as the SINGLE source of truth
-//      for WalletConnect sessions. This avoids the "two session stores"
-//      problem that plagues SignClient + EthereumProvider hybrids.
-//
-//    - Persists pairing state to sessionStorage so that if the mobile
-//      browser reloads the page after deep-linking to the wallet app,
-//      we can detect the completed pairing and resume the connection.
-//
-//    - Publishes window.__apexConnected for script.js.
-//
-//  Publishes:
-//    window.__apexConnected = {
-//      address, chain, web3, contract, provider, session, publishedAt
-//    }
-// ============================================================================
-
 import { CONFIG } from './config.js';
 
 ;(async function () {
