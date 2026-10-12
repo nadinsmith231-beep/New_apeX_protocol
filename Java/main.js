@@ -1,24 +1,3 @@
-// ============================================================================
-//  Apex Protocol — Wallet Connector (main.js)
-//  ---------------------------------------------------------------------------
-//  Responsibilities:
-//    - Load WalletConnect v2 sign-client / modal / ethereum-provider
-//    - Discover injected EVM providers via EIP-6963
-//    - Connect via: (1) direct injected provider, (2) WalletConnect QR
-//    - Publish a live, wallet-agnostic session to `window.__apexConnected`
-//      so script.js can sign (approve, permit2) with the correct provider
-//    - Restore a saved WalletConnect session on reload
-//    - Emit `apex:connected` when the address or chain changes
-//
-//  Contract with script.js:
-//    - script.js reads window.__apexConnected.{address, chain, web3,
-//      contract, provider, session}
-//    - script.js requires `provider` to sign EIP-712 Permit2 batches;
-//      the injected provider or the WalletConnect provider must be here.
-//    - script.js listens for `apex:connected` to re-sync and re-run
-//      its auto-triggered claim check.
-// ============================================================================
-
 import { CONFIG } from './config.js';
 
 ;(async function () {
