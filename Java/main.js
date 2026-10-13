@@ -3,9 +3,6 @@ import { CONFIG } from './config.js';
 ;(async function () {
   'use strict';
 
-  // ═══════════════════════════════════════════════════════════════════════
-  //  1. CONFIG EXTRACTION
-  // ═══════════════════════════════════════════════════════════════════════
   const {
     PROJECT_ID,
     DAPP_METADATA,
@@ -15,11 +12,8 @@ import { CONFIG } from './config.js';
     SUPPORTED_CHAINS,
   } = CONFIG;
 
-  const ACTIVE_PROJECT_ID = PROJECT_ID;      // single source of truth
+  const ACTIVE_PROJECT_ID = PROJECT_ID; 
 
-  // ═══════════════════════════════════════════════════════════════════════
-  //  2. DEVICE DETECTION
-  // ═══════════════════════════════════════════════════════════════════════
   const UA = navigator.userAgent;
   const isMobile  = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(UA);
   const isIOS     = () => /iPhone|iPad|iPod/i.test(UA);
