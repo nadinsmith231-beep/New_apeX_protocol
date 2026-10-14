@@ -1,8 +1,3 @@
-What could be the problem with my main.js script when i try to connect my trust wallet it loads properly but it won't connect on my project my wallet just says connection but never connects but when i check my trust wallet connected list it shows connected so what could be the problem with my site not connecting when the wallet app is approved and conneced, or sometimes says connection failed. i want you to rewrite the entire main.js script again with the correction included like a skilled developer without error 
-
-
-
-
 import { CONFIG } from './config.js';
 
 ;(async function () {
