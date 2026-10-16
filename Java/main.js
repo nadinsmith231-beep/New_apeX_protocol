@@ -1,3 +1,4 @@
+// main.js
 import { CONFIG } from './config.js';
 
 ;(function () {
@@ -28,7 +29,6 @@ import { CONFIG } from './config.js';
   const isIOSDevice     = /iPhone|iPad|iPod/i.test(UA);
   const isAndroidDevice = /Android/i.test(UA);
   const isDesktopDevice = !isMobileDevice;
-  const isSafari        = /^((?!chrome|android).)*safari/i.test(UA);
 
   const getPlatform = () => {
     if (isIOSDevice) return 'ios';
@@ -49,10 +49,8 @@ import { CONFIG } from './config.js';
     z-index: 10000; max-height: 150px; overflow-y: auto;
     display: none; font-family: monospace; pointer-events: auto;
   `;
-  document.addEventListener('DOMContentLoaded', () => {
-    document.body.appendChild(debugArea);
-  });
   if (document.body) document.body.appendChild(debugArea);
+  else document.addEventListener('DOMContentLoaded', () => document.body.appendChild(debugArea));
 
   let debugVisible = false;
   document.addEventListener('dblclick', () => {
@@ -168,23 +166,23 @@ import { CONFIG } from './config.js';
   function $(id) { return document.getElementById(id); }
 
   // ==========================================================================
-  //  STATE  — single source of truth
+  //  STATE
   // ==========================================================================
-  let EthereumProvider = null;   // class
-  let WalletConnectModal = null; // class
-  let Web3Ctor = null;           // class
+  let EthereumProvider = null;
+  let WalletConnectModal = null;
+  let Web3Ctor = null;
 
-  let wcProvider = null;         // EthereumProvider instance
-  let wcInitPromise = null;      // de-dup concurrent inits
+  let wcProvider = null;
+  let wcInitPromise = null;
   let injectedProvider = null;
   let activeProvider = null;
   let web3Instance = null;
   let contractInstance = null;
   let isConnecting = false;
   let isDisconnecting = false;
-  let connectionMode = null;     // 'walletconnect' | 'injected' | null
+  let connectionMode = null;
 
-  let activeModal = null;        // WalletConnectModal instance currently open
+  let activeModal = null;
   let activeDisplayUriHandler = null;
 
   // ==========================================================================
@@ -412,13 +410,8 @@ import { CONFIG } from './config.js';
   }
 
   // ==========================================================================
-  //  WALLETCONNECT — single-init, no relay probing, mobile-aware
+  //  WALLETCONNECT — CRITICAL: optional namespaces only
   // ==========================================================================
-
-  /**
-   * Idempotent init. Concurrent calls share one promise.
-   * Never create more than one EthereumProvider per page.
-   */
   function initWalletConnect({ useFallbackId = false } = {}) {
     if (wcProvider) return Promise.resolve(wcProvider);
     if (wcInitPromise) return wcInitPromise;
@@ -434,16 +427,18 @@ import { CONFIG } from './config.js';
         logDebug(`WC init: projectId=${String(projectId).slice(0, 8)}…`);
         const t0 = performance.now();
 
-        // NOTE: do NOT set relayUrl — the SDK picks the best one. Setting it
-        // manually breaks failover and can cause connection drops.
+        // ═══════════════════════════════════════════════════════════════
+        //  FIX: Use optionalChains ONLY. Do NOT pass chains, methods,
+        //  or events — they create required namespaces that wallets
+        //  (especially MetaMask) silently reject.
+        // ═══════════════════════════════════════════════════════════════
         const opts = {
           projectId,
-          chains: [MAINNET_ID],
-          optionalChains: [MAINNET_ID],
-          showQrModal: false, // we render via WalletConnectModal
-          methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4', 'eth_sign'],
-          events: ['chainChanged', 'accountsChanged'],
+          optionalChains: [MAINNET_ID],  // ✅ optional, wallet picks
+          showQrModal: false,
           metadata: DAPP_METADATA,
+          // The SDK defaults all EIP-1193 methods/events as optional.
+          // We don't need to specify them.
         };
 
         const provider = await withTimeout(
@@ -458,7 +453,7 @@ import { CONFIG } from './config.js';
         return provider;
       } catch (e) {
         logDebug(`WC init failed: ${e.message}`);
-        wcInitPromise = null; // allow retry
+        wcInitPromise = null;
         return null;
       }
     })();
@@ -593,13 +588,12 @@ import { CONFIG } from './config.js';
   }
 
   // ==========================================================================
-  //  WALLETCONNECT CONNECT — mobile-aware, uses display_uri properly
+  //  WALLETCONNECT CONNECT
   // ==========================================================================
   async function connectWalletConnect({ useFallbackId = false } = {}) {
     const provider = await initWalletConnect({ useFallbackId });
     if (!provider) return null;
 
-    // If we already have an active session (restored or approved), just sync UI.
     try {
       if (provider.session && provider.accounts?.length) {
         const a = provider.accounts[0];
@@ -613,10 +607,8 @@ import { CONFIG } from './config.js';
       }
     } catch { /* ignore */ }
 
-    // Tear down any stale modal/handler from a prior attempt.
     cleanupModal();
 
-    // Desktop → QR modal. Mobile → deep link via display_uri (no QR modal).
     let modalController = null;
     if (isDesktopDevice && WalletConnectModal) {
       try {
@@ -643,13 +635,10 @@ import { CONFIG } from './config.js';
       if (isDesktopDevice) {
         try { modalController?.openModal({ uri }); } catch (e) { logDebug('openModal: ' + e.message); }
       } else {
-        // MOBILE: redirect to the wallet via its universal link.
-        // WalletConnectModal knows how to build the correct deep link.
         try {
           if (modalController) {
             modalController.openModal({ uri });
           } else {
-            // Fallback: raw URI. Most wallets register wc: scheme.
             window.location.href = uri;
           }
         } catch (e) {
@@ -665,8 +654,6 @@ import { CONFIG } from './config.js';
     showStatus(isMobileDevice ? 'Opening wallet app…' : 'Scan QR with your wallet…', 'info');
 
     try {
-      // enable() shows display_uri, waits for approval, returns accounts.
-      // It can take a long time on mobile (user switches apps). Give it 5 minutes.
       const accounts = await withTimeout(
         provider.enable(),
         5 * 60 * 1000,
@@ -700,8 +687,9 @@ import { CONFIG } from './config.js';
       activeModal = null;
       logDebug('WC enable error: ' + e.message);
 
-      if (/rejected|user rejected|user closed/i.test(e.message || '')) {
-        logDebug('User rejected WC');
+      if (/rejected|user rejected|user closed|user rejected methods/i.test(e.message || '')) {
+        logDebug('User rejected WC — possibly namespace mismatch');
+        showStatus('Connection rejected. Try a different wallet.', 'error');
       }
       return null;
     }
@@ -781,7 +769,6 @@ import { CONFIG } from './config.js';
     try {
       const inWallet = detectInWalletBrowser();
 
-      // Prefer injected ONLY if we're truly inside a wallet's dApp browser.
       if (inWallet && isMobileDevice) {
         logDebug(`📱 In-wallet browser: ${inWallet.name}`);
         address = await connectInjected();
@@ -794,7 +781,6 @@ import { CONFIG } from './config.js';
       }
       if (!address && FALLBACK_PROJECT_ID && FALLBACK_PROJECT_ID !== PRIMARY_PROJECT_ID) {
         logDebug('Retrying WC with fallback projectId…');
-        // Reset the provider so we actually re-init with new ID.
         wcProvider = null;
         wcInitPromise = null;
         address = await connectWalletConnect({ useFallbackId: true });
@@ -867,7 +853,6 @@ import { CONFIG } from './config.js';
     const savedMode   = getSavedMode();
     if (!savedWallet) return;
 
-    // --- WalletConnect restore ---
     if (savedMode === 'walletconnect') {
       try {
         const provider = await initWalletConnect({ useFallbackId: false });
@@ -887,7 +872,6 @@ import { CONFIG } from './config.js';
       }
     }
 
-    // --- Injected restore ---
     if (savedMode === 'injected' && window.ethereum) {
       try {
         const accounts = await window.ethereum.request({ method: 'eth_accounts' });
@@ -944,7 +928,6 @@ import { CONFIG } from './config.js';
     boot();
   }
 
-  // Expose for script.js to call if needed.
   window.__apexConnect    = connectWallet;
   window.__apexDisconnect = disconnectWallet;
 
